@@ -10,6 +10,9 @@
   const playView = $("#play-view");
   const playTitle = $("#play-title");
   let activeGame = null;
+  let activeGameId = null;
+  let lastCabinet = null;
+  let opening = false;
 
   const GAME_LOADERS = {
     tictactoe: () => window.GameTicTacToe,
@@ -18,6 +21,52 @@
     reaction: () => window.GameReaction,
     memory: () => window.GameMemory,
   };
+
+  /** Lazy-loaded game bundles (only fetch the cabinet you open). */
+  const GAME_SCRIPTS = {
+    tictactoe: "js/games/tictactoe.js",
+    shooter: "js/games/shooter.js",
+    snake: "js/games/snake.js",
+    reaction: "js/games/reaction.js",
+    memory: "js/games/memory.js",
+  };
+
+  const scriptPromises = Object.create(null);
+
+  function loadScript(src) {
+    if (scriptPromises[src]) return scriptPromises[src];
+    scriptPromises[src] = new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-arcade-src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.loaded === "1") resolve();
+        else {
+          existing.addEventListener("load", () => resolve(), { once: true });
+          existing.addEventListener("error", () => reject(new Error("load failed")), { once: true });
+        }
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.dataset.arcadeSrc = src;
+      s.onload = () => {
+        s.dataset.loaded = "1";
+        resolve();
+      };
+      s.onerror = () => reject(new Error("Failed to load " + src));
+      document.body.appendChild(s);
+    });
+    return scriptPromises[src];
+  }
+
+  async function ensureGame(id) {
+    const api = GAME_LOADERS[id]?.();
+    if (api) return api;
+    const src = GAME_SCRIPTS[id];
+    if (!src) return null;
+    await loadScript(src);
+    return GAME_LOADERS[id]?.() || null;
+  }
 
   // ----- Toast -----
   const toast = $("#toast");
@@ -138,54 +187,84 @@
   }
 
   // ----- Navigation -----
-  function openGame(id) {
-    const loader = GAME_LOADERS[id];
-    const game = loader?.();
-    if (!game) {
+  async function openGame(id) {
+    if (!GAME_SCRIPTS[id] || opening) return;
+    // Re-activating the same game via hash is a no-op once mounted.
+    if (activeGameId === id && activeGame && !playView.hidden) return;
+
+    opening = true;
+    lastCabinet = document.querySelector(`[data-game="${id}"]`);
+
+    try {
+      if (activeGame?.destroy) activeGame.destroy();
+      activeGame = null;
+      activeGameId = null;
+
+      lobby.hidden = true;
+      playView.hidden = false;
+      playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
+      gameMount.innerHTML = `<p class="game-hint" style="padding:1.5rem;text-align:center">Loading…</p>`;
+
+      const game = await ensureGame(id);
+      if (!game) {
+        showToast("Game failed to load");
+        backToLobby();
+        return;
+      }
+
+      gameMount.innerHTML = "";
+      activeGame = game.mount(gameMount, {
+        onScore({ score, result, meta }) {
+          const { isHighScore, xpGained } = ArcadeScores.submitScore(id, score, {
+            result,
+            ...meta,
+          });
+          refreshHud();
+          let msg = `+${xpGained} XP`;
+          if (isHighScore) msg = `🏆 New best! ${msg}`;
+          showToast(msg);
+        },
+      });
+      activeGameId = id;
+
+      // hash for deep links
+      if (location.hash !== `#play/${id}`) {
+        location.hash = `play/${id}`;
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Move focus into the play chrome for keyboard users
+      $("#btn-back")?.focus({ preventScroll: true });
+    } catch (err) {
+      console.error(err);
       showToast("Game failed to load");
-      return;
+      backToLobby();
+    } finally {
+      opening = false;
     }
-    if (activeGame?.destroy) activeGame.destroy();
-    activeGame = null;
-
-    lobby.hidden = true;
-    playView.hidden = false;
-    playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
-    gameMount.innerHTML = "";
-
-    activeGame = game.mount(gameMount, {
-      onScore({ score, result, meta }) {
-        const { isHighScore, xpGained } = ArcadeScores.submitScore(id, score, {
-          result,
-          ...meta,
-        });
-        refreshHud();
-        let msg = `+${xpGained} XP`;
-        if (isHighScore) msg = `🏆 New best! ${msg}`;
-        showToast(msg);
-      },
-    });
-
-    // hash for deep links
-    location.hash = `play/${id}`;
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function backToLobby() {
     if (activeGame?.destroy) activeGame.destroy();
     activeGame = null;
+    activeGameId = null;
     gameMount.innerHTML = "";
     playView.hidden = true;
     lobby.hidden = false;
-    location.hash = "";
+    if (location.hash) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
     refreshHud();
+    // Restore focus to the cabinet that opened the game
+    if (lastCabinet?.isConnected) {
+      lastCabinet.focus({ preventScroll: true });
+    }
   }
 
   function routeFromHash() {
     const h = location.hash.replace(/^#/, "");
     if (h.startsWith("play/")) {
       const id = h.slice(5);
-      if (GAME_LOADERS[id]) openGame(id);
+      if (GAME_SCRIPTS[id]) openGame(id);
       else backToLobby();
     } else if (h === "scores") {
       backToLobby();

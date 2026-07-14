@@ -28,7 +28,6 @@
     `;
 
     const canvas = root.querySelector("#snake-canvas");
-    const ctx = canvas.getContext("2d");
     const scoreEl = root.querySelector("#snake-score");
     const bestEl = root.querySelector("#snake-best");
     const levelEl = root.querySelector("#snake-level");
@@ -39,7 +38,15 @@
 
     const COLS = 18;
     const ROWS = 18;
-    const cell = canvas.width / COLS;
+    const CSS_SIZE = 360;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(CSS_SIZE * dpr);
+    canvas.height = Math.round(CSS_SIZE * dpr);
+    canvas.style.width = CSS_SIZE + "px";
+    canvas.style.height = CSS_SIZE + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cell = CSS_SIZE / COLS;
     const DIRS = [
       { x: 1, y: 0 },
       { x: -1, y: 0 },

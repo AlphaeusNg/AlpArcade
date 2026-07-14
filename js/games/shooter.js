@@ -42,7 +42,6 @@
     `;
 
     const canvas = root.querySelector("#sh-canvas");
-    const ctx = canvas.getContext("2d");
     const scoreEl = root.querySelector("#sh-score");
     const livesEl = root.querySelector("#sh-lives");
     const waveEl = root.querySelector("#sh-wave");
@@ -53,8 +52,16 @@
     const lifeBannerSub = root.querySelector("#sh-life-banner-sub");
     const pickupToast = root.querySelector("#sh-pickup-toast");
 
-    const W = canvas.width;
-    const H = canvas.height;
+    // Logical size in CSS px; buffer scaled for HiDPI so ships stay sharp.
+    const W = 420;
+    const H = 520;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     let ship,
       bullets,
