@@ -100,6 +100,7 @@
     let streak = 0;
     let diff = 0;
     let autoEscalate = true;
+    let aiTimer = null;
 
     root.innerHTML = `
       <div class="ttt-wrap">
@@ -213,7 +214,9 @@
       }
       locked = true;
       statusEl.textContent = "AI…";
-      setTimeout(() => {
+      clearTimeout(aiTimer);
+      aiTimer = setTimeout(() => {
+        aiTimer = null;
         const move = pickAi(board, diff);
         if (move != null) {
           board[move] = "O";
@@ -233,6 +236,8 @@
     }
 
     function reset() {
+      clearTimeout(aiTimer);
+      aiTimer = null;
       board = empty();
       locked = false;
       statusEl.textContent = "Your move";
@@ -250,6 +255,8 @@
 
     return {
       destroy() {
+        clearTimeout(aiTimer);
+        aiTimer = null;
         root.innerHTML = "";
       },
     };

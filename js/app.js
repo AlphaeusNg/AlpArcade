@@ -62,17 +62,21 @@
       hs.innerHTML = Object.entries(ArcadeScores.GAMES)
         .map(([id, g]) => {
           const best = state.highScores[id]?.best;
-          const display =
-            best == null || best === 0 && id === "tictactoe"
-              ? id === "tictactoe"
-                ? `${state.highScores.tictactoe?.wins || 0} wins`
-                : "—"
-              : ArcadeScores.formatScore(id, best);
+          // Parentheses matter: without them, `best === 0 && id === tictactoe` binds tighter than `||`.
+          const hasBest = best != null && !(best === 0 && id !== "reaction");
+          let display;
+          if (id === "tictactoe") {
+            display = `${state.highScores.tictactoe?.wins || 0} wins`;
+          } else if (!hasBest || (id === "reaction" && best == null)) {
+            display = "—";
+          } else {
+            display = ArcadeScores.formatScore(id, best);
+          }
           const extra =
             id === "tictactoe"
               ? `<span class="hs-extra">${state.highScores.tictactoe?.wins || 0}W · ${state.highScores.tictactoe?.draws || 0}D · ${state.highScores.tictactoe?.losses || 0}L</span>`
               : "";
-          return `<li><span class="hs-game">${g.label}</span><span class="hs-score">${display}</span>${extra}</li>`;
+          return `<li><span class="hs-game">${escapeHtml(g.label)}</span><span class="hs-score">${escapeHtml(display)}</span>${extra}</li>`;
         })
         .join("");
     }
@@ -89,8 +93,8 @@
             return `<li>
               <span class="rank">#${i + 1}</span>
               <span class="who">${escapeHtml(e.player)}</span>
-              <span class="what">${label}</span>
-              <span class="pts">${ArcadeScores.formatScore(e.game, e.score)}</span>
+              <span class="what">${escapeHtml(label)}</span>
+              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
             </li>`;
           })
           .join("");
@@ -114,10 +118,10 @@
               minute: "2-digit",
             });
             return `<li>
-              <span class="what">${label}</span>
-              <span class="pts">${ArcadeScores.formatScore(e.game, e.score)}</span>
-              <span class="xp">+${e.xp} XP</span>
-              <span class="when">${when}</span>
+              <span class="what">${escapeHtml(label)}</span>
+              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
+              <span class="xp">+${escapeHtml(String(e.xp))} XP</span>
+              <span class="when">${escapeHtml(when)}</span>
             </li>`;
           })
           .join("");
@@ -204,6 +208,16 @@
 
   $("#btn-back")?.addEventListener("click", backToLobby);
 
+  // Escape returns to lobby when a game is open (and not typing in an input).
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (playView?.hidden) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    e.preventDefault();
+    backToLobby();
+  });
+
   $("#name-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = ArcadeScores.setPlayerName($("#name-input").value);
@@ -248,6 +262,13 @@
   // portfolio link already in HTML
   $$("[data-portfolio]").forEach((a) => {
     a.href = PORTFOLIO_URL;
+  });
+
+  // Brand → lobby (also clears an open game)
+  $("#brand-home")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!playView.hidden) backToLobby();
+    else window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
   // mute toggle

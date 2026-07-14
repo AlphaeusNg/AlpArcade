@@ -4,29 +4,38 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alphaeus Arcade — Alphaeus Ng</title>
-  <meta name="description" content="Alphaeus Ng — AI Research Engineer. Fun browser arcade with scoreboard." />
+  <meta name="description" content="Free browser mini-games by Alphaeus Ng: Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match — with local scoreboard and XP." />
   <meta name="theme-color" content="#05080f" />
+  <meta name="author" content="Alphaeus Ng" />
+  <link rel="canonical" href="https://alphaeusng.github.io/AlpArcade/" />
   <meta property="og:title" content="Alphaeus Arcade" />
   <meta property="og:description" content="Hey, I'm Alphaeus. Play a few games while you're here." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://alphaeusng.github.io/AlpArcade/" />
+  <meta property="og:image" content="https://avatars.githubusercontent.com/u/78588510?v=4" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Alphaeus Arcade" />
+  <meta name="twitter:description" content="Browser mini-games with local scoreboard — by Alphaeus Ng." />
+  <link rel="icon" href="https://avatars.githubusercontent.com/u/78588510?v=4" type="image/jpeg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://avatars.githubusercontent.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a class="skip-link" href="#cabinets">Skip to games</a>
   <div class="bg-grid" aria-hidden="true"></div>
 
   <header class="topbar">
-    <a class="brand" href="#">
+    <a class="brand" href="#lobby" id="brand-home" title="Back to lobby">
       <span class="brand-mark">A</span>
       <span>
         <strong>Alphaeus Arcade</strong>
         <small>by Alphaeus Ng</small>
       </span>
     </a>
-    <nav class="top-nav">
+    <nav class="top-nav" aria-label="Primary">
       <a href="#scores-panel">Scores</a>
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
       <a href="https://github.com/AlphaeusNg" target="_blank" rel="noopener">GitHub ↗</a>
@@ -45,6 +54,9 @@
             alt="Alphaeus Ng"
             width="72"
             height="72"
+            loading="eager"
+            decoding="async"
+            fetchpriority="high"
           />
           <div>
             <p class="eyebrow">Hi there 👋</p>
@@ -97,40 +109,45 @@
       <section class="cabinets" id="cabinets">
         <h2 class="section-title">Cabinets</h2>
         <div class="cabinet-grid">
-          <button type="button" class="cabinet" data-game="tictactoe">
-            <span class="cab-icon">⭕</span>
+          <button type="button" class="cabinet" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
+            <span class="cab-icon" aria-hidden="true">⭕</span>
             <span class="cab-body">
               <strong>Tic-Tac-Toe</strong>
+              <small class="cab-desc">Beat the AI · ramps up</small>
             </span>
-            <span class="cab-go">→</span>
+            <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="shooter">
-            <span class="cab-icon">🚀</span>
+          <button type="button" class="cabinet" data-game="shooter" aria-label="Play Space Shooter">
+            <span class="cab-icon" aria-hidden="true">🚀</span>
             <span class="cab-body">
               <strong>Space Shooter</strong>
+              <small class="cab-desc">Waves · powerups · lives</small>
             </span>
-            <span class="cab-go">→</span>
+            <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="snake">
-            <span class="cab-icon">🐍</span>
+          <button type="button" class="cabinet" data-game="snake" aria-label="Play Snake">
+            <span class="cab-icon" aria-hidden="true">🐍</span>
             <span class="cab-body">
               <strong>Snake</strong>
+              <small class="cab-desc">Levels · hazards · speed</small>
             </span>
-            <span class="cab-go">→</span>
+            <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="reaction">
-            <span class="cab-icon">⚡</span>
+          <button type="button" class="cabinet" data-game="reaction" aria-label="Play Reaction Lab">
+            <span class="cab-icon" aria-hidden="true">⚡</span>
             <span class="cab-body">
               <strong>Reaction Lab</strong>
+              <small class="cab-desc">ms timing · decoys</small>
             </span>
-            <span class="cab-go">→</span>
+            <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="memory">
-            <span class="cab-icon">🧠</span>
+          <button type="button" class="cabinet" data-game="memory" aria-label="Play Memory Match">
+            <span class="cab-icon" aria-hidden="true">🧠</span>
             <span class="cab-body">
               <strong>Memory Match</strong>
+              <small class="cab-desc">Hearts · expanding boards</small>
             </span>
-            <span class="cab-go">→</span>
+            <span class="cab-go" aria-hidden="true">→</span>
           </button>
         </div>
       </section>
@@ -182,15 +199,15 @@
     </p>
   </footer>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
-  <script src="js/audio.js"></script>
-  <script src="js/scores.js"></script>
-  <script src="js/games/tictactoe.js"></script>
-  <script src="js/games/snake.js"></script>
-  <script src="js/games/shooter.js"></script>
-  <script src="js/games/reaction.js"></script>
-  <script src="js/games/memory.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/scores.js" defer></script>
+  <script src="js/games/tictactoe.js" defer></script>
+  <script src="js/games/snake.js" defer></script>
+  <script src="js/games/shooter.js" defer></script>
+  <script src="js/games/reaction.js" defer></script>
+  <script src="js/games/memory.js" defer></script>
+  <script src="js/app.js" defer></script>
 </body>
 </html>

@@ -171,17 +171,51 @@
     return defaultState();
   }
 
+  /** UTF-8 safe base64 (avoids deprecated escape/unescape). */
+  function toBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  function fromBase64(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
   function exportCode() {
-    const json = JSON.stringify(load());
-    return btoa(unescape(encodeURIComponent(json)));
+    return toBase64(JSON.stringify(load()));
   }
 
   function importCode(code) {
     try {
-      const json = decodeURIComponent(escape(atob(String(code).trim())));
+      const raw = String(code).trim();
+      let json;
+      try {
+        json = fromBase64(raw);
+      } catch {
+        // Legacy codes produced with btoa(unescape(encodeURIComponent(...)))
+        json = decodeURIComponent(escape(atob(raw)));
+      }
       const data = JSON.parse(json);
       if (!data || typeof data !== "object") throw new Error("bad");
-      save({ ...defaultState(), ...data });
+      // Only accept known top-level keys from a merged default state.
+      const base = defaultState();
+      const merged = {
+        ...base,
+        playerName: typeof data.playerName === "string" ? data.playerName.slice(0, 16) : base.playerName,
+        xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Math.floor(Number(data.xp))) : 0,
+        gamesPlayed: Number.isFinite(Number(data.gamesPlayed))
+          ? Math.max(0, Math.floor(Number(data.gamesPlayed)))
+          : 0,
+        highScores: { ...base.highScores, ...(data.highScores && typeof data.highScores === "object" ? data.highScores : {}) },
+        history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
+        hallOfFame: Array.isArray(data.hallOfFame) ? data.hallOfFame.slice(0, MAX_HALL) : [],
+      };
+      save(merged);
       return load();
     } catch {
       throw new Error("Invalid score code");

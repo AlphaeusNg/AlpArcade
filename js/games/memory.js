@@ -56,6 +56,8 @@
     let hp = MAX_HP;
     let gameOver = false;
     let submitted = false;
+    let levelTimer = null;
+    let flipTimer = null;
     /** Card indices the player has already revealed this level */
     let seen = new Set();
 
@@ -233,7 +235,9 @@
             meta: { partial: true, level, board: `${L.cols}×${L.rows}` },
           });
           hintEl.textContent = `Cleared! +${clearBonus} · expanding…`;
-          setTimeout(() => {
+          clearTimeout(levelTimer);
+          levelTimer = setTimeout(() => {
+            levelTimer = null;
             if (gameOver) return;
             level += 1;
             ArcadeSFX?.levelUp();
@@ -244,7 +248,9 @@
         // Only punish if the player already knew at least one of these cards
         const shouldCostHeart = knewA || knewB;
         lock = true;
-        setTimeout(() => {
+        clearTimeout(flipTimer);
+        flipTimer = setTimeout(() => {
+          flipTimer = null;
           markSeen(a, b);
           flipped = [];
           lock = false;
@@ -271,6 +277,10 @@
 
     return {
       destroy() {
+        clearTimeout(levelTimer);
+        clearTimeout(flipTimer);
+        levelTimer = null;
+        flipTimer = null;
         root.innerHTML = "";
       },
     };
