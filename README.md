@@ -25,3 +25,10 @@ python3 -m http.server 8080
 ### Enable GitHub Pages
 Repo **Settings → Pages → Deploy from branch → `main` / root**  
 (Remove any broken custom domain so the free `github.io` URL works.)
+
+### Controls
+- **Lobby:** click a cabinet · Esc returns from a game
+- **Snake / Shooter:** WASD or arrows · P pause · tab-hide auto-pauses
+- **Reaction:** click/tap the pad · wait for green
+- **Scores:** export/import a base64 code (device-local)
+
