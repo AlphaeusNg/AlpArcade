@@ -1323,3 +1323,11 @@ body.salmon-mode .fun-fact-text {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Salmon mode easter egg (fun facts spam) */
+body.salmon-mode {
+  --teal: #fb7185;
+  --cyan: #fda4af;
+  --violet: #fb923c;
+  --grad: linear-gradient(135deg, #fb7185 0%, #fb923c 50%, #fbbf24 100%);
+}
