@@ -345,6 +345,83 @@
   const y = $("#year");
   if (y) y.textContent = String(new Date().getFullYear());
 
+  // ----- Fun facts deck -----
+  const FUN_FACTS = [
+    "⚡ I once ate ~1kg of salmon at one go.",
+    "♟ AlphaGo & AlphaStar pulled me into AI research.",
+    "🎮 Strategy roots: Dota 2, StarCraft II, and chess.",
+    "🛂 As an HTX intern I staged threat items at real checkpoints for CV data.",
+    "🤖 I automate the boring stuff — including PowerPoint generation.",
+    "📚 I keep an open vault for Seeking Biblical Truth.",
+    "🎓 NTU Computer Science, class of 2024.",
+    "🔬 Now: AI Research Engineer @ Panasonic R&D, Singapore.",
+    "🧠 Day job energy: computer vision, NLP, production ML.",
+    "🇸🇬 Based in Singapore · still trying not to drown in CS work.",
+    "🍣 Click me enough times and the whole arcade goes salmon-mode.",
+  ];
+
+  const factText = $("#fun-fact-text");
+  const factCounter = $("#fun-facts-counter");
+  const factCard = $("#fun-fact-card");
+  const factHint = $("#fun-facts-hint");
+  let factIndex = 0;
+  let factClicks = 0;
+  const seenFacts = new Set([0]);
+
+  function showFact(i, { animate = true } = {}) {
+    if (!factText) return;
+    factIndex = ((i % FUN_FACTS.length) + FUN_FACTS.length) % FUN_FACTS.length;
+    seenFacts.add(factIndex);
+    if (animate && factCard) {
+      factCard.classList.remove("flip");
+      void factCard.offsetWidth;
+      factCard.classList.add("flip");
+    }
+    factText.textContent = FUN_FACTS[factIndex];
+    if (factCounter) {
+      factCounter.textContent = `${factIndex + 1} / ${FUN_FACTS.length}`;
+    }
+    if (factHint) {
+      factHint.textContent = `Collected ${seenFacts.size} / ${FUN_FACTS.length} lore cards`;
+    }
+  }
+
+  function maybeSalmonUnlock() {
+    if (factClicks >= 5 && !document.body.classList.contains("salmon-mode")) {
+      document.body.classList.add("salmon-mode");
+      showToast("🍣 SALMON MODE unlocked");
+      window.ArcadeSFX?.levelUp?.();
+    }
+  }
+
+  function nextFact(delta = 1) {
+    factClicks += 1;
+    showFact(factIndex + delta);
+    window.ArcadeSFX?.click?.();
+    maybeSalmonUnlock();
+  }
+
+  factCard?.addEventListener("click", () => nextFact(1));
+  factCard?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      nextFact(1);
+    }
+  });
+  $("#fun-fact-next")?.addEventListener("click", () => nextFact(1));
+  $("#fun-fact-prev")?.addEventListener("click", () => nextFact(-1));
+  $("#fun-fact-shuffle")?.addEventListener("click", () => {
+    let n = factIndex;
+    if (FUN_FACTS.length > 1) {
+      while (n === factIndex) n = Math.floor(Math.random() * FUN_FACTS.length);
+    }
+    factClicks += 1;
+    showFact(n);
+    window.ArcadeSFX?.flip?.() || window.ArcadeSFX?.click?.();
+    maybeSalmonUnlock();
+  });
+  showFact(0, { animate: false });
+
   // portfolio link already in HTML
   $$("[data-portfolio]").forEach((a) => {
     a.href = PORTFOLIO_URL;

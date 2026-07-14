@@ -38,6 +38,7 @@
       </span>
     </a>
     <nav class="top-nav" aria-label="Primary">
+      <a href="#fun-facts">Fun facts</a>
       <a href="#scores-panel">Scores</a>
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
       <a href="https://github.com/AlphaeusNg" target="_blank" rel="noopener">GitHub ↗</a>
@@ -72,9 +73,29 @@
             · <a href="https://sg.linkedin.com/in/alphaeus-ng" target="_blank" rel="noopener">LinkedIn</a>
             · <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio</a>
           </li>
-          <li>⚡ Fun fact: I once ate ~1kg of salmon at one go.</li>
         </ul>
-        <p class="intro-thanks">Thanks for dropping by — pick a cabinet below whenever you're ready.</p>
+        <p class="intro-thanks">Thanks for dropping by — pick a cabinet below, or tap a fun fact first.</p>
+      </section>
+
+      <!-- Interactive fun facts about Alphaeus -->
+      <section class="fun-facts glass" id="fun-facts" aria-labelledby="fun-facts-title">
+        <div class="fun-facts-head">
+          <div>
+            <p class="eyebrow">Player lore</p>
+            <h2 class="section-title" id="fun-facts-title">Fun facts</h2>
+          </div>
+          <p class="fun-facts-counter mono" id="fun-facts-counter" aria-live="polite">1 / 8</p>
+        </div>
+        <button type="button" class="fun-fact-card" id="fun-fact-card" aria-label="Next fun fact">
+          <span class="fun-fact-label mono">Tap for another →</span>
+          <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
+        </button>
+        <div class="fun-fact-actions">
+          <button type="button" class="btn small ghost" id="fun-fact-prev">← Prev</button>
+          <button type="button" class="btn small primary" id="fun-fact-next">Next fact</button>
+          <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
+        </div>
+        <p class="fun-facts-hint mono" id="fun-facts-hint">Collect them all — a secret unlocks around fact #5 spam…</p>
       </section>
 
       <section class="player-bar glass" id="player-bar">

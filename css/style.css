@@ -232,6 +232,113 @@ main {
   font-size: 0.9rem;
 }
 
+/* Fun facts deck */
+.fun-facts {
+  padding: 1.25rem 1.35rem 1.2rem;
+  margin: 0 0 1.25rem;
+}
+
+.fun-facts-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.fun-facts-head .section-title {
+  margin: 0.15rem 0 0;
+}
+
+.fun-facts-head .eyebrow {
+  margin: 0;
+}
+
+.fun-facts-counter {
+  color: var(--teal);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.fun-fact-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 1.15rem 1.2rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(251, 113, 133, 0.4);
+  background: rgba(251, 113, 133, 0.08);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.fun-fact-card:hover,
+.fun-fact-card:focus-visible {
+  transform: translateY(-2px) scale(1.01);
+  background: rgba(251, 113, 133, 0.14);
+  border-color: rgba(251, 113, 133, 0.65);
+  outline: none;
+}
+
+.fun-fact-card.flip {
+  animation: fun-fact-flip 0.35s ease;
+}
+
+.fun-fact-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 0.45rem;
+}
+
+.fun-fact-text {
+  display: block;
+  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.45;
+  color: #fecdd3;
+  min-height: 3.2em;
+}
+
+.fun-fact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.fun-facts-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+body.salmon-mode .fun-fact-card {
+  border-color: rgba(251, 146, 60, 0.55);
+  background: rgba(251, 146, 60, 0.12);
+}
+
+body.salmon-mode .fun-fact-text {
+  color: #ffedd5;
+}
+
+@keyframes fun-fact-flip {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(0.97) rotateX(8deg);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .mute-btn {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
