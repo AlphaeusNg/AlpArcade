@@ -720,6 +720,8 @@
           running = false;
           cancelAnimationFrame(raf);
           pausedByVisibility = true;
+          keys = Object.create(null); // drop held keys so resume doesn't strafe
+          dragging = false;
           if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to resume";
         }
       } else if (pausedByVisibility && ship && lives > 0) {
