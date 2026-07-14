@@ -106,6 +106,10 @@
     }
 
     function startRun() {
+      clearTimeout(levelTimer);
+      clearTimeout(flipTimer);
+      levelTimer = null;
+      flipTimer = null;
       level = 1;
       totalScore = 0;
       hp = MAX_HP;

@@ -40,7 +40,28 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultState();
       const data = JSON.parse(raw);
-      return { ...defaultState(), ...data, highScores: { ...defaultState().highScores, ...(data.highScores || {}) } };
+      if (!data || typeof data !== "object") return defaultState();
+      const base = defaultState();
+      const highScores = { ...base.highScores };
+      if (data.highScores && typeof data.highScores === "object") {
+        for (const id of Object.keys(base.highScores)) {
+          const incoming = data.highScores[id];
+          if (!incoming || typeof incoming !== "object") continue;
+          highScores[id] = { ...base.highScores[id], ...incoming };
+        }
+      }
+      return {
+        ...base,
+        playerName:
+          typeof data.playerName === "string" ? data.playerName.trim().slice(0, 16) || "Player" : base.playerName,
+        xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Math.floor(Number(data.xp))) : 0,
+        gamesPlayed: Number.isFinite(Number(data.gamesPlayed))
+          ? Math.max(0, Math.floor(Number(data.gamesPlayed)))
+          : 0,
+        highScores,
+        history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
+        hallOfFame: Array.isArray(data.hallOfFame) ? data.hallOfFame.slice(0, MAX_HALL) : [],
+      };
     } catch {
       return defaultState();
     }
