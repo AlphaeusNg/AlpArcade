@@ -154,9 +154,14 @@
           "mem-card" +
           (c.matched ? " matched" : "") +
           (flipped.includes(i) || c.matched ? " face-up" : "");
-        btn.innerHTML = `<span class="mem-face">${
-          c.matched || flipped.includes(i) ? c.icon : "?"
+        const faceUp = c.matched || flipped.includes(i);
+        btn.innerHTML = `<span class="mem-face" aria-hidden="true">${
+          faceUp ? c.icon : "?"
         }</span>`;
+        btn.setAttribute(
+          "aria-label",
+          c.matched ? `Matched ${c.icon}` : faceUp ? `Card ${c.icon}` : `Hidden card ${i + 1}`
+        );
         btn.disabled = gameOver || c.matched || lock;
         btn.addEventListener("click", () => flip(i));
         grid.appendChild(btn);
