@@ -736,6 +736,33 @@ main {
   box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(251, 191, 36, 0.35);
 }
 
+.game-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 12rem;
+  padding: 1.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.game-loading-spin {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid rgba(45, 212, 191, 0.2);
+  border-top-color: var(--teal);
+  animation: game-spin 0.7s linear infinite;
+}
+
+@keyframes game-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Canvas games */
 #snake-canvas,
 #sh-canvas {

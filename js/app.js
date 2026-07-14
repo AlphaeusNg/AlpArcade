@@ -203,7 +203,7 @@
       lobby.hidden = true;
       playView.hidden = false;
       playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
-      gameMount.innerHTML = `<p class="game-hint" style="padding:1.5rem;text-align:center">Loading…</p>`;
+      gameMount.innerHTML = `<div class="game-loading" role="status" aria-live="polite"><span class="game-loading-spin" aria-hidden="true"></span><span>Loading cabinet…</span></div>`;
 
       const game = await ensureGame(id);
       if (!game) {
