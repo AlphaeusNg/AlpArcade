@@ -47,7 +47,12 @@
   }
 
   function save(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      // QuotaExceeded or private-mode storage denial — keep session playable.
+      console.warn("[ArcadeScores] save failed", err);
+    }
   }
 
   function getState() {

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Hosted as a GitHub project page under the portfolio domain.
+Sitemap: https://alphaeusng.github.io/sitemap.xml

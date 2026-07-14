@@ -276,11 +276,18 @@
 
   // ----- Bind UI -----
   $$("[data-game]").forEach((card) => {
-    card.addEventListener("click", () => openGame(card.dataset.game));
+    const id = card.dataset.game;
+    // Prefetch the game bundle on first hover/focus so open feels instant.
+    const prefetch = () => {
+      if (GAME_SCRIPTS[id]) loadScript(GAME_SCRIPTS[id]).catch(() => {});
+    };
+    card.addEventListener("pointerenter", prefetch, { once: true });
+    card.addEventListener("focus", prefetch, { once: true });
+    card.addEventListener("click", () => openGame(id));
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        openGame(card.dataset.game);
+        openGame(id);
       }
     });
   });

@@ -113,7 +113,7 @@
       return "human";
     }
 
-    pad.addEventListener("click", () => {
+    function onPad() {
       ArcadeSFX?.unlock();
       if (phase === "idle" || phase === "result") {
         beginWait();
@@ -149,13 +149,27 @@
         const b = window.ArcadeScores?.getState()?.highScores?.reaction?.best;
         bestEl.textContent = b != null ? `${b} ms` : "—";
       }
-    });
+    }
+
+    pad.addEventListener("click", onPad);
+    // Space / Enter when the pad (or wrap) is focused — keyboard players.
+    function onKey(e) {
+      if (e.key !== " " && e.key !== "Enter") return;
+      if (e.target !== pad && !root.contains(document.activeElement)) return;
+      // Avoid double-firing when Space activates a focused button via click.
+      if (e.target === pad && e.key === " ") e.preventDefault();
+      if (e.target === pad) return; // button will fire click
+      e.preventDefault();
+      onPad();
+    }
+    window.addEventListener("keydown", onKey);
 
     paintModes();
 
     return {
       destroy() {
         clearTimers();
+        window.removeEventListener("keydown", onKey);
         root.innerHTML = "";
       },
     };
