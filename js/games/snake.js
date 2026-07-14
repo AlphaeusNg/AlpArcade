@@ -307,16 +307,16 @@
     function draw() {
       const cfg = levelConfig(level);
       ctx.fillStyle = "#060b14";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, CSS_SIZE, CSS_SIZE);
       ctx.strokeStyle = "rgba(45,212,191,0.06)";
       for (let i = 0; i <= COLS; i++) {
         ctx.beginPath();
         ctx.moveTo(i * cell, 0);
-        ctx.lineTo(i * cell, canvas.height);
+        ctx.lineTo(i * cell, CSS_SIZE);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(0, i * cell);
-        ctx.lineTo(canvas.width, i * cell);
+        ctx.lineTo(CSS_SIZE, i * cell);
         ctx.stroke();
       }
 
@@ -394,7 +394,7 @@
       if (!cfg.wrap) {
         ctx.strokeStyle = "rgba(251,113,133,0.45)";
         ctx.lineWidth = 3;
-        ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3);
+        ctx.strokeRect(1.5, 1.5, CSS_SIZE - 3, CSS_SIZE - 3);
       }
     }
 
@@ -472,14 +472,14 @@
       clearInterval(timer);
       ArcadeSFX?.lose();
       ctx.fillStyle = "rgba(5,8,15,0.65)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, CSS_SIZE, CSS_SIZE);
       ctx.fillStyle = "#e8eef9";
       ctx.font = "bold 22px Outfit, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 12);
+      ctx.fillText("Game Over", CSS_SIZE / 2, CSS_SIZE / 2 - 12);
       ctx.font = "14px JetBrains Mono, monospace";
       ctx.fillStyle = "#2dd4bf";
-      ctx.fillText(`Score ${score} · Lv ${level}`, canvas.width / 2, canvas.height / 2 + 16);
+      ctx.fillText(`Score ${score} · Lv ${level}`, CSS_SIZE / 2, CSS_SIZE / 2 + 16);
       if (!submitted && onScore) {
         submitted = true;
         onScore({ score, meta: { level } });
