@@ -712,6 +712,26 @@
     window.addEventListener("keyup", onKeyUp);
     root.querySelector("#sh-start").addEventListener("click", start);
 
+    // Pause when the tab is hidden so the wave doesn't run away mid-fight.
+    let pausedByVisibility = false;
+    function onVisibility() {
+      if (document.hidden) {
+        if (running) {
+          running = false;
+          cancelAnimationFrame(raf);
+          pausedByVisibility = true;
+          if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to resume";
+        }
+      } else if (pausedByVisibility && ship && lives > 0) {
+        pausedByVisibility = false;
+        running = true;
+        last = 0;
+        raf = requestAnimationFrame(frame);
+        if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     init();
     ctx.fillStyle = "#04070e";
     ctx.fillRect(0, 0, W, H);
@@ -730,6 +750,7 @@
         clearTimeout(toastTimer);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("keyup", onKeyUp);
+        document.removeEventListener("visibilitychange", onVisibility);
         root.innerHTML = "";
       },
     };

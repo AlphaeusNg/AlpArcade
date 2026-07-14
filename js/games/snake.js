@@ -543,6 +543,26 @@
     canvas.addEventListener("touchend", onTouchEnd, { passive: true });
     root.querySelector("#snake-start").addEventListener("click", start);
 
+    let pausedByVisibility = false;
+    function onVisibility() {
+      if (document.hidden) {
+        if (running) {
+          running = false;
+          clearInterval(timer);
+          timer = null;
+          pausedByVisibility = true;
+          if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to continue";
+        }
+      } else if (pausedByVisibility && snake) {
+        pausedByVisibility = false;
+        running = true;
+        clearInterval(timer);
+        timer = setInterval(step, tickMs);
+        if (hintEl) hintEl.textContent = "Arrows / WASD · swipe · P pause";
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     reset();
     draw();
 
@@ -551,6 +571,7 @@
         running = false;
         clearInterval(timer);
         window.removeEventListener("keydown", onKey);
+        document.removeEventListener("visibilitychange", onVisibility);
         root.innerHTML = "";
       },
     };

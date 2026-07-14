@@ -153,6 +153,12 @@
         btn.className = "ttt-cell" + (cell ? ` filled ${cell.toLowerCase()}` : "");
         btn.textContent = cell || "";
         btn.disabled = !!cell || locked;
+        const row = Math.floor(i / 3) + 1;
+        const col = (i % 3) + 1;
+        btn.setAttribute(
+          "aria-label",
+          cell ? `Row ${row} column ${col}: ${cell}` : `Row ${row} column ${col}: empty`
+        );
         btn.addEventListener("click", () => play(i));
         boardEl.appendChild(btn);
       });

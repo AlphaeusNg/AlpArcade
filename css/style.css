@@ -491,6 +491,9 @@ main {
 .scores {
   padding: 1.25rem;
   margin-bottom: 1.5rem;
+  /* Skip layout/paint work until the scoreboard is near the viewport */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
 }
 
 .scores-head {
