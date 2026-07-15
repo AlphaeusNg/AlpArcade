@@ -634,11 +634,111 @@ body.salmon-mode .fun-fact-text {
   color: var(--teal);
 }
 
-.intro-brief .intro-thanks {
-  margin: 0.85rem 0 0;
-  max-width: 36rem;
+.brand-mark-aa {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: -0.04em;
+  min-width: 2.1rem;
+  padding: 0 0.15rem;
+}
+
+.intro-hero {
+  padding: 1.35rem 1.4rem 1.25rem;
+}
+
+.intro-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.1rem 1.5rem;
+}
+
+.aa-logo {
+  margin: 0;
+  font-size: clamp(0.55rem, 1.6vw, 0.72rem);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: var(--teal);
+  text-shadow: 0 0 24px rgba(45, 212, 191, 0.25);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.intro-hero-copy {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.intro-title {
+  margin: 0.15rem 0 0.55rem;
+  font-size: clamp(1.85rem, 5vw, 2.45rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.intro-hero .intro-thanks {
+  margin: 0;
+  max-width: 34rem;
   line-height: 1.55;
   color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.intro-hero .intro-thanks strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Compact lore nested inside intro */
+.lore-box {
+  margin-top: 1.15rem;
+  padding: 0.75rem 0.85rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.lore-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.lore-box-head .eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.lore-box .fun-facts-counter {
+  font-size: 0.72rem;
+}
+
+.lore-card {
+  padding: 0.65rem 0.75rem !important;
+  border-radius: 10px !important;
+}
+
+.lore-card .fun-fact-text {
+  font-size: 0.92rem !important;
+  min-height: 2.2em !important;
+  font-weight: 550 !important;
+}
+
+.lore-card .fun-fact-label {
+  font-size: 0.65rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.lore-actions {
+  margin-top: 0.5rem !important;
+  gap: 0.35rem !important;
+}
+
+.lore-box .fun-facts-hint {
+  margin: 0.45rem 0 0 !important;
+  font-size: 0.68rem !important;
 }
 
 .cloud-banner {

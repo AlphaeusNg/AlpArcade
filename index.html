@@ -3,25 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alphaeus Arcade — Alphaeus Ng</title>
-  <meta name="description" content="Free browser mini-games by Alphaeus Ng: Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match — with local + global scoreboard and XP." />
+  <title>AlpArcade — mini games</title>
+  <meta name="description" content="AlpArcade: free browser mini-games — Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match. Built with Grok 4.5." />
   <meta name="theme-color" content="#05080f" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="author" content="Alphaeus Ng" />
   <link rel="canonical" href="https://alphaeusng.github.io/AlpArcade/" />
-  <meta property="og:title" content="Alphaeus Arcade" />
-  <meta property="og:description" content="Hey, I'm Alphaeus. Play a few games while you're here." />
+  <meta property="og:title" content="AlpArcade" />
+  <meta property="og:description" content="Favourite games to pass the time — built with Grok 4.5." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://alphaeusng.github.io/AlpArcade/" />
-  <meta property="og:image" content="https://avatars.githubusercontent.com/u/78588510?v=4" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Alphaeus Arcade" />
-  <meta name="twitter:description" content="Browser mini-games with local and global scoreboard — by Alphaeus Ng." />
-  <link rel="icon" href="https://avatars.githubusercontent.com/u/78588510?v=4" type="image/jpeg" />
+  <meta name="twitter:title" content="AlpArcade" />
+  <meta name="twitter:description" content="Favourite games to pass the time — built with Grok 4.5." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2305080f'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='monospace' font-size='28' font-weight='700' fill='%232dd4bf'%3EAA%3C/text%3E%3C/svg%3E" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://avatars.githubusercontent.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -31,66 +29,59 @@
 
   <header class="topbar">
     <a class="brand" href="#lobby" id="brand-home" title="Back to lobby">
-      <span class="brand-mark">A</span>
+      <span class="brand-mark brand-mark-aa" aria-hidden="true">AA</span>
       <span>
-        <strong>Alphaeus Arcade</strong>
-        <small>by Alphaeus Ng</small>
+        <strong>AlpArcade</strong>
+        <small>pass the time</small>
       </span>
     </a>
     <nav class="top-nav" aria-label="Primary">
-      <a href="#fun-facts">Fun facts</a>
       <a href="#scores-panel">Scores</a>
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
-      <a href="https://github.com/AlphaeusNg" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener" title="Scripture memory games">VerseKeep ↗</a>
+      <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source ↗</a>
       <button type="button" class="mute-btn" id="btn-mute" aria-pressed="false" title="Toggle sound">🔊</button>
     </nav>
   </header>
 
   <main>
     <div id="lobby">
-      <!-- Brief witty welcome — games first -->
-      <section class="intro glass intro-brief">
-        <div class="intro-top">
-          <img
-            class="intro-avatar"
-            src="https://avatars.githubusercontent.com/u/78588510?v=4"
-            alt="Alphaeus Ng"
-            width="72"
-            height="72"
-            loading="eager"
-            decoding="async"
-            fetchpriority="high"
-          />
-          <div>
-            <p class="eyebrow">Alphaeus Arcade</p>
-            <h1>Come in. <span class="grad">Exhale.</span></h1>
+      <section class="intro glass intro-hero" id="intro">
+        <div class="intro-hero-row">
+          <pre class="aa-logo mono" aria-hidden="true">
+  █████╗  █████╗
+ ██╔══██╗██╔══██╗
+ ███████║███████║
+ ██╔══██║██╔══██║
+ ██║  ██║██║  ██║
+ ╚═╝  ╚═╝╚═╝  ╚═╝</pre>
+          <div class="intro-hero-copy">
+            <p class="eyebrow">Browser cabinets · free play</p>
+            <h1 class="intro-title">Alp<span class="grad">Arcade</span></h1>
+            <p class="intro-thanks">
+              These are my favourite games to pass the time — hope you enjoy them.
+              Built with the almighty <strong>Grok&nbsp;4.5</strong>.
+            </p>
           </div>
         </div>
-        <p class="intro-thanks">
-          No meetings, no metrics that matter — just a few cabinets, a silly high score, and permission to waste five perfectly good minutes.
-          Pick a game, unclench your jaw, and try not to take Snake personally.
-        </p>
-      </section>
 
-      <!-- Interactive fun facts about Alphaeus -->
-      <section class="fun-facts glass" id="fun-facts" aria-labelledby="fun-facts-title">
-        <div class="fun-facts-head">
-          <div>
-            <p class="eyebrow">Player lore</p>
-            <h2 class="section-title" id="fun-facts-title">Fun facts</h2>
+        <!-- Compact player lore nested in intro -->
+        <div class="lore-box" id="fun-facts" aria-labelledby="fun-facts-title">
+          <div class="lore-box-head">
+            <span class="eyebrow" id="fun-facts-title">Player lore</span>
+            <span class="fun-facts-counter mono" id="fun-facts-counter" aria-live="polite">1 / 8</span>
           </div>
-          <p class="fun-facts-counter mono" id="fun-facts-counter" aria-live="polite">1 / 8</p>
+          <button type="button" class="fun-fact-card lore-card" id="fun-fact-card" aria-label="Next fun fact">
+            <span class="fun-fact-label mono">Tap →</span>
+            <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
+          </button>
+          <div class="fun-fact-actions lore-actions">
+            <button type="button" class="btn small ghost" id="fun-fact-prev">←</button>
+            <button type="button" class="btn small primary" id="fun-fact-next">Next</button>
+            <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
+          </div>
+          <p class="fun-facts-hint mono" id="fun-facts-hint">Spam facts for a secret…</p>
         </div>
-        <button type="button" class="fun-fact-card" id="fun-fact-card" aria-label="Next fun fact">
-          <span class="fun-fact-label mono">Tap for another →</span>
-          <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
-        </button>
-        <div class="fun-fact-actions">
-          <button type="button" class="btn small ghost" id="fun-fact-prev">← Prev</button>
-          <button type="button" class="btn small primary" id="fun-fact-next">Next fact</button>
-          <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
-        </div>
-        <p class="fun-facts-hint mono" id="fun-facts-hint">Collect them all — a secret unlocks around fact #5 spam…</p>
       </section>
 
       <section class="player-bar glass" id="player-bar">
@@ -273,6 +264,8 @@
     <p>
       © <span id="year"></span> Alphaeus Ng ·
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio</a> ·
+      <a href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener">VerseKeep</a> ·
+      <a href="https://alphaeusng.github.io/pages/seeking-biblical-truth/" target="_blank" rel="noopener">Biblical Truth</a> ·
       <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source</a> ·
       <span id="site-version" class="site-version" title="Bump js/version.js on each deploy">v—</span>
     </p>
