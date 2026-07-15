@@ -660,6 +660,10 @@
     if (g.higherIsBetter && Number(score) <= 0 && gameId !== "tictactoe") return;
     // Reduce modal spam: auto-prompt only on personal bests (or TTT wins).
     // Players can always use "Post bests" from the lobby scoreboard.
+    // Reaction fires often — only prompt for strong times (still a PB).
+    if (gameId === "reaction" && !(isHighScore && Number(score) > 0 && Number(score) <= 260)) {
+      return;
+    }
     const meaningful =
       isHighScore ||
       (gameId === "tictactoe" && meta?.result === "win");

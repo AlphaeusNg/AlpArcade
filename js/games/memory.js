@@ -239,10 +239,8 @@
             paintHp();
           }
           ArcadeSFX?.win();
-          onScore?.({
-            score: totalScore,
-            meta: { partial: true, level, board: `${L.cols}×${L.rows}` },
-          });
+          // Don't submit mid-run — partial posts inflated gamesPlayed/XP and cloud noise.
+          // Final score is recorded in endRun when hearts run out (or player restarts).
           hintEl.textContent = `Cleared! +${clearBonus} · expanding…`;
           clearTimeout(levelTimer);
           levelTimer = setTimeout(() => {
@@ -279,6 +277,14 @@
 
     root.querySelector("#mem-restart").addEventListener("click", () => {
       ArcadeSFX?.click();
+      // Bank the current run if they scored anything before restarting
+      if (!submitted && totalScore > 0 && !gameOver) {
+        submitted = true;
+        onScore?.({
+          score: totalScore,
+          meta: { level, board: boardSizeEl?.textContent, restarted: true },
+        });
+      }
       startRun();
     });
 
@@ -286,6 +292,14 @@
 
     return {
       destroy() {
+        // Persist score if the player leaves mid-run with points
+        if (!submitted && totalScore > 0 && !gameOver) {
+          submitted = true;
+          onScore?.({
+            score: totalScore,
+            meta: { level, board: boardSizeEl?.textContent, abandoned: true },
+          });
+        }
         clearTimeout(levelTimer);
         clearTimeout(flipTimer);
         levelTimer = null;
