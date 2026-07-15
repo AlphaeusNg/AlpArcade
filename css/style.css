@@ -760,6 +760,13 @@ body.salmon-mode .fun-fact-text {
   font-weight: 600;
 }
 
+.intro-tip {
+  margin: 0.65rem 0 0;
+  font-size: 0.72rem;
+  color: var(--dim);
+  line-height: 1.45;
+}
+
 /* Background music (Spotify) */
 .bg-music {
   padding: 1rem 1.15rem 1.05rem;
@@ -2030,4 +2037,12 @@ body.salmon-mode {
 .tap-cell.is-miss {
   background: rgba(248, 113, 113, 0.25);
   border-color: rgba(248, 113, 113, 0.5);
+}
+
+.cab-best {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+  color: var(--teal);
+  opacity: 0.9;
 }

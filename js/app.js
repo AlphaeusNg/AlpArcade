@@ -79,11 +79,22 @@
     return GAME_LOADERS[id]?.() || null;
   }
 
-  // ----- Toast -----
+  // ----- Toast (queued so achievements don't clobber each other) -----
   const toast = $("#toast");
   let toastTimer;
+  const toastQueue = [];
+  let toastBusy = false;
+
   function showToast(msg) {
-    if (!toast) return;
+    if (!toast || !msg) return;
+    toastQueue.push(String(msg));
+    drainToast();
+  }
+
+  function drainToast() {
+    if (toastBusy || !toastQueue.length) return;
+    toastBusy = true;
+    const msg = toastQueue.shift();
     toast.hidden = false;
     toast.textContent = msg;
     requestAnimationFrame(() => toast.classList.add("show"));
@@ -92,8 +103,35 @@
       toast.classList.remove("show");
       setTimeout(() => {
         toast.hidden = true;
-      }, 280);
-    }, 2800);
+        toastBusy = false;
+        drainToast();
+      }, 260);
+    }, 2400);
+  }
+
+  function paintCabinetBests() {
+    const state = ArcadeScores.getState();
+    $$("[data-game]").forEach((card) => {
+      const id = card.dataset.game;
+      const g = ArcadeScores.GAMES[id];
+      if (!g) return;
+      let bestEl = card.querySelector(".cab-best");
+      if (!bestEl) {
+        bestEl = document.createElement("span");
+        bestEl.className = "cab-best mono";
+        card.querySelector(".cab-body")?.appendChild(bestEl);
+      }
+      const hs = state.highScores[id];
+      if (id === "tictactoe") {
+        const w = hs?.wins || 0;
+        bestEl.textContent = w ? `${w} win${w === 1 ? "" : "s"}` : "No wins yet";
+      } else if (id === "reaction") {
+        bestEl.textContent = hs?.best != null ? `Best ${hs.best} ms` : "No runs yet";
+      } else {
+        const b = hs?.best || 0;
+        bestEl.textContent = b > 0 ? `Best ${ArcadeScores.formatScore(id, b)}` : "No runs yet";
+      }
+    });
   }
 
   // ----- Player / HUD -----
@@ -163,6 +201,7 @@
 
     renderGlobalHall();
     updateCloudChrome();
+    paintCabinetBests();
 
     // history
     const hist = $("#history-list");

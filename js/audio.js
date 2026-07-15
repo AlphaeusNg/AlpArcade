@@ -139,6 +139,9 @@
     countdown() {
       tone({ freq: 440, type: "sine", dur: 0.08, gain: 0.05 });
     },
+    die() {
+      SFX.lose();
+    },
   };
 
   global.ArcadeSFX = SFX;
