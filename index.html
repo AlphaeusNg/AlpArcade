@@ -89,6 +89,37 @@
         </section>
       </div>
 
+      <section class="bg-music glass" id="bg-music" aria-label="Background music">
+        <div class="bg-music-head">
+          <div>
+            <p class="eyebrow">Background</p>
+            <h2 class="section-title bg-music-title">Music</h2>
+          </div>
+          <p class="bg-music-hint mono">Alphaeus picks · optional</p>
+        </div>
+        <div class="bg-music-picks" role="group" aria-label="Playlists">
+          <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
+            <strong>Lofi Beats</strong>
+            <small>chill background</small>
+          </button>
+          <button type="button" class="bg-music-btn" data-playlist="dgray" data-embed="https://open.spotify.com/embed/playlist/3OXFbQpZflLoxvjQ5vGJrL?utm_source=generator">
+            <strong>D.Gray-Man</strong>
+            <small>ディー・グレイマン</small>
+          </button>
+          <button type="button" class="btn small ghost" id="bg-music-stop">Stop</button>
+        </div>
+        <div class="bg-music-player">
+          <p id="bg-music-empty" class="bg-music-empty">Pick Lofi or D.Gray-Man — free Spotify login may be needed.</p>
+          <iframe
+            id="bg-music-frame"
+            title="Spotify background playlist"
+            hidden
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </section>
+
       <section class="player-bar glass" id="player-bar">
         <form id="name-form" class="name-form">
           <label for="name-input">Local tag</label>
@@ -288,6 +319,7 @@
   <script src="js/audio.js" defer></script>
   <script src="js/scores.js" defer></script>
   <script src="js/cloud-scores.js" defer></script>
+  <script src="js/music.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>
