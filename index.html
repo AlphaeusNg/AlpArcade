@@ -108,7 +108,24 @@
           </button>
           <button type="button" class="btn small ghost" id="bg-music-stop">Stop</button>
         </div>
-        <p class="bg-music-hint mono" style="margin:0.35rem 0 0">Player sticks at the bottom — keeps going while you play cabinets. Stop or pick another station to change it.</p>
+        <div class="music-player-slot" id="music-player-slot">
+          <p id="bg-music-empty" class="bg-music-empty">Pick Lofi or D.Gray-Man — free Spotify login may be needed.</p>
+          <div class="music-player-shell" id="music-player-shell" hidden>
+            <div class="music-player-bar">
+              <span class="music-player-label mono" id="music-player-label">Playing…</span>
+              <span class="music-dock-pin mono" id="music-dock-pin" hidden>following you</span>
+              <button type="button" class="btn small ghost" id="music-player-stop">Stop</button>
+            </div>
+            <div class="music-player-frame-wrap">
+              <iframe
+                id="bg-music-frame"
+                title="Spotify background playlist"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+              ></iframe>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="player-bar glass" id="player-bar">

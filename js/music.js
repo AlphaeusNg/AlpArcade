@@ -1,7 +1,8 @@
 /**
- * Persistent Spotify background music.
- * Lives in a sticky dock outside #lobby so game navigation never unloads the player.
- * Only Stop or choosing a different station changes/stops playback.
+ * Spotify background music.
+ * Plays inline in the Music section; when that section scrolls out of view
+ * (or lobby hides for a game), the same player docks to the bottom of the screen.
+ * Iframe is never reloaded unless station changes or Stop.
  */
 (function () {
   "use strict";
@@ -12,14 +13,20 @@
 
   let currentEmbed = "";
   let currentId = "";
-  let minimized = false;
+  let playing = false;
+  let observer = null;
 
-  function dock() {
-    return $("#music-dock");
+  function shell() {
+    return $("#music-player-shell");
   }
-
+  function slot() {
+    return $("#music-player-slot");
+  }
   function frame() {
     return $("#bg-music-frame");
+  }
+  function empty() {
+    return $("#bg-music-empty");
   }
 
   function setActiveButtons(id) {
@@ -28,59 +35,89 @@
     });
   }
 
+  function updateDockState() {
+    const s = shell();
+    const sl = slot();
+    if (!s || !playing) return;
+
+    // Dock when the slot is not visible in the viewport
+    const rect = sl?.getBoundingClientRect();
+    const slotVisible =
+      sl &&
+      !sl.closest("[hidden]") &&
+      rect &&
+      rect.bottom > 48 &&
+      rect.top < (window.innerHeight || 0) - 48;
+
+    // Also dock when lobby is hidden (in a game)
+    const lobby = $("#lobby");
+    const lobbyHidden = !!(lobby && lobby.hidden);
+
+    const shouldDock = lobbyHidden || !slotVisible;
+    s.classList.toggle("is-docked", shouldDock);
+    sl?.classList.toggle("is-player-docked", shouldDock);
+
+    const pin = $("#music-dock-pin");
+    if (pin) pin.hidden = !shouldDock;
+  }
+
   function play(id, embed, label) {
     if (!embed) return;
     const f = frame();
-    const d = dock();
-    if (!f || !d) return;
+    const s = shell();
+    const e = empty();
+    if (!f || !s) return;
 
-    // Same station — do not reload iframe (would restart/stop music)
-    if (currentEmbed === embed && f.src && !d.hidden) {
+    if (currentEmbed === embed && playing) {
       setActiveButtons(id);
-      d.classList.remove("is-minimized");
-      minimized = false;
+      updateDockState();
       return;
     }
 
     currentEmbed = embed;
     currentId = id || "";
-    // Only assign src when it actually changes
     if (f.getAttribute("src") !== embed) {
       f.src = embed;
     }
-    d.hidden = false;
-    d.classList.remove("is-minimized");
-    minimized = false;
+    playing = true;
+    s.hidden = false;
+    if (e) e.hidden = true;
     setActiveButtons(currentId);
 
-    const lab = $("#music-dock-label");
+    const lab = $("#music-player-label");
     if (lab) {
       lab.textContent =
-        label ||
-        (id === "lofi" ? "Lofi Beats" : id === "dgray" ? "D.Gray-Man" : "Playing…");
+        label || (id === "lofi" ? "Lofi Beats" : id === "dgray" ? "D.Gray-Man" : "Playing…");
     }
 
     try {
-      localStorage.setItem(KEY, JSON.stringify({ id: currentId, embed: currentEmbed, label: lab?.textContent || "" }));
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({ id: currentId, embed: currentEmbed, label: lab?.textContent || "" })
+      );
     } catch {
       /* ignore */
     }
+    updateDockState();
   }
 
   function stop() {
     const f = frame();
-    const d = dock();
+    const s = shell();
+    const e = empty();
     if (f) {
       f.removeAttribute("src");
       f.src = "about:blank";
     }
-    if (d) {
-      d.hidden = true;
-      d.classList.remove("is-minimized");
+    if (s) {
+      s.hidden = true;
+      s.classList.remove("is-docked");
     }
+    slot()?.classList.remove("is-player-docked");
+    if (e) e.hidden = false;
+    playing = false;
     currentEmbed = "";
     currentId = "";
-    minimized = false;
     setActiveButtons("");
     try {
       localStorage.removeItem(KEY);
@@ -89,13 +126,29 @@
     }
   }
 
-  function toggleMinimize() {
-    const d = dock();
-    if (!d || d.hidden) return;
-    minimized = !minimized;
-    d.classList.toggle("is-minimized", minimized);
-    const btn = $("#music-dock-minimize");
-    if (btn) btn.textContent = minimized ? "▴" : "▾";
+  function watchVisibility() {
+    const sl = slot();
+    if (!sl || !("IntersectionObserver" in window)) {
+      window.addEventListener("scroll", updateDockState, { passive: true });
+      window.addEventListener("resize", updateDockState);
+      return;
+    }
+    observer = new IntersectionObserver(
+      () => updateDockState(),
+      { root: null, threshold: [0, 0.01, 0.1, 0.5, 1], rootMargin: "-40px 0px -40px 0px" }
+    );
+    observer.observe(sl);
+    window.addEventListener("scroll", updateDockState, { passive: true });
+    window.addEventListener("resize", updateDockState);
+
+    // Lobby show/hide when entering games
+    const lobby = $("#lobby");
+    if (lobby && "MutationObserver" in window) {
+      new MutationObserver(() => updateDockState()).observe(lobby, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+      });
+    }
   }
 
   function boot() {
@@ -106,11 +159,9 @@
       });
     });
     $("#bg-music-stop")?.addEventListener("click", stop);
-    $("#music-dock-stop")?.addEventListener("click", stop);
-    $("#music-dock-minimize")?.addEventListener("click", toggleMinimize);
+    $("#music-player-stop")?.addEventListener("click", stop);
 
-    // Never tear down player when lobby is hidden for a game
-    // (dock is outside #lobby by design)
+    watchVisibility();
 
     try {
       const raw = localStorage.getItem(KEY);
