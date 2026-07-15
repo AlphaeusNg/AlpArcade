@@ -832,26 +832,66 @@ body.salmon-mode .fun-fact-text {
   color: var(--dim);
 }
 
-.bg-music-player {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.3);
-  min-height: 5rem;
+/* Sticky dock — survives lobby hide / game open */
+.music-dock {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  width: min(380px, calc(100vw - 1.5rem));
+  border-radius: 14px;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  background: rgba(8, 12, 18, 0.94);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+  backdrop-filter: blur(12px);
 }
 
-.bg-music-empty {
-  margin: 0;
-  padding: 1rem;
-  font-size: 0.85rem;
-  color: var(--dim);
+.music-dock[hidden] {
+  display: none !important;
 }
 
-.bg-music-player iframe {
+.music-dock-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.music-dock-label {
+  font-size: 0.72rem;
+  color: var(--teal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-dock-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.music-dock-frame-wrap iframe {
   display: block;
   width: 100%;
-  min-height: 152px;
+  height: 152px;
   border: 0;
+  background: #000;
+}
+
+.music-dock.is-minimized .music-dock-frame-wrap {
+  display: none;
+}
+
+.music-dock.is-minimized .music-dock-bar {
+  border-bottom: 0;
+}
+
+body:has(#music-dock:not([hidden])) {
+  padding-bottom: 4rem;
 }
 
 .cloud-banner {
