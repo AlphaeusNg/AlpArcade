@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alphaeus Arcade — Alphaeus Ng</title>
-  <meta name="description" content="Free browser mini-games by Alphaeus Ng: Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match — with local scoreboard and XP." />
+  <meta name="description" content="Free browser mini-games by Alphaeus Ng: Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match — with local + global scoreboard and XP." />
   <meta name="theme-color" content="#05080f" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -17,7 +17,7 @@
   <meta property="og:image" content="https://avatars.githubusercontent.com/u/78588510?v=4" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Alphaeus Arcade" />
-  <meta name="twitter:description" content="Browser mini-games with local scoreboard — by Alphaeus Ng." />
+  <meta name="twitter:description" content="Browser mini-games with local and global scoreboard — by Alphaeus Ng." />
   <link rel="icon" href="https://avatars.githubusercontent.com/u/78588510?v=4" type="image/jpeg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -181,11 +181,13 @@
           <div class="score-tools">
             <button type="button" class="btn small ghost" id="btn-export">Export</button>
             <button type="button" class="btn small ghost" id="btn-import">Import</button>
+            <button type="button" class="btn small primary" id="btn-share-cloud" title="Push your latest high scores to the global board" hidden>Share to cloud</button>
             <button type="button" class="btn small danger" id="btn-reset">Reset</button>
           </div>
         </div>
-        <p class="scores-note">
+        <p class="scores-note" id="scores-note">
           Saved on this device. Export a code to back up or move machines.
+          <span class="cloud-status" id="cloud-status" aria-live="polite"></span>
         </p>
         <div class="scores-grid">
           <div>
@@ -193,8 +195,14 @@
             <ul class="hs-list" id="highscores-list"></ul>
           </div>
           <div>
-            <h3>Hall of fame</h3>
+            <h3>Hall of fame <small class="scores-sub">(this device)</small></h3>
             <ul class="hall-list" id="hall-list"></ul>
+          </div>
+          <div>
+            <h3>Online Hall of Fame <small class="scores-sub" id="global-hall-label">(cloud)</small></h3>
+            <ul class="hall-list global-hall-list" id="global-hall-list">
+              <li class="empty">Cloud scoreboard offline until Firebase is configured.</li>
+            </ul>
           </div>
           <div class="scores-wide">
             <h3>Recent runs</h3>
@@ -224,9 +232,15 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
+  <!-- Firebase (compat CDN for GitHub Pages). Config can leave cloud disabled. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" defer></script>
   <!-- Core shell only; game modules lazy-load when a cabinet is opened -->
+  <script src="js/firebase-config.js" defer></script>
   <script src="js/audio.js" defer></script>
   <script src="js/scores.js" defer></script>
+  <script src="js/cloud-scores.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

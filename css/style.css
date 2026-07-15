@@ -634,10 +634,29 @@ body.salmon-mode .fun-fact-text {
   color: var(--teal);
 }
 
+.cloud-status {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 0.82em;
+}
+
+.scores-sub {
+  font-weight: 500;
+  font-size: 0.78em;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+
 .scores-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
+}
+
+@media (min-width: 900px) {
+  .scores-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }
 
 .scores-wide {
@@ -649,6 +668,10 @@ body.salmon-mode .fun-fact-text {
   font-size: 0.95rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+.global-hall-list .who {
+  color: var(--teal);
 }
 
 .hs-list,

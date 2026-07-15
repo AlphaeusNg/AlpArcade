@@ -1,5 +1,5 @@
 /**
- * Arcade score system — localStorage only (works on static GitHub Pages).
+ * Arcade score system — localStorage + optional Firebase cloud mirror.
  * Tracks player name, per-game highs, XP, history, and a hall-of-fame board.
  */
 (function (global) {
@@ -158,6 +158,14 @@
     state.hallOfFame = rankHall(state.hallOfFame).slice(0, MAX_HALL);
 
     save(state);
+
+    // Best-effort cloud mirror (high scores / wins only by default)
+    try {
+      global.ArcadeCloud?.submitCloudScore?.(gameId, num, meta, { isHighScore });
+    } catch (err) {
+      console.warn("[ArcadeScores] cloud submit failed", err);
+    }
+
     return { isHighScore, xpGained, state };
   }
 

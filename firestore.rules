@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /scores/{scoreId} {
+      // Anyone can read the public leaderboard
+      allow read: if true;
+
+      // Only authenticated (including anonymous) clients can write
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['game', 'playerName', 'score', 'rankScore', 'timestamp'])
+        && request.resource.data.game is string
+        && request.resource.data.game in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory']
+        && request.resource.data.playerName is string
+        && request.resource.data.playerName.size() > 0
+        && request.resource.data.playerName.size() <= 16
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 10000000
+        && request.resource.data.rankScore is number
+        && request.resource.data.userId == request.auth.uid;
+
+      // Scores are immutable public records
+      allow update, delete: if false;
+    }
+  }
+}
