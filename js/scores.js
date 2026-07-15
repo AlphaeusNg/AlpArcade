@@ -159,12 +159,7 @@
 
     save(state);
 
-    // Best-effort cloud mirror (high scores / wins only by default)
-    try {
-      global.ArcadeCloud?.submitCloudScore?.(gameId, num, meta, { isHighScore });
-    } catch (err) {
-      console.warn("[ArcadeScores] cloud submit failed", err);
-    }
+    // Cloud save is opt-in after a run (Google sign-in) — never auto-post.
 
     return { isHighScore, xpGained, state };
   }

@@ -95,7 +95,7 @@
 
       <section class="player-bar glass" id="player-bar">
         <form id="name-form" class="name-form">
-          <label for="name-input">Player tag</label>
+          <label for="name-input">Local tag</label>
           <div class="name-row">
             <input id="name-input" type="text" maxlength="16" placeholder="Your name" autocomplete="nickname" />
             <button type="submit" class="btn small">Save</button>
@@ -121,6 +121,11 @@
         </div>
         <div class="xp-track" title="Progress to next level">
           <div class="xp-fill" id="xp-bar"></div>
+        </div>
+        <div class="auth-row" id="auth-row">
+          <span class="auth-label mono" id="auth-label">Play free · Google only to post scores</span>
+          <button type="button" class="btn small ghost" id="btn-google-signin">Sign in with Google</button>
+          <button type="button" class="btn small ghost" id="btn-google-signout" hidden>Sign out</button>
         </div>
       </section>
 
@@ -176,35 +181,43 @@
           <div class="score-tools">
             <button type="button" class="btn small ghost" id="btn-export">Export</button>
             <button type="button" class="btn small ghost" id="btn-import">Import</button>
-            <button type="button" class="btn small primary" id="btn-share-cloud" title="Push your latest high scores to the global board">Share to cloud</button>
+            <button type="button" class="btn small primary" id="btn-share-cloud" title="Post your personal bests (Google sign-in)">Post bests</button>
             <button type="button" class="btn small danger" id="btn-reset">Reset</button>
           </div>
         </div>
         <p class="scores-note" id="scores-note">
-          Saved on this device. Export a code to back up or move machines.
+          Local scores stay on this device. Global board needs Google — only after a run if you want to post.
         </p>
         <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
           <span class="cloud-dot" id="cloud-dot" aria-hidden="true"></span>
           <span class="cloud-status" id="cloud-status">Checking cloud…</span>
-          <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry connect</button>
+          <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry</button>
+        </div>
+        <div class="lb-filters" id="lb-filters" role="tablist" aria-label="Leaderboard game filter">
+          <button type="button" class="lb-chip is-active" data-lb-game="all" role="tab" aria-selected="true">All</button>
+          <button type="button" class="lb-chip" data-lb-game="tictactoe" role="tab">Tic-Tac-Toe</button>
+          <button type="button" class="lb-chip" data-lb-game="shooter" role="tab">Shooter</button>
+          <button type="button" class="lb-chip" data-lb-game="snake" role="tab">Snake</button>
+          <button type="button" class="lb-chip" data-lb-game="reaction" role="tab">Reaction</button>
+          <button type="button" class="lb-chip" data-lb-game="memory" role="tab">Memory</button>
         </div>
         <div class="scores-grid">
           <div>
-            <h3>Personal bests</h3>
+            <h3>Personal bests <small class="scores-sub">(this device)</small></h3>
             <ul class="hs-list" id="highscores-list"></ul>
           </div>
           <div>
             <h3>Hall of fame <small class="scores-sub">(this device)</small></h3>
             <ul class="hall-list" id="hall-list"></ul>
           </div>
-          <div>
-            <h3>Online Hall of Fame <small class="scores-sub" id="global-hall-label">(cloud)</small></h3>
+          <div class="scores-wide">
+            <h3>Global leaderboard <small class="scores-sub" id="global-hall-label">(all games)</small></h3>
             <ul class="hall-list global-hall-list" id="global-hall-list">
-              <li class="empty">Cloud scoreboard offline until Firebase is configured.</li>
+              <li class="empty">Loading global board…</li>
             </ul>
           </div>
           <div class="scores-wide">
-            <h3>Recent runs</h3>
+            <h3>Recent runs <small class="scores-sub">(this device)</small></h3>
             <ul class="history-list" id="history-list"></ul>
           </div>
         </div>
@@ -217,9 +230,44 @@
         <h2 id="play-title">Game</h2>
         <button type="button" class="mute-btn" id="btn-mute-play" title="Toggle sound">🔊</button>
       </div>
-      <div id="game-mount" class="game-mount glass"></div>
+      <div class="play-layout">
+        <div id="game-mount" class="game-mount glass"></div>
+        <aside class="play-lb glass" id="play-lb" aria-label="Game leaderboard">
+          <h3 class="play-lb-title">Top scores</h3>
+          <p class="play-lb-sub mono" id="play-lb-sub">This cabinet</p>
+          <ul class="hall-list" id="play-lb-list">
+            <li class="empty">Loading…</li>
+          </ul>
+        </aside>
+      </div>
     </div>
   </main>
+
+  <!-- Post-run cloud save (optional Google) -->
+  <div id="cloud-save-modal" class="cloud-modal" hidden>
+    <div class="cloud-modal-backdrop" data-close-modal></div>
+    <div class="cloud-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="cloud-save-title">
+      <h2 id="cloud-save-title">Save this score?</h2>
+      <p id="cloud-save-summary" class="cloud-modal-summary"></p>
+      <p class="cloud-modal-hint">Optional. Keep playing with zero account. Global board needs a quick Google sign-in.</p>
+
+      <div id="cloud-save-step-main">
+        <button type="button" class="btn primary" id="btn-cloud-save-go">Save with Google</button>
+        <button type="button" class="btn ghost" id="btn-cloud-save-skip">Not now</button>
+      </div>
+
+      <div id="cloud-save-step-username" hidden>
+        <label class="cloud-username-label" for="cloud-username-input">Pick a username (shown on the board)</label>
+        <input id="cloud-username-input" type="text" maxlength="16" autocomplete="nickname" placeholder="2–16 characters" />
+        <div class="cloud-modal-actions">
+          <button type="button" class="btn primary" id="btn-cloud-username-save">Save score</button>
+          <button type="button" class="btn ghost" data-close-modal>Cancel</button>
+        </div>
+      </div>
+
+      <p id="cloud-save-status" class="cloud-modal-status mono" aria-live="polite"></p>
+    </div>
+  </div>
 
   <footer class="footer">
     <p>

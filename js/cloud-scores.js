@@ -1,14 +1,14 @@
 /**
- * Cloud scoreboard — Firestore + anonymous auth.
- * Mirrors local high-score moments to a global Hall of Fame.
- * Surfaces clear errors when offline / misconfigured / denied.
+ * Cloud scoreboard — Google Auth only, one best per user per game.
+ * Play offline freely; save to cloud only when the player opts in after a run.
  */
 (function (global) {
   "use strict";
 
-  const COLLECTION = "scores";
+  const SCORES = "scores";
+  const PLAYERS = "players";
   const GLOBAL_LIMIT = 25;
-  const MIN_SUBMIT_GAP_MS = 2500;
+  const GAME_IDS = ["tictactoe", "shooter", "snake", "reaction", "memory"];
 
   let db = null;
   let auth = null;
@@ -16,10 +16,15 @@
   let status = "off"; // off | connecting | online | error
   let lastError = "";
   let unsub = null;
-  let lastSubmitAt = 0;
   let initPromise = null;
+  /** @type {firebase.User | null} */
+  let user = null;
+  /** @type {{ username: string, email?: string } | null} */
+  let profile = null;
+  /** @type {string} 'all' | gameId */
+  let leaderboardGame = "all";
   /** @type {Array<object>} */
-  let globalHall = [];
+  let leaderboard = [];
   /** @type {Set<Function>} */
   const listeners = new Set();
 
@@ -27,7 +32,6 @@
     return global.ARCADE_FIREBASE_CONFIG || {};
   }
 
-  /** Strip non-Firebase keys (enabled, etc.) before initializeApp. */
   function firebaseOptions() {
     const c = cfg();
     return {
@@ -64,10 +68,6 @@
   function setStatus(next, errMsg) {
     if (typeof errMsg === "string") lastError = errMsg;
     if (next === "online") lastError = "";
-    if (status === next && !errMsg) {
-      notify();
-      return;
-    }
     status = next;
     notify();
   }
@@ -75,25 +75,35 @@
   function getState() {
     return {
       status,
-      globalHall,
+      leaderboard,
+      leaderboardGame,
       online: status === "online",
       lastError,
       configured: isConfigured(),
       ready,
+      user,
+      profile,
+      signedIn: !!(user && user.uid),
+      hasUsername: !!(profile && profile.username),
+      email: user?.email || null,
+      displayName: profile?.username || user?.displayName || null,
     };
   }
 
   function friendlyError(err) {
     const code = err?.code || err?.name || "";
     const msg = err?.message || String(err || "unknown error");
-    if (/auth\/operation-not-allowed|ADMIN_ONLY_OPERATION/i.test(code + msg)) {
-      return "Anonymous sign-in is disabled in Firebase Authentication.";
+    if (/auth\/popup-closed-by-user/i.test(code + msg)) {
+      return "Sign-in cancelled";
+    }
+    if (/auth\/operation-not-allowed/i.test(code + msg)) {
+      return "Enable Google sign-in in Firebase Authentication.";
     }
     if (/permission-denied|PERMISSION_DENIED|Missing or insufficient/i.test(code + msg)) {
-      return "Firestore permission denied — publish firestore.rules for collection scores.";
+      return "Firestore permission denied — publish the latest firestore.rules (Google-only writes).";
     }
     if (/failed-precondition|requires an index/i.test(code + msg)) {
-      return "Firestore needs an index (open the error link in the browser console).";
+      return "Firestore index needed for per-game boards — open the console link to create it.";
     }
     if (/offline|network|Failed to fetch|unavailable/i.test(code + msg)) {
       return "Network error reaching Firebase.";
@@ -110,17 +120,34 @@
     return Number(score);
   }
 
-  async function ensureAuthUser() {
-    if (!auth) throw new Error("Auth not initialized");
-    if (auth.currentUser) return auth.currentUser;
-    const cred = await auth.signInAnonymously();
-    return cred.user;
+  function isBetter(gameId, next, prev) {
+    const g = global.ArcadeScores?.GAMES?.[gameId];
+    if (prev == null || !Number.isFinite(Number(prev))) return true;
+    if (g && g.higherIsBetter === false) return Number(next) < Number(prev);
+    return Number(next) > Number(prev);
   }
 
-  function playerLabel(user) {
-    const name = global.ArcadeScores?.getState?.()?.playerName || "Player";
-    const uid = user?.uid || auth?.currentUser?.uid || null;
-    return { playerName: name, userId: uid };
+  function scoreDocId(uid, gameId) {
+    return `${uid}_${gameId}`;
+  }
+
+  function sanitizeUsername(name) {
+    return String(name || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 16);
+  }
+
+  function mapScoreDoc(doc) {
+    const d = doc.data() || {};
+    return {
+      id: doc.id,
+      game: d.game,
+      score: d.score,
+      player: d.playerName || "Player",
+      at: d.updatedAt?.toMillis?.() || d.clientAt || 0,
+      userId: d.userId || null,
+    };
   }
 
   async function init() {
@@ -128,7 +155,10 @@
       setStatus("off", "Cloud disabled — set enabled:true in js/firebase-config.js");
       return false;
     }
-    if (ready && status === "online") return true;
+    if (ready && db) {
+      setStatus(status === "error" ? "online" : status || "online");
+      return true;
+    }
     if (initPromise) return initPromise;
 
     initPromise = (async () => {
@@ -145,10 +175,30 @@
         db = firebase.firestore();
         auth = firebase.auth();
 
-        await ensureAuthUser();
+        auth.onAuthStateChanged(async (u) => {
+          user = u;
+          if (u) {
+            try {
+              profile = await loadProfile(u.uid);
+            } catch (err) {
+              console.warn("[ArcadeCloud] profile load", err);
+              profile = null;
+            }
+          } else {
+            profile = null;
+          }
+          notify();
+        });
+
+        // Restore existing session without forcing sign-in
+        user = auth.currentUser;
+        if (user) {
+          profile = await loadProfile(user.uid);
+        }
+
         ready = true;
         setStatus("online");
-        subscribeGlobal();
+        subscribeLeaderboard(leaderboardGame);
         return true;
       } catch (err) {
         console.warn("[ArcadeCloud] init failed", err);
@@ -163,98 +213,219 @@
     return initPromise;
   }
 
-  function subscribeGlobal() {
-    if (!db || unsub) return;
+  async function loadProfile(uid) {
+    if (!db || !uid) return null;
+    const snap = await db.collection(PLAYERS).doc(uid).get();
+    if (!snap.exists) return null;
+    const d = snap.data() || {};
+    if (!d.username) return null;
+    return { username: d.username, email: d.email || null };
+  }
+
+  function subscribeLeaderboard(gameId) {
+    leaderboardGame = gameId && GAME_IDS.includes(gameId) ? gameId : "all";
+    if (!db) return;
+
+    if (unsub) {
+      try {
+        unsub();
+      } catch {
+        /* ignore */
+      }
+      unsub = null;
+    }
+
     try {
-      unsub = db
-        .collection(COLLECTION)
-        .orderBy("rankScore", "desc")
-        .limit(GLOBAL_LIMIT)
-        .onSnapshot(
-          (snap) => {
-            globalHall = snap.docs.map((doc) => {
-              const d = doc.data() || {};
-              return {
-                id: doc.id,
-                game: d.game,
-                score: d.score,
-                player: d.playerName || "Player",
-                at: d.timestamp?.toMillis?.() || d.clientAt || 0,
-                userId: d.userId || null,
-              };
-            });
-            setStatus("online");
-          },
-          (err) => {
-            console.warn("[ArcadeCloud] snapshot error", err);
-            setStatus("error", "Leaderboard listen failed: " + friendlyError(err));
-          }
-        );
+      let q;
+      if (leaderboardGame === "all") {
+        q = db.collection(SCORES).orderBy("rankScore", "desc").limit(GLOBAL_LIMIT);
+      } else {
+        q = db
+          .collection(SCORES)
+          .where("game", "==", leaderboardGame)
+          .orderBy("rankScore", "desc")
+          .limit(GLOBAL_LIMIT);
+      }
+
+      unsub = q.onSnapshot(
+        (snap) => {
+          leaderboard = snap.docs.map(mapScoreDoc);
+          if (status !== "online") setStatus("online");
+          else notify();
+        },
+        (err) => {
+          console.warn("[ArcadeCloud] leaderboard snapshot", err);
+          setStatus("error", "Leaderboard: " + friendlyError(err));
+        }
+      );
     } catch (err) {
       console.warn("[ArcadeCloud] subscribe failed", err);
       setStatus("error", friendlyError(err));
     }
   }
 
+  function setLeaderboardGame(gameId) {
+    const next = gameId && GAME_IDS.includes(gameId) ? gameId : "all";
+    if (next === leaderboardGame && unsub) {
+      notify();
+      return;
+    }
+    subscribeLeaderboard(next);
+  }
+
+  function getLeaderboard(gameId) {
+    if (!gameId || gameId === "all" || gameId === leaderboardGame) {
+      return leaderboard.slice();
+    }
+    // Stale filter: return empty; caller should setLeaderboardGame
+    return leaderboard.filter((e) => e.game === gameId);
+  }
+
+  async function signInWithGoogle() {
+    if (!ready || !auth) {
+      const ok = await init();
+      if (!ok || !auth) throw new Error(lastError || "Cloud offline");
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    try {
+      const result = await auth.signInWithPopup(provider);
+      user = result.user;
+      profile = await loadProfile(user.uid);
+      notify();
+      return getState();
+    } catch (err) {
+      const message = friendlyError(err);
+      if (!/cancelled/i.test(message)) setStatus("error", message);
+      throw new Error(message);
+    }
+  }
+
+  async function signOut() {
+    if (!auth) return;
+    await auth.signOut();
+    user = null;
+    profile = null;
+    notify();
+  }
+
   /**
-   * Push a score to Firestore.
-   * @param {string} gameId
-   * @param {number} score
-   * @param {object} [meta]
-   * @param {{ force?: boolean, isHighScore?: boolean }} [opts]
+   * First-time username. Super short: 2–16 chars.
+   * Prefill suggestion from local player tag or Google name.
+   */
+  async function setUsername(rawName) {
+    if (!user || !db) throw new Error("Sign in first");
+    const username = sanitizeUsername(rawName);
+    if (username.length < 2) throw new Error("Username needs at least 2 characters");
+    if (username.length > 16) throw new Error("Username max 16 characters");
+
+    await db
+      .collection(PLAYERS)
+      .doc(user.uid)
+      .set(
+        {
+          username,
+          email: user.email || null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+    profile = { username, email: user.email || null };
+
+    // Keep local arcade tag in sync for friendliness
+    try {
+      global.ArcadeScores?.setPlayerName?.(username);
+    } catch {
+      /* ignore */
+    }
+
+    notify();
+    return profile;
+  }
+
+  function suggestUsername() {
+    const local = global.ArcadeScores?.getState?.()?.playerName;
+    if (local && local !== "Player") return sanitizeUsername(local);
+    if (user?.displayName) return sanitizeUsername(user.displayName.split(" ")[0] || user.displayName);
+    if (user?.email) return sanitizeUsername(user.email.split("@")[0]);
+    return "Player";
+  }
+
+  /**
+   * Upsert one score for the signed-in user (Google only).
+   * Doc id = {uid}_{game} → one row per user per cabinet.
    */
   async function submitCloudScore(gameId, score, meta = {}, opts = {}) {
     if (!isConfigured()) return { ok: false, reason: "off", message: "Cloud not configured" };
+    if (!GAME_IDS.includes(gameId)) {
+      return { ok: false, reason: "bad-game", message: "Unknown game" };
+    }
 
-    if (!ready || !db || status !== "online") {
+    if (!ready || !db) {
       const ok = await init();
-      if (!ok || !db) {
-        return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
-      }
+      if (!ok || !db) return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
+    }
+
+    if (!user) {
+      return { ok: false, reason: "auth-required", message: "Sign in with Google to save" };
+    }
+
+    const googleOk = user.providerData?.some((p) => p.providerId === "google.com");
+    if (!googleOk) {
+      return { ok: false, reason: "auth-required", message: "Use Google sign-in to save scores" };
+    }
+
+    if (!profile?.username) {
+      return { ok: false, reason: "username-required", message: "Pick a username first" };
     }
 
     const num = Number(score);
-    if (!Number.isFinite(num)) return { ok: false, reason: "bad-score", message: "Invalid score" };
-
-    if (!opts.force && !opts.isHighScore && meta.result !== "win") {
-      return { ok: false, reason: "skipped", message: "Not a high score" };
+    if (!Number.isFinite(num) || num < 0) {
+      return { ok: false, reason: "bad-score", message: "Invalid score" };
     }
 
-    const now = Date.now();
-    if (!opts.force && now - lastSubmitAt < MIN_SUBMIT_GAP_MS) {
-      return { ok: false, reason: "rate-limit", message: "Too fast — wait a moment" };
-    }
-
-    let user;
+    const ref = db.collection(SCORES).doc(scoreDocId(user.uid, gameId));
     try {
-      user = await ensureAuthUser();
-    } catch (err) {
-      const message = friendlyError(err);
-      setStatus("error", message);
-      return { ok: false, reason: "auth-error", message };
-    }
+      const existing = await ref.get();
+      if (existing.exists) {
+        const old = existing.data() || {};
+        if (!opts.force && !isBetter(gameId, num, old.score)) {
+          return {
+            ok: true,
+            reason: "not-better",
+            message: "Your cloud best is already equal or better",
+            improved: false,
+          };
+        }
+        // When force-sharing local bests, keep the better of the two
+        if (opts.force && !isBetter(gameId, num, old.score)) {
+          return {
+            ok: true,
+            reason: "not-better",
+            message: "Cloud already has your best",
+            improved: false,
+          };
+        }
+      }
 
-    if (!user?.uid) {
-      return { ok: false, reason: "auth-error", message: "No signed-in user (Anonymous auth?)" };
-    }
+      const now = Date.now();
+      const payload = {
+        game: gameId,
+        playerName: profile.username,
+        score: num,
+        rankScore: rankScore(gameId, num),
+        userId: user.uid,
+        meta: sanitizeMeta(meta),
+        clientAt: now,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      };
 
-    lastSubmitAt = now;
-    const { playerName, userId } = playerLabel(user);
-    const payload = {
-      game: gameId,
-      playerName: String(playerName).slice(0, 16),
-      score: num,
-      rankScore: rankScore(gameId, num),
-      userId,
-      meta: sanitizeMeta(meta),
-      clientAt: now,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    };
-
-    try {
-      await db.collection(COLLECTION).add(payload);
+      await ref.set(payload, { merge: true });
       if (status !== "online") setStatus("online");
-      return { ok: true, message: "Posted" };
+      return { ok: true, message: "Saved to cloud", improved: true };
     } catch (err) {
       console.warn("[ArcadeCloud] write failed", err);
       const message = friendlyError(err);
@@ -280,25 +451,14 @@
       if (!db) return [];
     }
     try {
-      let q = db.collection(COLLECTION).orderBy("rankScore", "desc").limit(limit);
-      if (gameId) {
-        q = db
-          .collection(COLLECTION)
-          .where("game", "==", gameId)
-          .orderBy("rankScore", "desc")
-          .limit(limit);
+      let q;
+      if (gameId && GAME_IDS.includes(gameId)) {
+        q = db.collection(SCORES).where("game", "==", gameId).orderBy("rankScore", "desc").limit(limit);
+      } else {
+        q = db.collection(SCORES).orderBy("rankScore", "desc").limit(limit);
       }
       const snap = await q.get();
-      return snap.docs.map((doc) => {
-        const d = doc.data() || {};
-        return {
-          id: doc.id,
-          game: d.game,
-          score: d.score,
-          player: d.playerName || "Player",
-          at: d.timestamp?.toMillis?.() || d.clientAt || 0,
-        };
-      });
+      return snap.docs.map(mapScoreDoc);
     } catch (err) {
       console.warn("[ArcadeCloud] loadLeaderboard failed", err);
       setStatus("error", friendlyError(err));
@@ -306,19 +466,6 @@
     }
   }
 
-  function getGlobalHall() {
-    return globalHall.slice();
-  }
-
-  function getStatus() {
-    return status;
-  }
-
-  function getLastError() {
-    return lastError;
-  }
-
-  /** Human-readable checklist for the UI / console. */
   function getDiagnostics() {
     const c = cfg();
     return {
@@ -329,9 +476,24 @@
       status,
       ready,
       lastError,
-      uid: auth?.currentUser?.uid || null,
-      hallCount: globalHall.length,
+      uid: user?.uid || null,
+      username: profile?.username || null,
+      leaderboardGame,
+      hallCount: leaderboard.length,
     };
+  }
+
+  // Back-compat alias
+  function getGlobalHall() {
+    return leaderboard.slice();
+  }
+
+  function getStatus() {
+    return status;
+  }
+
+  function getLastError() {
+    return lastError;
   }
 
   function onChange(fn) {
@@ -342,13 +504,20 @@
   global.ArcadeCloud = {
     init,
     isConfigured,
+    signInWithGoogle,
+    signOut,
+    setUsername,
+    suggestUsername,
     submitCloudScore,
     loadLeaderboard,
+    setLeaderboardGame,
+    getLeaderboard,
     getGlobalHall,
     getStatus,
     getLastError,
     getDiagnostics,
     getState,
     onChange,
+    GAME_IDS,
   };
 })(window);

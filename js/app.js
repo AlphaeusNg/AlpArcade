@@ -189,27 +189,49 @@
       .replace(/"/g, "&quot;");
   }
 
-  // ----- Cloud scoreboard UI -----
+  // ----- Cloud scoreboard UI (Google opt-in) -----
+  let pendingSave = null; // { gameId, score, isHighScore, meta }
+
+  function cloudState() {
+    return window.ArcadeCloud?.getState?.() || {
+      status: "off",
+      configured: false,
+      signedIn: false,
+      hasUsername: false,
+      leaderboard: [],
+      leaderboardGame: "all",
+    };
+  }
+
   function updateCloudChrome() {
     const statusEl = $("#cloud-status");
     const banner = $("#cloud-banner");
     const shareBtn = $("#btn-share-cloud");
     const retryBtn = $("#btn-cloud-retry");
     const label = $("#global-hall-label");
-    const status = window.ArcadeCloud?.getStatus?.() || "off";
-    const configured = window.ArcadeCloud?.isConfigured?.() ?? false;
-    const err = window.ArcadeCloud?.getLastError?.() || "";
+    const authLabel = $("#auth-label");
+    const signInBtn = $("#btn-google-signin");
+    const signOutBtn = $("#btn-google-signout");
+    const s = cloudState();
+    const status = s.status || "off";
+    const err = s.lastError || window.ArcadeCloud?.getLastError?.() || "";
 
-    const messages = {
-      off: configured
-        ? "Cloud configured but not connected yet."
-        : "Cloud disabled — set enabled:true in js/firebase-config.js",
-      connecting: "Cloud: connecting…",
-      online: "Cloud: live · high scores sync to the Online Hall of Fame",
-      error: err ? `Cloud error: ${err}` : "Cloud offline — local scores still work",
-    };
+    let msg;
+    if (!s.configured) {
+      msg = "Cloud disabled — set enabled:true in js/firebase-config.js";
+    } else if (status === "connecting") {
+      msg = "Cloud: connecting…";
+    } else if (status === "error") {
+      msg = err ? `Cloud error: ${err}` : "Cloud offline — local play still works";
+    } else if (status === "online") {
+      msg = s.signedIn
+        ? `Cloud live · signed in as ${s.displayName || s.email || "player"}`
+        : "Cloud live · play free · Google only to post scores";
+    } else {
+      msg = "Cloud ready when you want to post a score";
+    }
 
-    if (statusEl) statusEl.textContent = messages[status] || messages.off;
+    if (statusEl) statusEl.textContent = msg;
     if (banner) {
       banner.classList.remove("is-online", "is-error", "is-off", "is-connecting");
       banner.classList.add(
@@ -222,58 +244,101 @@
               : "is-off"
       );
     }
-    if (label) {
-      label.textContent =
-        status === "online" ? "(live)" : status === "connecting" ? "(connecting…)" : status === "error" ? "(error)" : "(cloud)";
-    }
-    // Keep Share visible whenever cloud is configured so users get feedback on click
+
+    const filter = s.leaderboardGame || "all";
+    const gameLabel =
+      filter === "all" ? "all games" : ArcadeScores.GAMES[filter]?.label || filter;
+    if (label) label.textContent = `(${gameLabel})`;
+
     if (shareBtn) {
-      shareBtn.hidden = !configured;
+      shareBtn.hidden = !s.configured;
       shareBtn.disabled = status === "connecting";
-      shareBtn.title =
-        status === "online"
-          ? "Push your personal bests to the global board"
-          : "Try to connect and share personal bests";
+      shareBtn.textContent = s.signedIn ? "Post bests" : "Post bests (Google)";
     }
     if (retryBtn) {
-      retryBtn.hidden = !(configured && (status === "error" || status === "off"));
+      retryBtn.hidden = !(s.configured && (status === "error" || status === "off"));
     }
+
+    if (authLabel) {
+      authLabel.textContent = s.signedIn
+        ? `${s.displayName || s.email} · cloud scores unlocked`
+        : "Play free · Google only to post scores";
+    }
+    if (signInBtn) signInBtn.hidden = !s.configured || s.signedIn;
+    if (signOutBtn) signOutBtn.hidden = !s.signedIn;
+
+    // Filter chips
+    $$("#lb-filters [data-lb-game]").forEach((chip) => {
+      const on = chip.dataset.lbGame === filter;
+      chip.classList.toggle("is-active", on);
+      chip.setAttribute("aria-selected", on ? "true" : "false");
+    });
   }
 
-  function renderGlobalHall() {
-    const list = $("#global-hall-list");
-    if (!list) return;
-    const status = window.ArcadeCloud?.getStatus?.() || "off";
-    const hall = window.ArcadeCloud?.getGlobalHall?.() || [];
-    const err = window.ArcadeCloud?.getLastError?.() || "";
+  function renderLeaderboardList(listEl, hall, { showGame = true } = {}) {
+    if (!listEl) return;
+    const s = cloudState();
+    const status = s.status || "off";
+    const err = s.lastError || "";
 
-    if (status === "off") {
-      list.innerHTML = `<li class="empty">Enable Firebase in <code>js/firebase-config.js</code> for a shared board.</li>`;
+    if (status === "off" && !s.configured) {
+      listEl.innerHTML = `<li class="empty">Enable Firebase in <code>js/firebase-config.js</code>.</li>`;
       return;
     }
     if (status === "connecting") {
-      list.innerHTML = `<li class="empty">Connecting to global board…</li>`;
+      listEl.innerHTML = `<li class="empty">Connecting…</li>`;
       return;
     }
     if (status === "error" && !hall.length) {
-      list.innerHTML = `<li class="empty">Could not reach cloud${err ? `: ${escapeHtml(err)}` : ""}. Local scores still work. Tap Retry connect.</li>`;
+      listEl.innerHTML = `<li class="empty">Could not load board${err ? `: ${escapeHtml(err)}` : ""}.</li>`;
       return;
     }
     if (!hall.length) {
-      list.innerHTML = `<li class="empty">No global scores yet — play for a best, then Share to cloud.</li>`;
+      listEl.innerHTML = `<li class="empty">No scores yet for this board — finish a run and save with Google.</li>`;
       return;
     }
-    list.innerHTML = hall
+    listEl.innerHTML = hall
       .map((e, i) => {
         const gameLabel = ArcadeScores.GAMES[e.game]?.label || e.game;
         return `<li>
           <span class="rank">#${i + 1}</span>
           <span class="who">${escapeHtml(e.player)}</span>
-          <span class="what">${escapeHtml(gameLabel)}</span>
+          ${showGame ? `<span class="what">${escapeHtml(gameLabel)}</span>` : ""}
           <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
         </li>`;
       })
       .join("");
+  }
+
+  function renderGlobalHall() {
+    const hall = window.ArcadeCloud?.getLeaderboard?.() || window.ArcadeCloud?.getGlobalHall?.() || [];
+    const filter = cloudState().leaderboardGame || "all";
+    renderLeaderboardList($("#global-hall-list"), hall, { showGame: filter === "all" });
+    renderPlayLeaderboard();
+  }
+
+  function renderPlayLeaderboard() {
+    const list = $("#play-lb-list");
+    const sub = $("#play-lb-sub");
+    if (!list || playView?.hidden || !activeGameId) return;
+    const label = ArcadeScores.GAMES[activeGameId]?.label || activeGameId;
+    if (sub) sub.textContent = label;
+    const hall =
+      (window.ArcadeCloud?.getLeaderboard?.() || []).filter((e) => e.game === activeGameId);
+    // If dashboard filter is this game, list is already filtered; else use load cache
+    const rows =
+      (cloudState().leaderboardGame === activeGameId
+        ? window.ArcadeCloud?.getLeaderboard?.()
+        : null) || hall;
+    // Prefer dedicated load when filter differs
+    if (cloudState().leaderboardGame === activeGameId) {
+      renderLeaderboardList(list, window.ArcadeCloud.getLeaderboard() || [], { showGame: false });
+    } else {
+      window.ArcadeCloud?.loadLeaderboard?.(activeGameId, 15).then((data) => {
+        if (activeGameId) renderLeaderboardList(list, data || [], { showGame: false });
+      });
+      renderLeaderboardList(list, rows, { showGame: false });
+    }
   }
 
   function collectShareableBests() {
@@ -283,75 +348,211 @@
       const best = state.highScores[gameId]?.best;
       if (best == null) continue;
       if (g.higherIsBetter && best <= 0) continue;
-      // Reaction: lower is better; any finite best is shareable
       if (!g.higherIsBetter && !Number.isFinite(Number(best))) continue;
       items.push({ gameId, best: Number(best), label: g.label });
     }
     return items;
   }
 
+  function setModalStatus(text) {
+    const el = $("#cloud-save-status");
+    if (el) el.textContent = text || "";
+  }
+
+  function openCloudSaveModal(payload) {
+    pendingSave = payload;
+    const modal = $("#cloud-save-modal");
+    if (!modal || !window.ArcadeCloud?.isConfigured?.()) return;
+
+    const g = ArcadeScores.GAMES[payload.gameId];
+    const summary = $("#cloud-save-summary");
+    if (summary) {
+      const scoreText = ArcadeScores.formatScore(payload.gameId, payload.score);
+      summary.textContent = `${g?.label || payload.gameId}: ${scoreText}${
+        payload.isHighScore ? " · personal best" : ""
+      }`;
+    }
+
+    const stepMain = $("#cloud-save-step-main");
+    const stepUser = $("#cloud-save-step-username");
+    if (stepMain) stepMain.hidden = false;
+    if (stepUser) stepUser.hidden = true;
+    setModalStatus("");
+
+    const goBtn = $("#btn-cloud-save-go");
+    const s = cloudState();
+    if (goBtn) {
+      goBtn.textContent = s.signedIn && s.hasUsername ? "Post to global board" : "Continue with Google";
+    }
+
+    modal.hidden = false;
+    goBtn?.focus({ preventScroll: true });
+  }
+
+  function closeCloudSaveModal() {
+    const modal = $("#cloud-save-modal");
+    if (modal) modal.hidden = true;
+    pendingSave = null;
+    setModalStatus("");
+  }
+
+  async function ensureReadyToPost() {
+    await window.ArcadeCloud.init();
+    let s = cloudState();
+    if (!s.signedIn) {
+      setModalStatus("Opening Google…");
+      await window.ArcadeCloud.signInWithGoogle();
+      s = cloudState();
+    }
+    if (!s.hasUsername) {
+      $("#cloud-save-step-main").hidden = true;
+      $("#cloud-save-step-username").hidden = false;
+      const input = $("#cloud-username-input");
+      if (input) {
+        input.value = window.ArcadeCloud.suggestUsername?.() || ArcadeScores.getState().playerName || "";
+        input.focus();
+        input.select();
+      }
+      setModalStatus("Almost there — choose a username for the board.");
+      return { ready: false, needUsername: true };
+    }
+    return { ready: true };
+  }
+
+  async function postAllBests() {
+    const items = collectShareableBests();
+    if (!items.length) return { ok: false, message: "No personal bests to post" };
+    let pushed = 0;
+    let lastMsg = "";
+    for (const item of items) {
+      const result = await window.ArcadeCloud.submitCloudScore(
+        item.gameId,
+        item.best,
+        { shared: true },
+        { force: true, isHighScore: true }
+      );
+      if (result?.ok && result.improved !== false) pushed += 1;
+      if (result?.ok) lastMsg = result.message || lastMsg;
+      else lastMsg = result?.message || lastMsg;
+    }
+    return {
+      ok: pushed > 0 || lastMsg.includes("already"),
+      message: pushed
+        ? `Posted ${pushed} best${pushed === 1 ? "" : "s"}`
+        : lastMsg || "Nothing new to post",
+    };
+  }
+
+  async function postPendingOrBests() {
+    const s = cloudState();
+    if (!s.hasUsername) return { ok: false, message: "Username required" };
+    if (pendingSave?.setupOnly) return { ok: true, message: "Username saved" };
+    if (pendingSave?.batch) return postAllBests();
+
+    if (pendingSave && pendingSave.gameId) {
+      const result = await window.ArcadeCloud.submitCloudScore(
+        pendingSave.gameId,
+        pendingSave.score,
+        pendingSave.meta || {},
+        { force: true, isHighScore: !!pendingSave.isHighScore }
+      );
+      return result;
+    }
+
+    return postAllBests();
+  }
+
+  async function handleCloudSaveGo() {
+    try {
+      if (!window.ArcadeCloud?.isConfigured?.()) {
+        setModalStatus("Cloud not configured");
+        return;
+      }
+      const gate = await ensureReadyToPost();
+      if (!gate.ready) return;
+
+      setModalStatus("Posting…");
+      const result = await postPendingOrBests();
+      updateCloudChrome();
+      renderGlobalHall();
+      if (result.ok) {
+        setModalStatus(result.message || "Saved!");
+        showToast(result.message || "Saved to global board");
+        setTimeout(() => closeCloudSaveModal(), 700);
+      } else {
+        setModalStatus(result.message || "Could not save");
+        showToast(result.message || "Save failed");
+      }
+    } catch (err) {
+      console.warn(err);
+      setModalStatus(err.message || "Failed");
+      showToast(err.message || "Save failed");
+      updateCloudChrome();
+    }
+  }
+
+  async function handleUsernameSave() {
+    try {
+      const name = $("#cloud-username-input")?.value || "";
+      setModalStatus("Saving username…");
+      await window.ArcadeCloud.setUsername(name);
+      refreshHud();
+      setModalStatus("Posting score…");
+      const result = await postPendingOrBests();
+      updateCloudChrome();
+      renderGlobalHall();
+      if (result.ok) {
+        showToast(result.message || "Saved!");
+        setTimeout(() => closeCloudSaveModal(), 700);
+      } else {
+        setModalStatus(result.message || "Could not save score");
+      }
+    } catch (err) {
+      setModalStatus(err.message || "Username failed");
+    }
+  }
+
   async function shareLocalBestsToCloud() {
     const shareBtn = $("#btn-share-cloud");
     if (shareBtn) shareBtn.disabled = true;
-
     try {
-      if (!window.ArcadeCloud) {
-        showToast("Cloud module missing — hard-refresh the page");
+      if (!window.ArcadeCloud?.isConfigured?.()) {
+        showToast("Cloud not configured");
         return;
       }
-      if (!window.ArcadeCloud.isConfigured?.()) {
-        showToast("Cloud not configured (js/firebase-config.js)");
-        updateCloudChrome();
-        return;
-      }
-
-      showToast("Connecting to cloud…");
-      const ok = await window.ArcadeCloud.init();
-      updateCloudChrome();
-      renderGlobalHall();
-
-      if (!ok || window.ArcadeCloud.getStatus() !== "online") {
-        const err = window.ArcadeCloud.getLastError?.() || "Could not connect";
-        showToast(`Share failed: ${err}`);
-        console.warn("[Arcade] share blocked", window.ArcadeCloud.getDiagnostics?.());
-        return;
-      }
-
+      await window.ArcadeCloud.init();
       const items = collectShareableBests();
       if (!items.length) {
-        showToast("No personal bests yet — play a game first, then share");
+        showToast("No personal bests yet — play first");
         return;
       }
 
-      let pushed = 0;
-      const failures = [];
-      for (const item of items) {
-        const result = await window.ArcadeCloud.submitCloudScore(
-          item.gameId,
-          item.best,
-          { shared: true },
-          { force: true, isHighScore: true }
-        );
-        if (result?.ok) pushed += 1;
-        else failures.push(`${item.label}: ${result?.message || result?.reason || "failed"}`);
+      const s = cloudState();
+      if (s.signedIn && s.hasUsername) {
+        showToast("Posting bests…");
+        pendingSave = { batch: true };
+        const result = await postAllBests();
+        pendingSave = null;
+        updateCloudChrome();
+        renderGlobalHall();
+        showToast(result.message || (result.ok ? "Posted" : "Nothing to post"));
+        return;
       }
 
-      updateCloudChrome();
-      renderGlobalHall();
-
-      if (pushed) {
-        showToast(
-          `Shared ${pushed} best${pushed === 1 ? "" : "s"} to cloud` +
-            (failures.length ? ` (${failures.length} failed)` : "")
-        );
-      } else {
-        const detail = failures[0] || "Unknown error";
-        showToast(`Share failed: ${detail}`);
-        console.warn("[Arcade] share failures", failures, window.ArcadeCloud.getDiagnostics?.());
+      // Need Google + maybe username — modal guides the rest
+      openCloudSaveModal({
+        gameId: items[0].gameId,
+        score: items[0].best,
+        isHighScore: true,
+        meta: { shared: true },
+      });
+      pendingSave = { batch: true };
+      const summary = $("#cloud-save-summary");
+      if (summary) {
+        summary.textContent = `Post ${items.length} personal best${items.length === 1 ? "" : "s"} to the global board`;
       }
-    } catch (err) {
-      console.error(err);
-      showToast(`Share failed: ${err.message || "unexpected error"}`);
+      const title = $("#cloud-save-title");
+      if (title) title.textContent = "Post your bests?";
     } finally {
       if (shareBtn) shareBtn.disabled = false;
       updateCloudChrome();
@@ -365,6 +566,18 @@
     renderGlobalHall();
     if (ok) showToast("Cloud connected");
     else showToast(window.ArcadeCloud?.getLastError?.() || "Still offline");
+  }
+
+  function offerCloudSaveAfterRun({ gameId, score, isHighScore, meta }) {
+    if (!window.ArcadeCloud?.isConfigured?.()) return;
+    // Always offer after a finished run with a real score (not forced signup)
+    const g = ArcadeScores.GAMES[gameId];
+    if (!g) return;
+    if (g.higherIsBetter && Number(score) <= 0 && gameId !== "tictactoe") return;
+    // Slight delay so XP toast is readable first
+    setTimeout(() => {
+      openCloudSaveModal({ gameId, score, isHighScore, meta });
+    }, 600);
   }
 
   // ----- Navigation -----
@@ -386,6 +599,11 @@
       playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
       gameMount.innerHTML = `<div class="game-loading" role="status" aria-live="polite"><span class="game-loading-spin" aria-hidden="true"></span><span>Loading cabinet…</span></div>`;
 
+      // Side leaderboard for this cabinet
+      window.ArcadeCloud?.setLeaderboardGame?.(id);
+      const playSub = $("#play-lb-sub");
+      if (playSub) playSub.textContent = ArcadeScores.GAMES[id]?.label || id;
+
       const game = await ensureGame(id);
       if (!game) {
         showToast("Game failed to load");
@@ -403,15 +621,18 @@
           refreshHud();
           let msg = `+${xpGained} XP`;
           if (isHighScore) msg = `🏆 New best! ${msg}`;
-          // If cloud is broken, mention once on high scores so silence isn't mysterious
-          if (isHighScore && window.ArcadeCloud?.getStatus?.() === "error") {
-            const err = window.ArcadeCloud.getLastError?.();
-            msg += err ? ` · cloud offline` : "";
-          }
           showToast(msg);
+          // Optional cloud save — never forced before/during play
+          offerCloudSaveAfterRun({
+            gameId: id,
+            score,
+            isHighScore,
+            meta: { result, ...meta },
+          });
         },
       });
       activeGameId = id;
+      renderPlayLeaderboard();
 
       // hash for deep links
       if (location.hash !== `#play/${id}`) {
@@ -439,7 +660,11 @@
     if (location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
     }
+    // Restore dashboard leaderboard filter to All
+    window.ArcadeCloud?.setLeaderboardGame?.("all");
     refreshHud();
+    updateCloudChrome();
+    renderGlobalHall();
     // Restore focus to the cabinet that opened the game
     if (lastCabinet?.isConnected) {
       lastCabinet.focus({ preventScroll: true });
@@ -539,6 +764,89 @@
       console.warn(err);
       showToast(`Retry failed: ${err.message || "error"}`);
     });
+  });
+
+  $("#btn-google-signin")?.addEventListener("click", async () => {
+    try {
+      await window.ArcadeCloud.init();
+      await window.ArcadeCloud.signInWithGoogle();
+      const s = cloudState();
+      if (!s.hasUsername) {
+        pendingSave = null;
+        openCloudSaveModal({
+          gameId: "snake",
+          score: 0,
+          isHighScore: false,
+          meta: { setupOnly: true },
+        });
+        $("#cloud-save-title").textContent = "Choose a username";
+        $("#cloud-save-summary").textContent = "This name appears on the global leaderboard.";
+        $("#cloud-save-step-main").hidden = true;
+        $("#cloud-save-step-username").hidden = false;
+        const input = $("#cloud-username-input");
+        if (input) {
+          input.value = window.ArcadeCloud.suggestUsername() || "";
+          input.focus();
+        }
+        // Prevent posting score 0 on username-only setup
+        pendingSave = { setupOnly: true };
+      } else {
+        showToast(`Signed in as ${s.displayName}`);
+      }
+      updateCloudChrome();
+      refreshHud();
+    } catch (err) {
+      showToast(err.message || "Sign-in failed");
+    }
+  });
+
+  $("#btn-google-signout")?.addEventListener("click", async () => {
+    try {
+      await window.ArcadeCloud.signOut();
+      showToast("Signed out");
+      updateCloudChrome();
+    } catch (err) {
+      showToast(err.message || "Sign out failed");
+    }
+  });
+
+  $$("#lb-filters [data-lb-game]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const game = chip.dataset.lbGame || "all";
+      window.ArcadeCloud?.setLeaderboardGame?.(game === "all" ? "all" : game);
+      updateCloudChrome();
+      renderGlobalHall();
+    });
+  });
+
+  $("#btn-cloud-save-go")?.addEventListener("click", () => {
+    handleCloudSaveGo().catch((err) => showToast(err.message || "Failed"));
+  });
+  $("#btn-cloud-save-skip")?.addEventListener("click", () => closeCloudSaveModal());
+  $("#btn-cloud-username-save")?.addEventListener("click", () => {
+    // Username-only setup (no score)
+    if (pendingSave?.setupOnly) {
+      const name = $("#cloud-username-input")?.value || "";
+      window.ArcadeCloud
+        .setUsername(name)
+        .then(() => {
+          showToast("Username saved");
+          closeCloudSaveModal();
+          updateCloudChrome();
+          refreshHud();
+        })
+        .catch((err) => setModalStatus(err.message || "Failed"));
+      return;
+    }
+    handleUsernameSave().catch((err) => setModalStatus(err.message || "Failed"));
+  });
+  $$("#cloud-save-modal [data-close-modal]").forEach((el) => {
+    el.addEventListener("click", () => closeCloudSaveModal());
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("#cloud-save-modal") && !$("#cloud-save-modal").hidden) {
+      closeCloudSaveModal();
+    }
   });
 
   // year + deploy version
@@ -673,7 +981,7 @@
   refreshHud();
   routeFromHash();
 
-  // Cloud init after SDKs + scripts (defer) have run
+  // Cloud init — read-only leaderboards without forcing Google sign-in
   function bootCloud() {
     if (!window.ArcadeCloud) {
       const statusEl = $("#cloud-status");
@@ -694,7 +1002,6 @@
           setTimeout(tryInit, 100);
           return;
         }
-        // SDK never arrived
         showToast("Firebase SDK failed to load");
         updateCloudChrome();
         return;
@@ -704,12 +1011,10 @@
         updateCloudChrome();
         renderGlobalHall();
         if (ok) {
-          // Quiet success — banner already says live
-          console.info("[Arcade] cloud online", window.ArcadeCloud.getDiagnostics?.());
+          console.info("[Arcade] cloud ready (Google only for writes)", window.ArcadeCloud.getDiagnostics?.());
         } else if (window.ArcadeCloud.isConfigured?.()) {
           const err = window.ArcadeCloud.getLastError?.() || "unknown";
-          showToast(`Cloud offline: ${err}`);
-          console.warn("[Arcade] cloud init failed", window.ArcadeCloud.getDiagnostics?.());
+          console.warn("[Arcade] cloud init failed", err, window.ArcadeCloud.getDiagnostics?.());
         }
       });
     };

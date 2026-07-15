@@ -10,8 +10,8 @@ Browser mini-games by **Alphaeus Ng** — local + optional global scoreboard, We
 Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match
 
 ### Scoreboard
-- **Local:** player tag, XP, personal bests, hall of fame — `localStorage` with export/import codes
-- **Cloud (optional):** Online Hall of Fame via Firebase Firestore + anonymous auth. High scores sync live across devices when configured.
+- **Local:** player tag, XP, personal bests — `localStorage` with export/import codes. No account needed to play.
+- **Cloud (optional):** Global leaderboards via Firebase. **Google sign-in only** to post. One best per user per game (anti-spam). Filter boards by cabinet on the lobby and in-game.
 
 ### Version stamp
 Footer shows `vYYYY.MM.DD.N · AlpArcade` from `js/version.js`.  
@@ -20,14 +20,14 @@ Footer shows `vYYYY.MM.DD.N · AlpArcade` from `js/version.js`.
 ### Enable global scoreboard (Firebase free tier)
 
 1. Create a Firebase project at https://console.firebase.google.com
-2. **Firestore** → create database (production mode recommended)
-3. Paste rules from `firestore.rules` into Firestore → Rules → Publish
-4. **Authentication** → Sign-in method → enable **Anonymous**
-5. Project settings → Your apps → Web app → copy config
-6. Edit `js/firebase-config.js`: set `enabled: true` and paste your config keys
-7. Commit & push — GitHub Pages updates automatically
+2. **Firestore** → create database · publish `firestore.rules`
+3. **Firestore indexes** — composite on `scores`: `game` ASC + `rankScore` DESC (see `firestore.indexes.json`, or click the console link on first filtered query)
+4. **Authentication** → Sign-in method → enable **Google**
+5. Authorized domains: `alphaeusng.github.io`, `localhost`
+6. Edit `js/firebase-config.js`: `enabled: true` + web config keys
+7. Commit & push
 
-Until `enabled` is true, everything stays fully offline/local.
+Players never must sign up to play. After a run they can **Save with Google**, pick a username once, and post.
 
 ### Stack
 Zero-build static site: plain HTML/CSS/JS. No framework, no bundler. Works on GitHub Pages.
