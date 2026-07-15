@@ -1304,6 +1304,21 @@ body.salmon-mode .fun-fact-text {
   font-size: 1.2rem;
 }
 
+.play-title-block {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.play-controls {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .game-mount {
   padding: 1.1rem;
   min-height: 420px;
@@ -1868,4 +1883,151 @@ body.salmon-mode {
   --cyan: #fda4af;
   --violet: #fb923c;
   --grad: linear-gradient(135deg, #fb7185 0%, #fb923c 50%, #fbbf24 100%);
+}
+
+/* Daily challenge */
+.daily-row {
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.daily-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.daily-badge {
+  font-size: 0.72rem;
+  color: var(--dim);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.daily-badge.is-done {
+  color: var(--teal);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+.daily-task {
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  color: var(--muted);
+}
+
+.daily-task strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+/* Achievements */
+.achievements {
+  padding: 1.1rem 1.15rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.achievements-count {
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+.achievements-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.ach-item {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0.42;
+  filter: grayscale(0.7);
+}
+
+.ach-item.is-unlocked {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.ach-icon {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.ach-body strong {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.ach-body small {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--dim);
+  line-height: 1.3;
+}
+
+/* Target Tap */
+.tapper-wrap {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.tap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin: 0.85rem auto;
+  max-width: 22rem;
+}
+
+.tap-cell {
+  aspect-ratio: 1;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: rgba(8, 14, 26, 0.75);
+  cursor: pointer;
+  transition: background 0.08s, box-shadow 0.08s, transform 0.08s;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+.tap-cell:hover {
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+.tap-cell.is-on {
+  background: radial-gradient(circle at 50% 40%, rgba(45, 212, 191, 0.55), rgba(20, 80, 90, 0.85));
+  border-color: var(--teal);
+  box-shadow: 0 0 24px rgba(45, 212, 191, 0.45), inset 0 0 20px rgba(45, 212, 191, 0.2);
+  transform: scale(1.03);
+}
+
+.tap-cell.is-hit {
+  background: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 0 16px rgba(45, 212, 191, 0.5);
+}
+
+.tap-cell.is-miss {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: rgba(248, 113, 113, 0.5);
 }

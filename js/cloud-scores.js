@@ -8,7 +8,7 @@
   const SCORES = "scores";
   const PLAYERS = "players";
   const GLOBAL_LIMIT = 25;
-  const GAME_IDS = ["tictactoe", "shooter", "snake", "reaction", "memory"];
+  const GAME_IDS = ["tictactoe", "shooter", "snake", "reaction", "memory", "tapper"];
 
   let db = null;
   let auth = null;

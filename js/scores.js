@@ -16,6 +16,7 @@
     snake: { label: "Snake", higherIsBetter: true, unit: "pts" },
     reaction: { label: "Reaction Lab", higherIsBetter: false, unit: "ms" },
     memory: { label: "Memory Match", higherIsBetter: true, unit: "pts" },
+    tapper: { label: "Target Tap", higherIsBetter: true, unit: "pts" },
   };
 
   function defaultState() {
@@ -29,6 +30,7 @@
         snake: { best: 0 },
         reaction: { best: null },
         memory: { best: 0 },
+        tapper: { best: 0 },
       },
       history: [],
       hallOfFame: [],

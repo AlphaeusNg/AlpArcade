@@ -9,7 +9,7 @@ service cloud.firestore {
     }
 
     function validGame(g) {
-      return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory'];
+      return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory', 'tapper'];
     }
 
     // scores/{uid}_{gameId} — one personal best per game

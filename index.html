@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlpArcade — mini games</title>
-  <meta name="description" content="AlpArcade: free browser mini-games — Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match. Built with Grok 4.5." />
+  <meta name="description" content="AlpArcade: free browser mini-games — Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match, Target Tap. Built with Grok 4.5." />
   <meta name="theme-color" content="#05080f" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -207,7 +207,27 @@
             </span>
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
+          <button type="button" class="cabinet" data-game="tapper" aria-label="Play Target Tap">
+            <span class="cab-icon" aria-hidden="true">🎯</span>
+            <span class="cab-body">
+              <strong>Target Tap</strong>
+              <small class="cab-desc">Hit the glow · combos</small>
+            </span>
+            <span class="cab-go" aria-hidden="true">→</span>
+          </button>
         </div>
+      </section>
+
+      <section class="daily-row glass" id="daily-card" aria-label="Daily challenge">
+        <!-- filled by app.js -->
+      </section>
+
+      <section class="achievements glass" id="achievements-panel" aria-labelledby="achievements-title">
+        <div class="scores-head">
+          <h2 class="section-title" id="achievements-title">Achievements</h2>
+          <span class="achievements-count mono" id="achievements-count">0 / 0</span>
+        </div>
+        <ul class="achievements-list" id="achievements-list"></ul>
       </section>
 
       <section class="scores glass" id="scores-panel">
@@ -235,6 +255,7 @@
           <button type="button" class="lb-chip" data-lb-game="snake" role="tab">Snake</button>
           <button type="button" class="lb-chip" data-lb-game="reaction" role="tab">Reaction</button>
           <button type="button" class="lb-chip" data-lb-game="memory" role="tab">Memory</button>
+          <button type="button" class="lb-chip" data-lb-game="tapper" role="tab">Target Tap</button>
         </div>
         <div class="scores-grid">
           <div>
@@ -262,7 +283,10 @@
     <div id="play-view" hidden>
       <div class="play-bar">
         <button type="button" class="btn ghost" id="btn-back">← Lobby</button>
-        <h2 id="play-title">Game</h2>
+        <div class="play-title-block">
+          <h2 id="play-title">Game</h2>
+          <p class="play-controls mono" id="play-controls">Have fun</p>
+        </div>
         <button type="button" class="mute-btn" id="btn-mute-play" title="Toggle sound">🔊</button>
       </div>
       <div class="play-layout">
@@ -326,6 +350,8 @@
   <script src="js/firebase-config.js" defer></script>
   <script src="js/audio.js" defer></script>
   <script src="js/scores.js" defer></script>
+  <script src="js/achievements.js" defer></script>
+  <script src="js/daily.js" defer></script>
   <script src="js/cloud-scores.js" defer></script>
   <script src="js/music.js" defer></script>
   <script src="js/app.js" defer></script>

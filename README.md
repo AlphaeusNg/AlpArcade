@@ -7,7 +7,11 @@ Browser mini-games by **Alphaeus Ng** — local + optional global scoreboard, We
 **Portfolio:** https://alphaeusng.github.io/
 
 ### Games
-Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match
+Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target Tap
+
+### Daily & achievements
+- **Daily challenge** — one seeded target per UTC day (local completion flag).
+- **Achievements** — unlocks stored in `localStorage` (no account required).
 
 ### Scoreboard
 - **Local:** player tag, XP, personal bests — `localStorage` with export/import codes. No account needed to play.

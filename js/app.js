@@ -20,6 +20,7 @@
     snake: () => window.GameSnake,
     reaction: () => window.GameReaction,
     memory: () => window.GameMemory,
+    tapper: () => window.GameTapper,
   };
 
   /** Lazy-loaded game bundles (only fetch the cabinet you open). */
@@ -29,6 +30,16 @@
     snake: "js/games/snake.js",
     reaction: "js/games/reaction.js",
     memory: "js/games/memory.js",
+    tapper: "js/games/tapper.js",
+  };
+
+  const GAME_CONTROLS = {
+    tictactoe: "Click a cell · change AI difficulty anytime",
+    shooter: "WASD / arrows move · Space fire · P pause",
+    snake: "WASD / arrows · swipe on mobile · P pause",
+    reaction: "Click / tap the pad · wait for green",
+    memory: "Tap cards to match pairs · hearts are lives",
+    tapper: "Tap glowing cells · keys 1–9 · three lives",
   };
 
   const scriptPromises = Object.create(null);
@@ -478,6 +489,8 @@
       if (result.ok) {
         setModalStatus(result.message || "Saved!");
         showToast(result.message || "Saved to global board");
+        const cloudAch = window.ArcadeAchievements?.unlock?.("cloud-post");
+        if (cloudAch) notifyAchievements([cloudAch]);
         setTimeout(() => closeCloudSaveModal(), 700);
       } else {
         setModalStatus(result.message || "Could not save");
@@ -570,14 +583,72 @@
 
   function offerCloudSaveAfterRun({ gameId, score, isHighScore, meta }) {
     if (!window.ArcadeCloud?.isConfigured?.()) return;
-    // Always offer after a finished run with a real score (not forced signup)
     const g = ArcadeScores.GAMES[gameId];
     if (!g) return;
     if (g.higherIsBetter && Number(score) <= 0 && gameId !== "tictactoe") return;
-    // Slight delay so XP toast is readable first
+    // Reduce modal spam: auto-prompt only on personal bests (or TTT wins).
+    // Players can always use "Post bests" from the lobby scoreboard.
+    const meaningful =
+      isHighScore ||
+      (gameId === "tictactoe" && meta?.result === "win");
+    if (!meaningful) return;
     setTimeout(() => {
+      // Don't stack over an already-open modal
+      if ($("#cloud-save-modal") && !$("#cloud-save-modal").hidden) return;
       openCloudSaveModal({ gameId, score, isHighScore, meta });
-    }, 600);
+    }, 700);
+  }
+
+  function notifyAchievements(list) {
+    if (!list?.length) return;
+    for (const a of list) {
+      showToast(`${a.icon || "🏅"} ${a.title}`);
+    }
+    paintAchievements();
+  }
+
+  function paintAchievements() {
+    const host = $("#achievements-list");
+    const countEl = $("#achievements-count");
+    if (!window.ArcadeAchievements) return;
+    const items = window.ArcadeAchievements.list();
+    const { have, total } = window.ArcadeAchievements.count();
+    if (countEl) countEl.textContent = `${have} / ${total}`;
+    if (!host) return;
+    host.innerHTML = items
+      .map(
+        (a) => `
+      <li class="ach-item${a.unlocked ? " is-unlocked" : ""}" title="${escapeHtml(a.blurb)}">
+        <span class="ach-icon" aria-hidden="true">${a.icon}</span>
+        <span class="ach-body">
+          <strong>${escapeHtml(a.title)}</strong>
+          <small>${escapeHtml(a.blurb)}</small>
+        </span>
+      </li>`
+      )
+      .join("");
+  }
+
+  function paintDaily() {
+    const el = $("#daily-card");
+    if (!el || !window.ArcadeDaily) return;
+    const ch = window.ArcadeDaily.challengeFor();
+    const done = window.ArcadeDaily.isComplete();
+    const target = window.ArcadeDaily.formatTarget(ch);
+    el.innerHTML = `
+      <div class="daily-head">
+        <p class="eyebrow">Daily challenge</p>
+        <span class="daily-badge mono${done ? " is-done" : ""}">${done ? "Done ✓" : ch.day}</span>
+      </div>
+      <p class="daily-task">
+        <strong>${escapeHtml(ch.label)}</strong>
+        <span>${escapeHtml(target)}</span>
+      </p>
+      <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(ch.game)}">
+        ${done ? "Play again" : "Play challenge"}
+      </button>
+    `;
+    $("#btn-daily-play")?.addEventListener("click", () => openGame(ch.game));
   }
 
   // ----- Navigation -----
@@ -622,7 +693,24 @@
           let msg = `+${xpGained} XP`;
           if (isHighScore) msg = `🏆 New best! ${msg}`;
           showToast(msg);
-          // Optional cloud save — never forced before/during play
+
+          const unlocked = window.ArcadeAchievements?.evaluateAfterRun?.(id, score, {
+            result,
+            ...meta,
+          });
+          if (unlocked?.length) {
+            setTimeout(() => notifyAchievements(unlocked), 900);
+          }
+
+          const daily = window.ArcadeDaily?.markAttempt?.(id, score, { result, ...meta });
+          if (daily?.completed && daily.firstTime) {
+            setTimeout(() => {
+              showToast("📅 Daily challenge complete!");
+              paintDaily();
+              paintAchievements();
+            }, 1200);
+          }
+
           offerCloudSaveAfterRun({
             gameId: id,
             score,
@@ -632,6 +720,8 @@
         },
       });
       activeGameId = id;
+      const ctrl = $("#play-controls");
+      if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Have fun";
       renderPlayLeaderboard();
 
       // hash for deep links
@@ -705,9 +795,15 @@
 
   $("#btn-back")?.addEventListener("click", backToLobby);
 
-  // Escape returns to lobby when a game is open (and not typing in an input).
+  // Escape: close modal first; otherwise return to lobby from a game.
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    const modal = $("#cloud-save-modal");
+    if (modal && !modal.hidden) {
+      e.preventDefault();
+      closeCloudSaveModal();
+      return;
+    }
     if (playView?.hidden) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -843,11 +939,6 @@
   $$("#cloud-save-modal [data-close-modal]").forEach((el) => {
     el.addEventListener("click", () => closeCloudSaveModal());
   });
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && $("#cloud-save-modal") && !$("#cloud-save-modal").hidden) {
-      closeCloudSaveModal();
-    }
-  });
 
   // year + deploy version
   const y = $("#year");
@@ -903,6 +994,8 @@
       document.body.classList.add("salmon-mode");
       showToast("🍣 SALMON MODE unlocked");
       window.ArcadeSFX?.levelUp?.();
+      const ach = window.ArcadeAchievements?.unlock?.("salmon");
+      if (ach) setTimeout(() => notifyAchievements([ach]), 500);
     }
   }
 
@@ -979,6 +1072,8 @@
 
   window.addEventListener("hashchange", routeFromHash);
   refreshHud();
+  paintAchievements();
+  paintDaily();
   routeFromHash();
 
   // Cloud init — read-only leaderboards without forcing Google sign-in
