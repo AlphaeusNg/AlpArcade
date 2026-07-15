@@ -87,24 +87,24 @@
       multiLevel; // stacks multi (1 = double, 2 = triple…)
 
     /**
-     * Difficulty soft-caps after DIFF_CAP so late waves stay tough but not unkillable
-     * (enemy HP / spawn rate / speed stop ramping). Score still uses real wave.
+     * Continuous difficulty ramp — no hard wave cap.
+     * Scales slower than the original so late game stays tough but killable
+     * (HP/speed/spawn used ~half the old rates; soft floors avoid extremes).
      */
     function waveMods(w) {
-      const DIFF_CAP = 10;
-      const d = Math.min(Math.max(1, w), DIFF_CAP);
+      const d = Math.max(1, w);
+      // Diminishing HP: ~1,2,2,3,3,3,4… instead of +1 every 2 waves forever
+      const enemyHp = 1 + Math.floor(Math.sqrt(Math.max(0, d - 1)) * 1.15);
       return {
-        // Cap: never denser than ~18 frames between spawns
-        spawnEvery: Math.max(18, 52 - d * 2.6),
-        enemySpeed: 1.15 + d * 0.2,
-        // Cap HP so blocks stay destroyable (max 3 for normal, 4 for shooters)
-        enemyHp: Math.min(3, 1 + Math.floor((d - 1) / 2)),
+        // Original was max(12, 52 - w*3.2) — slower density climb, softer floor
+        spawnEvery: Math.max(14, 52 - d * 1.85),
+        enemySpeed: 1.15 + d * 0.14,
+        enemyHp,
         zig: d >= 3,
         shooters: d >= 4,
-        shootRate: Math.max(50, 110 - d * 4.5),
+        shootRate: Math.max(38, 110 - d * 3.2),
         swarm: d >= 6,
-        dropChance: Math.min(0.4, 0.18 + d * 0.025),
-        // For bullet/enemy motion that used raw wave before
+        dropChance: Math.min(0.48, 0.18 + d * 0.02),
         pressure: d,
       };
     }
