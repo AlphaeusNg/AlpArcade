@@ -711,14 +711,17 @@ body.salmon-mode .fun-fact-text {
 }
 
 .intro-hero {
-  padding: 1.15rem 1.25rem 1.1rem;
+  margin: 0;
+  padding: 1.2rem 1.3rem 1.15rem;
+  height: 100%;
 }
 
 .intro-hero-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.85rem 1.25rem;
+  gap: 0.9rem 1.25rem;
+  height: 100%;
 }
 
 .aa-logo {
@@ -757,90 +760,98 @@ body.salmon-mode .fun-fact-text {
   font-weight: 600;
 }
 
-/* Tiny right-side lore — ~1/3 size, easy to ignore */
-.lore-aside {
-  flex: 0 0 auto;
-  width: min(11.5rem, 100%);
-  margin-left: auto;
-  opacity: 0.72;
-  transition: opacity 0.15s ease;
+/* Background music (Spotify) */
+.bg-music {
+  padding: 1rem 1.15rem 1.05rem;
+  margin: 0 0 1.15rem;
 }
 
-.lore-aside:hover,
-.lore-aside:focus-within {
-  opacity: 1;
-}
-
-.lore-mini {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.4rem 0.5rem 0.45rem;
-  border-radius: 8px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.22);
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.lore-mini:hover,
-.lore-mini:focus-visible {
-  border-color: rgba(45, 212, 191, 0.35);
-  background: rgba(45, 212, 191, 0.06);
-  outline: none;
-}
-
-.lore-mini-label {
+.bg-music-head {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 0.2rem;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
-.lore-mini-text {
+.bg-music-title {
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
+}
+
+.bg-music-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+
+.bg-music-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  align-items: stretch;
+}
+
+.bg-music-btn {
+  flex: 1 1 8rem;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.bg-music-btn:hover,
+.bg-music-btn:focus-visible {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.08);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.bg-music-btn.is-active {
+  border-color: rgba(45, 212, 191, 0.55);
+  background: rgba(45, 212, 191, 0.12);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.15);
+}
+
+.bg-music-btn strong {
   display: block;
-  font-size: 0.72rem !important;
-  font-weight: 500 !important;
-  line-height: 1.35 !important;
-  color: var(--muted) !important;
-  min-height: 0 !important;
-  /* ~2 lines max */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 0.92rem;
+}
+
+.bg-music-btn small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+.bg-music-player {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.3);
+  min-height: 5rem;
   overflow: hidden;
 }
 
-.lore-mini.flip {
-  animation: fun-fact-flip 0.28s ease;
+.bg-music-empty {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--dim);
 }
 
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-
-@media (max-width: 640px) {
-  .lore-aside {
-    width: 100%;
-    margin-left: 0;
-    order: 3;
-    max-width: 14rem;
-  }
+.bg-music-player iframe {
+  display: block;
+  width: 100%;
+  min-height: 152px;
+  border: 0;
 }
 
 .cloud-banner {

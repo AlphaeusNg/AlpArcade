@@ -231,9 +231,9 @@
     function spawnEnemy() {
       const m = waveMods(wave);
       const kind =
-        m.shooters && Math.random() < 0.35
+        m.shooters && Math.random() < m.shooterChance
           ? "shooter"
-          : m.swarm && Math.random() < 0.4
+          : m.swarm && Math.random() < 0.45
             ? "swarm"
             : "grunt";
       enemies.push({
@@ -241,9 +241,8 @@
         y: -20,
         w: kind === "swarm" ? 14 : 22 + Math.random() * 10,
         h: kind === "swarm" ? 14 : 18,
-        vy: m.enemySpeed * (kind === "swarm" ? 1.35 : 1) + Math.random() * 0.5,
-        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.8 + m.pressure * 0.07) : 0,
-        // Elites: +1 HP over pack, still on the same slow curve
+        vy: m.enemySpeed * (kind === "swarm" ? 1.4 : 1) + Math.random() * 0.55,
+        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.85 + m.pressure * 0.09) : 0,
         hp: kind === "shooter" ? m.enemyHp + 1 : m.enemyHp,
         kind,
         hue: kind === "shooter" ? 320 : kind === "swarm" ? 45 : 180 + Math.random() * 60,
@@ -456,7 +455,8 @@
       spawnTimer -= dt;
       if (spawnTimer <= 0) {
         spawnEnemy();
-        if (m.swarm && Math.random() < 0.4) spawnEnemy();
+        if (Math.random() < m.multiSpawn) spawnEnemy();
+        if (m.swarm && Math.random() < 0.35) spawnEnemy();
         spawnTimer = m.spawnEvery;
       }
 
@@ -528,7 +528,7 @@
           eBullets.push({
             x: e.x,
             y: e.y + e.h / 2,
-            vy: 3.2 + m.pressure * 0.09,
+            vy: 3.4 + m.pressure * 0.11,
             vx: (ship.x - e.x) * 0.012,
           });
           e.cool = m.shootRate;

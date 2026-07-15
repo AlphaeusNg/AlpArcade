@@ -100,7 +100,12 @@
       return "Enable Google sign-in in Firebase Authentication.";
     }
     if (/permission-denied|PERMISSION_DENIED|Missing or insufficient/i.test(code + msg)) {
-      return "Firestore permission denied — publish the latest firestore.rules (Google-only writes).";
+      return (
+        "Firestore permission-denied. Re-publish firestore.rules from the repo, " +
+        "confirm project alparcade-cb87c, and disable App Check enforcement if enabled. " +
+        "Code: " +
+        (code || "permission-denied")
+      );
     }
     if (/failed-precondition|requires an index/i.test(code + msg)) {
       return "Firestore index needed for per-game boards — open the console link to create it.";
@@ -111,7 +116,7 @@
     if (/api-key|invalid-api-key|API_KEY/i.test(code + msg)) {
       return "Invalid Firebase API key in firebase-config.js.";
     }
-    return msg.length > 140 ? msg.slice(0, 140) + "…" : msg;
+    return (code ? code + ": " : "") + (msg.length > 120 ? msg.slice(0, 120) + "…" : msg);
   }
 
   function rankScore(gameId, score) {
@@ -314,27 +319,39 @@
    * Prefill suggestion from local player tag or Google name.
    */
   async function setUsername(rawName) {
+    // Always prefer live auth user
+    user = auth?.currentUser || user;
     if (!user || !db) throw new Error("Sign in first");
     const username = sanitizeUsername(rawName);
-    if (username.length < 2) throw new Error("Username needs at least 2 characters");
+    if (username.length < 1) throw new Error("Username needs at least 1 character");
     if (username.length > 16) throw new Error("Username max 16 characters");
 
-    await db
-      .collection(PLAYERS)
-      .doc(user.uid)
-      .set(
+    try {
+      await user.getIdToken(true);
+    } catch {
+      /* continue with existing session */
+    }
+
+    try {
+      await db.collection(PLAYERS).doc(user.uid).set(
         {
           username,
-          email: user.email || null,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          email: user.email || "",
+          updatedAt: Date.now(),
         },
         { merge: true }
       );
+    } catch (err) {
+      console.error("[ArcadeCloud] setUsername failed", err, {
+        uid: user.uid,
+        email: user.email,
+        providers: user.providerData?.map((p) => p.providerId),
+      });
+      throw new Error(friendlyError(err));
+    }
 
     profile = { username, email: user.email || null };
 
-    // Keep local arcade tag in sync for friendliness
     try {
       global.ArcadeScores?.setPlayerName?.(username);
     } catch {
@@ -368,7 +385,9 @@
       if (!ok || !db) return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
     }
 
-    if (!user) {
+    // Refresh from live auth — stale `user` causes permission-denied
+    user = auth?.currentUser || user;
+    if (!user?.uid) {
       return { ok: false, reason: "auth-required", message: "Sign in with Google to save" };
     }
 
@@ -377,6 +396,14 @@
       return { ok: false, reason: "auth-required", message: "Use Google sign-in to save scores" };
     }
 
+    // Reload profile if missing
+    if (!profile?.username) {
+      try {
+        profile = await loadProfile(user.uid);
+      } catch {
+        /* ignore */
+      }
+    }
     if (!profile?.username) {
       return { ok: false, reason: "username-required", message: "Pick a username first" };
     }
@@ -386,12 +413,16 @@
       return { ok: false, reason: "bad-score", message: "Invalid score" };
     }
 
-    const ref = db.collection(SCORES).doc(scoreDocId(user.uid, gameId));
+    const docId = scoreDocId(user.uid, gameId);
+    const ref = db.collection(SCORES).doc(docId);
+
     try {
+      await user.getIdToken(true);
+
       const existing = await ref.get();
       if (existing.exists) {
         const old = existing.data() || {};
-        if (!opts.force && !isBetter(gameId, num, old.score)) {
+        if (!isBetter(gameId, num, old.score) && !opts.force) {
           return {
             ok: true,
             reason: "not-better",
@@ -399,7 +430,6 @@
             improved: false,
           };
         }
-        // When force-sharing local bests, keep the better of the two
         if (opts.force && !isBetter(gameId, num, old.score)) {
           return {
             ok: true,
@@ -411,34 +441,33 @@
       }
 
       const now = Date.now();
-      // Keep payload fields simple for security rules (avoid fragile key-list checks).
+      // Flat payload only — fields the rules validate
       const payload = {
-        game: gameId,
-        playerName: String(profile.username).slice(0, 16),
+        game: String(gameId),
+        playerName: String(profile.username).trim().slice(0, 16),
         score: num,
-        rankScore: rankScore(gameId, num),
-        userId: user.uid,
+        rankScore: Number(rankScore(gameId, num)),
+        userId: String(user.uid),
         clientAt: now,
-        // number timestamp always present for rules; server time is bonus
         timestamp: now,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        meta: sanitizeMeta(meta),
       };
 
-      // Full set (not merge) so create/update always sends a complete valid document
+      console.info("[ArcadeCloud] writing score", {
+        docId,
+        projectId: cfg().projectId,
+        payload,
+        authUid: user.uid,
+        providers: user.providerData?.map((p) => p.providerId),
+      });
+
       await ref.set(payload);
       if (status !== "online") setStatus("online");
       return { ok: true, message: "Saved to cloud", improved: true };
     } catch (err) {
-      console.warn("[ArcadeCloud] write failed", err);
-      let message = friendlyError(err);
-      // Surface the exact permission hint with publish steps
-      if (/permission/i.test(message)) {
-        message =
-          "Firestore blocked the write. In Firebase Console → Firestore → Rules, paste & Publish firestore.rules from this repo (Google-only). Then retry.";
-      }
+      console.error("[ArcadeCloud] write failed", err, getDiagnostics());
+      const message = friendlyError(err);
       setStatus("error", message);
-      return { ok: false, reason: "write-error", message, err };
+      return { ok: false, reason: "write-error", message, err, code: err?.code || null };
     }
   }
 
@@ -476,19 +505,40 @@
 
   function getDiagnostics() {
     const c = cfg();
+    const u = auth?.currentUser || user;
     return {
       configured: isConfigured(),
       enabled: !!c.enabled,
       projectId: c.projectId || null,
+      authDomain: c.authDomain || null,
       sdkLoaded: typeof firebase !== "undefined",
       status,
       ready,
       lastError,
-      uid: user?.uid || null,
+      uid: u?.uid || null,
+      email: u?.email || null,
+      providers: u?.providerData?.map((p) => p.providerId) || [],
       username: profile?.username || null,
       leaderboardGame,
       hallCount: leaderboard.length,
+      expectedDocExample: u?.uid ? scoreDocId(u.uid, "snake") : null,
     };
+  }
+
+  /** Dev helper: window.ArcadeCloud.probeWrite() from the console */
+  async function probeWrite() {
+    user = auth?.currentUser || user;
+    const diag = getDiagnostics();
+    console.log("[ArcadeCloud] probe diagnostics", diag);
+    if (!user) return { ok: false, message: "Not signed in", diag };
+    if (!profile?.username) {
+      try {
+        await setUsername(suggestUsername());
+      } catch (e) {
+        return { ok: false, message: "Username write failed: " + e.message, diag: getDiagnostics() };
+      }
+    }
+    return submitCloudScore("snake", 1, { probe: true }, { force: true, isHighScore: true });
   }
 
   // Back-compat alias
@@ -525,6 +575,7 @@
     getLastError,
     getDiagnostics,
     getState,
+    probeWrite,
     onChange,
     GAME_IDS,
   };
