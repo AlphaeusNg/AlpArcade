@@ -86,16 +86,26 @@
       toastTimer,
       multiLevel; // stacks multi (1 = double, 2 = triple…)
 
+    /**
+     * Difficulty soft-caps after DIFF_CAP so late waves stay tough but not unkillable
+     * (enemy HP / spawn rate / speed stop ramping). Score still uses real wave.
+     */
     function waveMods(w) {
+      const DIFF_CAP = 10;
+      const d = Math.min(Math.max(1, w), DIFF_CAP);
       return {
-        spawnEvery: Math.max(12, 52 - w * 3.2),
-        enemySpeed: 1.15 + w * 0.28,
-        enemyHp: 1 + Math.floor((w - 1) / 2),
-        zig: w >= 3,
-        shooters: w >= 4,
-        shootRate: Math.max(40, 110 - w * 6),
-        swarm: w >= 6,
-        dropChance: Math.min(0.42, 0.18 + w * 0.025),
+        // Cap: never denser than ~18 frames between spawns
+        spawnEvery: Math.max(18, 52 - d * 2.6),
+        enemySpeed: 1.15 + d * 0.2,
+        // Cap HP so blocks stay destroyable (max 3 for normal, 4 for shooters)
+        enemyHp: Math.min(3, 1 + Math.floor((d - 1) / 2)),
+        zig: d >= 3,
+        shooters: d >= 4,
+        shootRate: Math.max(50, 110 - d * 4.5),
+        swarm: d >= 6,
+        dropChance: Math.min(0.4, 0.18 + d * 0.025),
+        // For bullet/enemy motion that used raw wave before
+        pressure: d,
       };
     }
 
@@ -230,8 +240,9 @@
         w: kind === "swarm" ? 14 : 22 + Math.random() * 10,
         h: kind === "swarm" ? 14 : 18,
         vy: m.enemySpeed * (kind === "swarm" ? 1.35 : 1) + Math.random() * 0.5,
-        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.8 + wave * 0.1) : 0,
-        hp: kind === "shooter" ? m.enemyHp + 1 : m.enemyHp,
+        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.8 + m.pressure * 0.1) : 0,
+        // Shooter elites: at most 4 HP so they never become brick walls
+        hp: kind === "shooter" ? Math.min(4, m.enemyHp + 1) : m.enemyHp,
         kind,
         hue: kind === "shooter" ? 320 : kind === "swarm" ? 45 : 180 + Math.random() * 60,
         cool: 20 + Math.random() * 40,
@@ -421,8 +432,8 @@
       }
       if (powersDirty || (Math.floor(ts / 250) % 2 === 0)) paintPowers();
 
-      // 4-direction movement
-      const baseSpeed = 5.2 + wave * 0.08 + (has("speed") ? 2.4 : 0);
+      // 4-direction movement (speed pressure soft-capped with waveMods)
+      const baseSpeed = 5.2 + m.pressure * 0.08 + (has("speed") ? 2.4 : 0);
       if (moving("left")) ship.x -= baseSpeed * dt;
       if (moving("right")) ship.x += baseSpeed * dt;
       if (moving("up")) ship.y -= baseSpeed * dt;
@@ -433,8 +444,8 @@
       // Auto-fire (faster with rapid)
       if (ship.cool > 0) ship.cool -= dt;
       const fireRate = has("rapid")
-        ? Math.max(3.2, 5.5 - wave * 0.12)
-        : Math.max(5.5, 10 - wave * 0.2);
+        ? Math.max(3.5, 5.5 - m.pressure * 0.1)
+        : Math.max(6, 10 - m.pressure * 0.18);
       if (ship.cool <= 0 && invuln < 35) {
         fireBullets();
         ship.cool = fireRate;
@@ -515,7 +526,7 @@
           eBullets.push({
             x: e.x,
             y: e.y + e.h / 2,
-            vy: 3.2 + wave * 0.15,
+            vy: 3.2 + m.pressure * 0.12,
             vx: (ship.x - e.x) * 0.012,
           });
           e.cool = m.shootRate;

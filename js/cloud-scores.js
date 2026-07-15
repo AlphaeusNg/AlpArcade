@@ -411,24 +411,32 @@
       }
 
       const now = Date.now();
+      // Keep payload fields simple for security rules (avoid fragile key-list checks).
       const payload = {
         game: gameId,
-        playerName: profile.username,
+        playerName: String(profile.username).slice(0, 16),
         score: num,
         rankScore: rankScore(gameId, num),
         userId: user.uid,
-        meta: sanitizeMeta(meta),
         clientAt: now,
+        // number timestamp always present for rules; server time is bonus
+        timestamp: now,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        meta: sanitizeMeta(meta),
       };
 
-      await ref.set(payload, { merge: true });
+      // Full set (not merge) so create/update always sends a complete valid document
+      await ref.set(payload);
       if (status !== "online") setStatus("online");
       return { ok: true, message: "Saved to cloud", improved: true };
     } catch (err) {
       console.warn("[ArcadeCloud] write failed", err);
-      const message = friendlyError(err);
+      let message = friendlyError(err);
+      // Surface the exact permission hint with publish steps
+      if (/permission/i.test(message)) {
+        message =
+          "Firestore blocked the write. In Firebase Console → Firestore → Rules, paste & Publish firestore.rules from this repo (Google-only). Then retry.";
+      }
       setStatus("error", message);
       return { ok: false, reason: "write-error", message, err };
     }

@@ -2,21 +2,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Google sign-in (popup / redirect). Accept provider string or identities map.
     function isGoogleUser() {
       return request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'google.com'
-        && request.auth.token.email != null;
+        && request.auth.uid is string
+        && request.auth.token.email is string
+        && request.auth.token.email.size() > 3
+        && (
+          request.auth.token.firebase.sign_in_provider == 'google.com'
+          || request.auth.token.firebase.identities.keys().hasAny(['google.com'])
+        );
     }
 
     function validGame(g) {
       return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory'];
     }
 
-    function validScoreData() {
-      return request.resource.data.keys().hasAll([
-          'game', 'playerName', 'score', 'rankScore', 'userId', 'timestamp'
-        ])
-        && request.resource.data.game is string
+    // One best per user per game: scores/{uid}_{gameId}
+    function ownsScoreDoc() {
+      return request.resource.data.userId == request.auth.uid
+        && scoreId == request.auth.uid + '_' + request.resource.data.game;
+    }
+
+    function validScoreFields() {
+      return request.resource.data.game is string
         && validGame(request.resource.data.game)
         && request.resource.data.playerName is string
         && request.resource.data.playerName.size() >= 2
@@ -25,25 +34,24 @@ service cloud.firestore {
         && request.resource.data.score >= 0
         && request.resource.data.score <= 10000000
         && request.resource.data.rankScore is number
-        && request.resource.data.userId == request.auth.uid
-        // One document per user per game: scores/{uid}_{game}
-        && scoreId == request.auth.uid + '_' + request.resource.data.game;
+        && request.resource.data.userId is string;
     }
 
-    // Public leaderboard reads
     match /scores/{scoreId} {
       allow read: if true;
 
-      allow create: if isGoogleUser() && validScoreData();
+      allow create: if isGoogleUser()
+        && validScoreFields()
+        && ownsScoreDoc();
 
       allow update: if isGoogleUser()
-        && resource.data.userId == request.auth.uid
-        && validScoreData();
+        && validScoreFields()
+        && ownsScoreDoc()
+        && resource.data.userId == request.auth.uid;
 
       allow delete: if false;
     }
 
-    // Username / profile — owner write only
     match /players/{uid} {
       allow read: if true;
 
