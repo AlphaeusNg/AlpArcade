@@ -891,11 +891,10 @@
     }
     factText.textContent = FUN_FACTS[factIndex];
     if (factCounter) {
-      factCounter.textContent = `${factIndex + 1}/${FUN_FACTS.length}`;
+      factCounter.textContent = `${factIndex + 1} / ${FUN_FACTS.length}`;
     }
-    // Hint element is visually hidden; keep for salmon unlock messaging only if present
-    if (factHint && !factHint.hidden) {
-      factHint.textContent = `${seenFacts.size}/${FUN_FACTS.length}`;
+    if (factHint) {
+      factHint.textContent = `Collected ${seenFacts.size} / ${FUN_FACTS.length} lore cards`;
     }
   }
 
