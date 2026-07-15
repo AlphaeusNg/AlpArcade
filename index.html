@@ -39,6 +39,8 @@
     <nav class="top-nav" aria-label="Primary">
       <a href="#scores-panel">Scores</a>
       <a href="#bg-music">Music</a>
+      <a href="#achievements-panel">Badges</a>
+      <button type="button" class="nav-text-btn" id="btn-help">Help</button>
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
       <a href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener" title="Scripture memory games">VerseKeep ↗</a>
       <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source ↗</a>
@@ -345,6 +347,24 @@
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <div id="help-modal" class="cloud-modal" hidden>
+    <div class="cloud-modal-backdrop" data-close-help></div>
+    <div class="cloud-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <h2 id="help-title">Controls cheat sheet</h2>
+      <ul class="help-list mono">
+        <li><strong>Lobby</strong> — click a cabinet · Esc closes modals</li>
+        <li><strong>Any game</strong> — Esc returns to lobby</li>
+        <li><strong>Snake</strong> — WASD / arrows / swipe / D-pad · P pause</li>
+        <li><strong>Shooter</strong> — WASD / drag ship · auto-fire · P pause</li>
+        <li><strong>Reaction</strong> — wait for green · early tap = foul</li>
+        <li><strong>Target Tap</strong> — tap glow · keys 1–9</li>
+        <li><strong>Memory</strong> — free peeks on new cards · hearts for known misses</li>
+        <li><strong>Tic-Tac-Toe</strong> — click cells · pick AI difficulty</li>
+      </ul>
+      <button type="button" class="btn primary" data-close-help>Got it</button>
+    </div>
+  </div>
 
   <!-- Firebase (compat CDN for GitHub Pages). Config can leave cloud disabled. -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>

@@ -881,9 +881,26 @@
     shareLastRun().catch(() => showToast("Share failed"));
   });
 
-  // Escape: close modal first; otherwise return to lobby from a game.
+  function openHelp() {
+    const m = $("#help-modal");
+    if (m) m.hidden = false;
+  }
+  function closeHelp() {
+    const m = $("#help-modal");
+    if (m) m.hidden = true;
+  }
+  $("#btn-help")?.addEventListener("click", openHelp);
+  $$("[data-close-help]").forEach((el) => el.addEventListener("click", closeHelp));
+
+  // Escape: close modals first; otherwise return to lobby from a game.
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    const help = $("#help-modal");
+    if (help && !help.hidden) {
+      e.preventDefault();
+      closeHelp();
+      return;
+    }
     const modal = $("#cloud-save-modal");
     if (modal && !modal.hidden) {
       e.preventDefault();
@@ -895,6 +912,14 @@
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     e.preventDefault();
     backToLobby();
+  });
+
+  // ? opens help when not typing
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "?" && !(e.shiftKey && e.key === "/")) return;
+    if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+    e.preventDefault();
+    openHelp();
   });
 
   $("#name-form")?.addEventListener("submit", (e) => {
