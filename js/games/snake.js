@@ -20,7 +20,13 @@
           <p class="snake-progress-sub" id="snake-progress-sub">Eat 3 green food to advance</p>
         </div>
         <canvas id="snake-canvas" width="360" height="360" aria-label="Snake game"></canvas>
-        <p class="game-hint" id="snake-hint">Arrows / WASD · swipe · P pause</p>
+        <p class="game-hint" id="snake-hint">Arrows / WASD · swipe · on-screen pad · P pause</p>
+        <div class="dpad" id="snake-dpad" aria-label="Direction pad">
+          <button type="button" class="dpad-btn dpad-up" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
+          <button type="button" class="dpad-btn dpad-left" data-dx="-1" data-dy="0" aria-label="Left">◀</button>
+          <button type="button" class="dpad-btn dpad-down" data-dx="0" data-dy="1" aria-label="Down">▼</button>
+          <button type="button" class="dpad-btn dpad-right" data-dx="1" data-dy="0" aria-label="Right">▶</button>
+        </div>
         <div class="game-actions">
           <button type="button" class="btn primary" id="snake-start">Start / Restart</button>
         </div>
@@ -542,6 +548,13 @@
     canvas.addEventListener("touchstart", onTouchStart, { passive: true });
     canvas.addEventListener("touchend", onTouchEnd, { passive: true });
     root.querySelector("#snake-start").addEventListener("click", start);
+
+    root.querySelector("#snake-dpad")?.addEventListener("pointerdown", (e) => {
+      const btn = e.target.closest("[data-dx]");
+      if (!btn) return;
+      e.preventDefault();
+      setDir(Number(btn.dataset.dx), Number(btn.dataset.dy));
+    });
 
     let pausedByVisibility = false;
     function onVisibility() {

@@ -2046,3 +2046,42 @@ body.salmon-mode {
   color: var(--teal);
   opacity: 0.9;
 }
+
+/* On-screen D-pad (Snake) */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 3rem);
+  grid-template-rows: repeat(3, 3rem);
+  gap: 0.3rem;
+  justify-content: center;
+  margin: 0.75rem auto 0.25rem;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.dpad-btn {
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: rgba(8, 14, 26, 0.85);
+  color: var(--teal);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+.dpad-btn:active {
+  background: rgba(45, 212, 191, 0.2);
+}
+
+.dpad-up { grid-column: 2; grid-row: 1; }
+.dpad-left { grid-column: 1; grid-row: 2; }
+.dpad-down { grid-column: 2; grid-row: 3; }
+.dpad-right { grid-column: 3; grid-row: 2; }
+
+@media (min-width: 900px) {
+  .dpad {
+    /* Still useful on laptop trackpads; keep compact */
+    opacity: 0.85;
+  }
+}
