@@ -87,25 +87,27 @@
       multiLevel; // stacks multi (1 = double, 2 = triple…)
 
     /**
-     * Continuous difficulty ramp — no hard wave cap.
-     * Scales slower than the original so late game stays tough but killable
-     * (HP/speed/spawn used ~half the old rates; soft floors avoid extremes).
+     * Continuous difficulty — no hard wave cap.
+     * Mid ground: harder than the soft pass (runs were endless), gentler than the old brick-wall ramp.
      */
     function waveMods(w) {
       const d = Math.max(1, w);
-      // Diminishing HP: ~1,2,2,3,3,3,4… instead of +1 every 2 waves forever
-      const enemyHp = 1 + Math.floor(Math.sqrt(Math.max(0, d - 1)) * 1.15);
+      // HP: wave 1→1, ~3→2, ~5→3, ~8→4, ~12→5… (between /2 and sqrt curves)
+      const enemyHp = 1 + Math.floor(Math.sqrt(Math.max(0, d - 1)) * 1.55);
       return {
-        // Original was max(12, 52 - w*3.2) — slower density climb, softer floor
-        spawnEvery: Math.max(14, 52 - d * 1.85),
-        enemySpeed: 1.15 + d * 0.14,
+        spawnEvery: Math.max(12, 50 - d * 2.35),
+        enemySpeed: 1.2 + d * 0.19,
         enemyHp,
         zig: d >= 3,
-        shooters: d >= 4,
-        shootRate: Math.max(38, 110 - d * 3.2),
-        swarm: d >= 6,
-        dropChance: Math.min(0.48, 0.18 + d * 0.02),
+        shooters: d >= 3,
+        shootRate: Math.max(34, 105 - d * 4.0),
+        swarm: d >= 5,
+        // Slightly fewer free powerups so skill matters more
+        dropChance: Math.min(0.38, 0.14 + d * 0.018),
         pressure: d,
+        // Extra pack chance scales gently with wave
+        multiSpawn: Math.min(0.55, 0.22 + d * 0.025),
+        shooterChance: Math.min(0.48, 0.28 + d * 0.02),
       };
     }
 
@@ -240,9 +242,9 @@
         w: kind === "swarm" ? 14 : 22 + Math.random() * 10,
         h: kind === "swarm" ? 14 : 18,
         vy: m.enemySpeed * (kind === "swarm" ? 1.35 : 1) + Math.random() * 0.5,
-        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.8 + m.pressure * 0.1) : 0,
-        // Shooter elites: at most 4 HP so they never become brick walls
-        hp: kind === "shooter" ? Math.min(4, m.enemyHp + 1) : m.enemyHp,
+        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.8 + m.pressure * 0.07) : 0,
+        // Elites: +1 HP over pack, still on the same slow curve
+        hp: kind === "shooter" ? m.enemyHp + 1 : m.enemyHp,
         kind,
         hue: kind === "shooter" ? 320 : kind === "swarm" ? 45 : 180 + Math.random() * 60,
         cool: 20 + Math.random() * 40,
@@ -432,8 +434,8 @@
       }
       if (powersDirty || (Math.floor(ts / 250) % 2 === 0)) paintPowers();
 
-      // 4-direction movement (speed pressure soft-capped with waveMods)
-      const baseSpeed = 5.2 + m.pressure * 0.08 + (has("speed") ? 2.4 : 0);
+      // 4-direction movement — mild wave bonus so ship keeps up without snowballing
+      const baseSpeed = 5.2 + m.pressure * 0.055 + (has("speed") ? 2.4 : 0);
       if (moving("left")) ship.x -= baseSpeed * dt;
       if (moving("right")) ship.x += baseSpeed * dt;
       if (moving("up")) ship.y -= baseSpeed * dt;
@@ -444,8 +446,8 @@
       // Auto-fire (faster with rapid)
       if (ship.cool > 0) ship.cool -= dt;
       const fireRate = has("rapid")
-        ? Math.max(3.5, 5.5 - m.pressure * 0.1)
-        : Math.max(6, 10 - m.pressure * 0.18);
+        ? Math.max(3.2, 5.5 - m.pressure * 0.08)
+        : Math.max(5.5, 10 - m.pressure * 0.14);
       if (ship.cool <= 0 && invuln < 35) {
         fireBullets();
         ship.cool = fireRate;
@@ -526,7 +528,7 @@
           eBullets.push({
             x: e.x,
             y: e.y + e.h / 2,
-            vy: 3.2 + m.pressure * 0.12,
+            vy: 3.2 + m.pressure * 0.09,
             vx: (ship.x - e.x) * 0.012,
           });
           e.cool = m.shootRate;
