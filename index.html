@@ -63,24 +63,22 @@
               Built with the almighty <strong>Grok&nbsp;4.5</strong>.
             </p>
           </div>
-        </div>
 
-        <!-- Compact player lore nested in intro -->
-        <div class="lore-box" id="fun-facts" aria-labelledby="fun-facts-title">
-          <div class="lore-box-head">
-            <span class="eyebrow" id="fun-facts-title">Player lore</span>
-            <span class="fun-facts-counter mono" id="fun-facts-counter" aria-live="polite">1 / 8</span>
-          </div>
-          <button type="button" class="fun-fact-card lore-card" id="fun-fact-card" aria-label="Next fun fact">
-            <span class="fun-fact-label mono">Tap →</span>
-            <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
-          </button>
-          <div class="fun-fact-actions lore-actions">
-            <button type="button" class="btn small ghost" id="fun-fact-prev">←</button>
-            <button type="button" class="btn small primary" id="fun-fact-next">Next</button>
-            <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
-          </div>
-          <p class="fun-facts-hint mono" id="fun-facts-hint">Spam facts for a secret…</p>
+          <!-- Tiny optional aside — only if you're curious -->
+          <aside class="lore-aside" id="fun-facts" aria-label="Optional player lore">
+            <button type="button" class="lore-mini" id="fun-fact-card" title="Curious? Tap for a random fact" aria-label="Next fun fact about the maker">
+              <span class="lore-mini-label mono">
+                <span id="fun-facts-title">about</span>
+                <span id="fun-facts-counter" aria-live="polite">1/11</span>
+              </span>
+              <span class="fun-fact-text lore-mini-text" id="fun-fact-text">⚡ salmon…</span>
+            </button>
+            <span class="lore-mini-hint mono" id="fun-facts-hint" hidden>…</span>
+            <!-- keep ids for app.js; controls are optional/hidden -->
+            <button type="button" id="fun-fact-prev" class="visually-hidden" tabindex="-1" aria-hidden="true">prev</button>
+            <button type="button" id="fun-fact-next" class="visually-hidden" tabindex="-1" aria-hidden="true">next</button>
+            <button type="button" id="fun-fact-shuffle" class="visually-hidden" tabindex="-1" aria-hidden="true">shuffle</button>
+          </aside>
         </div>
       </section>
 
