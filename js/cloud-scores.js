@@ -1,7 +1,7 @@
 /**
  * Cloud scoreboard — Firestore + anonymous auth.
  * Mirrors local high-score moments to a global Hall of Fame.
- * Degrades gracefully when Firebase is disabled or offline.
+ * Surfaces clear errors when offline / misconfigured / denied.
  */
 (function (global) {
   "use strict";
@@ -14,8 +14,10 @@
   let auth = null;
   let ready = false;
   let status = "off"; // off | connecting | online | error
+  let lastError = "";
   let unsub = null;
   let lastSubmitAt = 0;
+  let initPromise = null;
   /** @type {Array<object>} */
   let globalHall = [];
   /** @type {Set<Function>} */
@@ -25,25 +27,81 @@
     return global.ARCADE_FIREBASE_CONFIG || {};
   }
 
+  /** Strip non-Firebase keys (enabled, etc.) before initializeApp. */
+  function firebaseOptions() {
+    const c = cfg();
+    return {
+      apiKey: c.apiKey,
+      authDomain: c.authDomain,
+      projectId: c.projectId,
+      storageBucket: c.storageBucket,
+      messagingSenderId: c.messagingSenderId,
+      appId: c.appId,
+    };
+  }
+
   function isConfigured() {
     const c = cfg();
-    return !!(c.enabled && c.apiKey && c.apiKey !== "YOUR_API_KEY" && c.projectId && c.projectId !== "YOUR_PROJECT_ID");
+    return !!(
+      c.enabled &&
+      c.apiKey &&
+      c.apiKey !== "YOUR_API_KEY" &&
+      c.projectId &&
+      c.projectId !== "YOUR_PROJECT_ID"
+    );
   }
 
   function notify() {
     listeners.forEach((fn) => {
       try {
-        fn({ status, globalHall, online: status === "online" });
+        fn(getState());
       } catch (err) {
         console.warn("[ArcadeCloud] listener error", err);
       }
     });
   }
 
-  function setStatus(next) {
-    if (status === next) return;
+  function setStatus(next, errMsg) {
+    if (typeof errMsg === "string") lastError = errMsg;
+    if (next === "online") lastError = "";
+    if (status === next && !errMsg) {
+      notify();
+      return;
+    }
     status = next;
     notify();
+  }
+
+  function getState() {
+    return {
+      status,
+      globalHall,
+      online: status === "online",
+      lastError,
+      configured: isConfigured(),
+      ready,
+    };
+  }
+
+  function friendlyError(err) {
+    const code = err?.code || err?.name || "";
+    const msg = err?.message || String(err || "unknown error");
+    if (/auth\/operation-not-allowed|ADMIN_ONLY_OPERATION/i.test(code + msg)) {
+      return "Anonymous sign-in is disabled in Firebase Authentication.";
+    }
+    if (/permission-denied|PERMISSION_DENIED|Missing or insufficient/i.test(code + msg)) {
+      return "Firestore permission denied — publish firestore.rules for collection scores.";
+    }
+    if (/failed-precondition|requires an index/i.test(code + msg)) {
+      return "Firestore needs an index (open the error link in the browser console).";
+    }
+    if (/offline|network|Failed to fetch|unavailable/i.test(code + msg)) {
+      return "Network error reaching Firebase.";
+    }
+    if (/api-key|invalid-api-key|API_KEY/i.test(code + msg)) {
+      return "Invalid Firebase API key in firebase-config.js.";
+    }
+    return msg.length > 140 ? msg.slice(0, 140) + "…" : msg;
   }
 
   function rankScore(gameId, score) {
@@ -52,44 +110,57 @@
     return Number(score);
   }
 
-  function playerLabel() {
+  async function ensureAuthUser() {
+    if (!auth) throw new Error("Auth not initialized");
+    if (auth.currentUser) return auth.currentUser;
+    const cred = await auth.signInAnonymously();
+    return cred.user;
+  }
+
+  function playerLabel(user) {
     const name = global.ArcadeScores?.getState?.()?.playerName || "Player";
-    const uid = auth?.currentUser?.uid;
-    if (uid) return { playerName: name, userId: uid };
-    return { playerName: name, userId: null };
+    const uid = user?.uid || auth?.currentUser?.uid || null;
+    return { playerName: name, userId: uid };
   }
 
   async function init() {
     if (!isConfigured()) {
-      setStatus("off");
+      setStatus("off", "Cloud disabled — set enabled:true in js/firebase-config.js");
       return false;
     }
-    if (typeof firebase === "undefined") {
-      console.warn("[ArcadeCloud] Firebase SDK not loaded");
-      setStatus("error");
-      return false;
-    }
-    if (ready) return true;
+    if (ready && status === "online") return true;
+    if (initPromise) return initPromise;
 
-    setStatus("connecting");
-    try {
-      if (!firebase.apps.length) {
-        firebase.initializeApp(cfg());
+    initPromise = (async () => {
+      if (typeof firebase === "undefined") {
+        setStatus("error", "Firebase SDK not loaded (check network / CDN).");
+        return false;
       }
-      db = firebase.firestore();
-      auth = firebase.auth();
 
-      await auth.signInAnonymously();
-      ready = true;
-      setStatus("online");
-      subscribeGlobal();
-      return true;
-    } catch (err) {
-      console.warn("[ArcadeCloud] init failed", err);
-      ready = false;
-      setStatus("error");
-      return false;
-    }
+      setStatus("connecting");
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseOptions());
+        }
+        db = firebase.firestore();
+        auth = firebase.auth();
+
+        await ensureAuthUser();
+        ready = true;
+        setStatus("online");
+        subscribeGlobal();
+        return true;
+      } catch (err) {
+        console.warn("[ArcadeCloud] init failed", err);
+        ready = false;
+        setStatus("error", friendlyError(err));
+        return false;
+      } finally {
+        initPromise = null;
+      }
+    })();
+
+    return initPromise;
   }
 
   function subscribeGlobal() {
@@ -112,50 +183,69 @@
                 userId: d.userId || null,
               };
             });
-            if (status !== "online") setStatus("online");
-            else notify();
+            setStatus("online");
           },
           (err) => {
             console.warn("[ArcadeCloud] snapshot error", err);
-            setStatus("error");
+            setStatus("error", "Leaderboard listen failed: " + friendlyError(err));
           }
         );
     } catch (err) {
       console.warn("[ArcadeCloud] subscribe failed", err);
-      setStatus("error");
+      setStatus("error", friendlyError(err));
     }
   }
 
   /**
-   * Push a score to Firestore (best-effort). Prefer high scores to limit writes.
+   * Push a score to Firestore.
    * @param {string} gameId
    * @param {number} score
    * @param {object} [meta]
    * @param {{ force?: boolean, isHighScore?: boolean }} [opts]
    */
   async function submitCloudScore(gameId, score, meta = {}, opts = {}) {
-    if (!ready || !db) return { ok: false, reason: "offline" };
-    const num = Number(score);
-    if (!Number.isFinite(num)) return { ok: false, reason: "bad-score" };
+    if (!isConfigured()) return { ok: false, reason: "off", message: "Cloud not configured" };
 
-    // Default: only auto-push high scores / wins; "force" for manual share
+    if (!ready || !db || status !== "online") {
+      const ok = await init();
+      if (!ok || !db) {
+        return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
+      }
+    }
+
+    const num = Number(score);
+    if (!Number.isFinite(num)) return { ok: false, reason: "bad-score", message: "Invalid score" };
+
     if (!opts.force && !opts.isHighScore && meta.result !== "win") {
-      return { ok: false, reason: "skipped" };
+      return { ok: false, reason: "skipped", message: "Not a high score" };
     }
 
     const now = Date.now();
     if (!opts.force && now - lastSubmitAt < MIN_SUBMIT_GAP_MS) {
-      return { ok: false, reason: "rate-limit" };
+      return { ok: false, reason: "rate-limit", message: "Too fast — wait a moment" };
     }
-    lastSubmitAt = now;
 
-    const { playerName, userId } = playerLabel();
+    let user;
+    try {
+      user = await ensureAuthUser();
+    } catch (err) {
+      const message = friendlyError(err);
+      setStatus("error", message);
+      return { ok: false, reason: "auth-error", message };
+    }
+
+    if (!user?.uid) {
+      return { ok: false, reason: "auth-error", message: "No signed-in user (Anonymous auth?)" };
+    }
+
+    lastSubmitAt = now;
+    const { playerName, userId } = playerLabel(user);
     const payload = {
       game: gameId,
       playerName: String(playerName).slice(0, 16),
       score: num,
       rankScore: rankScore(gameId, num),
-      userId: userId || null,
+      userId,
       meta: sanitizeMeta(meta),
       clientAt: now,
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
@@ -163,11 +253,13 @@
 
     try {
       await db.collection(COLLECTION).add(payload);
-      return { ok: true };
+      if (status !== "online") setStatus("online");
+      return { ok: true, message: "Posted" };
     } catch (err) {
       console.warn("[ArcadeCloud] write failed", err);
-      setStatus("error");
-      return { ok: false, reason: "write-error", err };
+      const message = friendlyError(err);
+      setStatus("error", message);
+      return { ok: false, reason: "write-error", message, err };
     }
   }
 
@@ -182,12 +274,11 @@
     return out;
   }
 
-  /**
-   * One-shot leaderboard load (optional game filter).
-   * Note: game filter + orderBy score needs a composite index in Firestore.
-   */
   async function loadLeaderboard(gameId = null, limit = GLOBAL_LIMIT) {
-    if (!ready || !db) return [];
+    if (!ready || !db) {
+      await init();
+      if (!db) return [];
+    }
     try {
       let q = db.collection(COLLECTION).orderBy("rankScore", "desc").limit(limit);
       if (gameId) {
@@ -210,6 +301,7 @@
       });
     } catch (err) {
       console.warn("[ArcadeCloud] loadLeaderboard failed", err);
+      setStatus("error", friendlyError(err));
       return [];
     }
   }
@@ -220,6 +312,26 @@
 
   function getStatus() {
     return status;
+  }
+
+  function getLastError() {
+    return lastError;
+  }
+
+  /** Human-readable checklist for the UI / console. */
+  function getDiagnostics() {
+    const c = cfg();
+    return {
+      configured: isConfigured(),
+      enabled: !!c.enabled,
+      projectId: c.projectId || null,
+      sdkLoaded: typeof firebase !== "undefined",
+      status,
+      ready,
+      lastError,
+      uid: auth?.currentUser?.uid || null,
+      hallCount: globalHall.length,
+    };
   }
 
   function onChange(fn) {
@@ -234,6 +346,9 @@
     loadLeaderboard,
     getGlobalHall,
     getStatus,
+    getLastError,
+    getDiagnostics,
+    getState,
     onChange,
   };
 })(window);

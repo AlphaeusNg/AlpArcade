@@ -634,10 +634,82 @@ body.salmon-mode .fun-fact-text {
   color: var(--teal);
 }
 
+.intro-brief .intro-thanks {
+  margin: 0.85rem 0 0;
+  max-width: 36rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.cloud-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0 0 1.1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.86rem;
+}
+
+.cloud-banner.is-online {
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.cloud-banner.is-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.cloud-banner.is-off {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.cloud-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--dim);
+  flex-shrink: 0;
+}
+
+.cloud-banner.is-online .cloud-dot {
+  background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+}
+
+.cloud-banner.is-error .cloud-dot {
+  background: #f87171;
+}
+
+.cloud-banner.is-connecting .cloud-dot {
+  background: #fbbf24;
+  animation: cloud-pulse 1s ease-in-out infinite;
+}
+
+@keyframes cloud-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .cloud-status {
-  color: var(--teal);
+  color: var(--muted);
   font-family: var(--mono);
   font-size: 0.82em;
+  flex: 1 1 12rem;
+  line-height: 1.4;
+}
+
+.cloud-banner.is-online .cloud-status {
+  color: var(--teal);
+}
+
+.cloud-banner.is-error .cloud-status {
+  color: #fca5a5;
 }
 
 .scores-sub {
@@ -1274,6 +1346,13 @@ body.salmon-mode .fun-fact-text {
 .footer a {
   color: var(--muted);
   text-decoration: none;
+}
+
+.site-version {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--dim);
+  opacity: 0.9;
 }
 
 .footer a:hover {

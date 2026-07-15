@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Prefer the combined rules in:
+    // alphaeusng.github.io/pages/seeking-biblical-truth/firestore.rules
+    // if Arcade + Vault share one Firebase project.
+
     match /scores/{scoreId} {
       // Anyone can read the public leaderboard
       allow read: if true;

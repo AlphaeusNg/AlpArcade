@@ -13,6 +13,10 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match
 - **Local:** player tag, XP, personal bests, hall of fame — `localStorage` with export/import codes
 - **Cloud (optional):** Online Hall of Fame via Firebase Firestore + anonymous auth. High scores sync live across devices when configured.
 
+### Version stamp
+Footer shows `vYYYY.MM.DD.N · AlpArcade` from `js/version.js`.  
+**Bump `id` every deploy** so you can tell whether GitHub Pages has the latest commit.
+
 ### Enable global scoreboard (Firebase free tier)
 
 1. Create a Firebase project at https://console.firebase.google.com

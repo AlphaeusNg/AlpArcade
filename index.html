@@ -48,8 +48,8 @@
 
   <main>
     <div id="lobby">
-      <!-- Short intro — who I am (original vibe) -->
-      <section class="intro glass">
+      <!-- Brief witty welcome — games first -->
+      <section class="intro glass intro-brief">
         <div class="intro-top">
           <img
             class="intro-avatar"
@@ -62,19 +62,14 @@
             fetchpriority="high"
           />
           <div>
-            <p class="eyebrow">Hi there 👋</p>
-            <h1>I'm <span class="grad">Alphaeus Ng</span></h1>
+            <p class="eyebrow">Alphaeus Arcade</p>
+            <h1>Come in. <span class="grad">Exhale.</span></h1>
           </div>
         </div>
-        <ul class="intro-list">
-          <li>🔭 AI Research Engineer @ Panasonic R&amp;D · Singapore</li>
-          <li>🎓 Computer Science, NTU · into CV &amp; NLP</li>
-          <li>📫 <a href="mailto:alphaolivegreen@gmail.com">alphaolivegreen@gmail.com</a>
-            · <a href="https://sg.linkedin.com/in/alphaeus-ng" target="_blank" rel="noopener">LinkedIn</a>
-            · <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio</a>
-          </li>
-        </ul>
-        <p class="intro-thanks">Thanks for dropping by — pick a cabinet below, or tap a fun fact first.</p>
+        <p class="intro-thanks">
+          No meetings, no metrics that matter — just a few cabinets, a silly high score, and permission to waste five perfectly good minutes.
+          Pick a game, unclench your jaw, and try not to take Snake personally.
+        </p>
       </section>
 
       <!-- Interactive fun facts about Alphaeus -->
@@ -181,14 +176,18 @@
           <div class="score-tools">
             <button type="button" class="btn small ghost" id="btn-export">Export</button>
             <button type="button" class="btn small ghost" id="btn-import">Import</button>
-            <button type="button" class="btn small primary" id="btn-share-cloud" title="Push your latest high scores to the global board" hidden>Share to cloud</button>
+            <button type="button" class="btn small primary" id="btn-share-cloud" title="Push your latest high scores to the global board">Share to cloud</button>
             <button type="button" class="btn small danger" id="btn-reset">Reset</button>
           </div>
         </div>
         <p class="scores-note" id="scores-note">
           Saved on this device. Export a code to back up or move machines.
-          <span class="cloud-status" id="cloud-status" aria-live="polite"></span>
         </p>
+        <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
+          <span class="cloud-dot" id="cloud-dot" aria-hidden="true"></span>
+          <span class="cloud-status" id="cloud-status">Checking cloud…</span>
+          <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry connect</button>
+        </div>
         <div class="scores-grid">
           <div>
             <h3>Personal bests</h3>
@@ -226,7 +225,8 @@
     <p>
       © <span id="year"></span> Alphaeus Ng ·
       <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio</a> ·
-      <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source</a>
+      <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source</a> ·
+      <span id="site-version" class="site-version" title="Bump js/version.js on each deploy">v—</span>
     </p>
   </footer>
 
@@ -237,6 +237,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" defer></script>
   <!-- Core shell only; game modules lazy-load when a cabinet is opened -->
+  <script src="js/version.js" defer></script>
   <script src="js/firebase-config.js" defer></script>
   <script src="js/audio.js" defer></script>
   <script src="js/scores.js" defer></script>

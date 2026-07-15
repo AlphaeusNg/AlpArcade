@@ -192,24 +192,51 @@
   // ----- Cloud scoreboard UI -----
   function updateCloudChrome() {
     const statusEl = $("#cloud-status");
+    const banner = $("#cloud-banner");
     const shareBtn = $("#btn-share-cloud");
+    const retryBtn = $("#btn-cloud-retry");
     const label = $("#global-hall-label");
     const status = window.ArcadeCloud?.getStatus?.() || "off";
     const configured = window.ArcadeCloud?.isConfigured?.() ?? false;
+    const err = window.ArcadeCloud?.getLastError?.() || "";
 
     const messages = {
-      off: configured ? "" : " · Cloud disabled (see js/firebase-config.js)",
-      connecting: " · Cloud: connecting…",
-      online: " · Cloud: live",
-      error: " · Cloud: offline (local still works)",
+      off: configured
+        ? "Cloud configured but not connected yet."
+        : "Cloud disabled — set enabled:true in js/firebase-config.js",
+      connecting: "Cloud: connecting…",
+      online: "Cloud: live · high scores sync to the Online Hall of Fame",
+      error: err ? `Cloud error: ${err}` : "Cloud offline — local scores still work",
     };
-    if (statusEl) statusEl.textContent = messages[status] || "";
+
+    if (statusEl) statusEl.textContent = messages[status] || messages.off;
+    if (banner) {
+      banner.classList.remove("is-online", "is-error", "is-off", "is-connecting");
+      banner.classList.add(
+        status === "online"
+          ? "is-online"
+          : status === "error"
+            ? "is-error"
+            : status === "connecting"
+              ? "is-connecting"
+              : "is-off"
+      );
+    }
     if (label) {
       label.textContent =
-        status === "online" ? "(live)" : status === "connecting" ? "(connecting…)" : "(cloud)";
+        status === "online" ? "(live)" : status === "connecting" ? "(connecting…)" : status === "error" ? "(error)" : "(cloud)";
     }
+    // Keep Share visible whenever cloud is configured so users get feedback on click
     if (shareBtn) {
-      shareBtn.hidden = status !== "online";
+      shareBtn.hidden = !configured;
+      shareBtn.disabled = status === "connecting";
+      shareBtn.title =
+        status === "online"
+          ? "Push your personal bests to the global board"
+          : "Try to connect and share personal bests";
+    }
+    if (retryBtn) {
+      retryBtn.hidden = !(configured && (status === "error" || status === "off"));
     }
   }
 
@@ -218,6 +245,7 @@
     if (!list) return;
     const status = window.ArcadeCloud?.getStatus?.() || "off";
     const hall = window.ArcadeCloud?.getGlobalHall?.() || [];
+    const err = window.ArcadeCloud?.getLastError?.() || "";
 
     if (status === "off") {
       list.innerHTML = `<li class="empty">Enable Firebase in <code>js/firebase-config.js</code> for a shared board.</li>`;
@@ -228,11 +256,11 @@
       return;
     }
     if (status === "error" && !hall.length) {
-      list.innerHTML = `<li class="empty">Could not reach cloud. Local scores still work.</li>`;
+      list.innerHTML = `<li class="empty">Could not reach cloud${err ? `: ${escapeHtml(err)}` : ""}. Local scores still work. Tap Retry connect.</li>`;
       return;
     }
     if (!hall.length) {
-      list.innerHTML = `<li class="empty">No global scores yet — beat a game to post one.</li>`;
+      list.innerHTML = `<li class="empty">No global scores yet — play for a best, then Share to cloud.</li>`;
       return;
     }
     list.innerHTML = hall
@@ -248,24 +276,95 @@
       .join("");
   }
 
-  async function shareLocalBestsToCloud() {
-    if (window.ArcadeCloud?.getStatus?.() !== "online") {
-      showToast("Cloud not online");
-      return;
-    }
+  function collectShareableBests() {
     const state = ArcadeScores.getState();
-    let pushed = 0;
+    const items = [];
     for (const [gameId, g] of Object.entries(ArcadeScores.GAMES)) {
       const best = state.highScores[gameId]?.best;
       if (best == null) continue;
       if (g.higherIsBetter && best <= 0) continue;
-      const result = await window.ArcadeCloud.submitCloudScore(gameId, best, { shared: true }, {
-        force: true,
-        isHighScore: true,
-      });
-      if (result?.ok) pushed += 1;
+      // Reaction: lower is better; any finite best is shareable
+      if (!g.higherIsBetter && !Number.isFinite(Number(best))) continue;
+      items.push({ gameId, best: Number(best), label: g.label });
     }
-    showToast(pushed ? `Shared ${pushed} best${pushed === 1 ? "" : "s"} to cloud` : "Nothing to share yet");
+    return items;
+  }
+
+  async function shareLocalBestsToCloud() {
+    const shareBtn = $("#btn-share-cloud");
+    if (shareBtn) shareBtn.disabled = true;
+
+    try {
+      if (!window.ArcadeCloud) {
+        showToast("Cloud module missing — hard-refresh the page");
+        return;
+      }
+      if (!window.ArcadeCloud.isConfigured?.()) {
+        showToast("Cloud not configured (js/firebase-config.js)");
+        updateCloudChrome();
+        return;
+      }
+
+      showToast("Connecting to cloud…");
+      const ok = await window.ArcadeCloud.init();
+      updateCloudChrome();
+      renderGlobalHall();
+
+      if (!ok || window.ArcadeCloud.getStatus() !== "online") {
+        const err = window.ArcadeCloud.getLastError?.() || "Could not connect";
+        showToast(`Share failed: ${err}`);
+        console.warn("[Arcade] share blocked", window.ArcadeCloud.getDiagnostics?.());
+        return;
+      }
+
+      const items = collectShareableBests();
+      if (!items.length) {
+        showToast("No personal bests yet — play a game first, then share");
+        return;
+      }
+
+      let pushed = 0;
+      const failures = [];
+      for (const item of items) {
+        const result = await window.ArcadeCloud.submitCloudScore(
+          item.gameId,
+          item.best,
+          { shared: true },
+          { force: true, isHighScore: true }
+        );
+        if (result?.ok) pushed += 1;
+        else failures.push(`${item.label}: ${result?.message || result?.reason || "failed"}`);
+      }
+
+      updateCloudChrome();
+      renderGlobalHall();
+
+      if (pushed) {
+        showToast(
+          `Shared ${pushed} best${pushed === 1 ? "" : "s"} to cloud` +
+            (failures.length ? ` (${failures.length} failed)` : "")
+        );
+      } else {
+        const detail = failures[0] || "Unknown error";
+        showToast(`Share failed: ${detail}`);
+        console.warn("[Arcade] share failures", failures, window.ArcadeCloud.getDiagnostics?.());
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Share failed: ${err.message || "unexpected error"}`);
+    } finally {
+      if (shareBtn) shareBtn.disabled = false;
+      updateCloudChrome();
+    }
+  }
+
+  async function retryCloudConnect() {
+    showToast("Retrying cloud…");
+    const ok = await window.ArcadeCloud?.init?.();
+    updateCloudChrome();
+    renderGlobalHall();
+    if (ok) showToast("Cloud connected");
+    else showToast(window.ArcadeCloud?.getLastError?.() || "Still offline");
   }
 
   // ----- Navigation -----
@@ -304,6 +403,11 @@
           refreshHud();
           let msg = `+${xpGained} XP`;
           if (isHighScore) msg = `🏆 New best! ${msg}`;
+          // If cloud is broken, mention once on high scores so silence isn't mysterious
+          if (isHighScore && window.ArcadeCloud?.getStatus?.() === "error") {
+            const err = window.ArcadeCloud.getLastError?.();
+            msg += err ? ` · cloud offline` : "";
+          }
           showToast(msg);
         },
       });
@@ -426,13 +530,24 @@
   $("#btn-share-cloud")?.addEventListener("click", () => {
     shareLocalBestsToCloud().catch((err) => {
       console.warn(err);
-      showToast("Share failed");
+      showToast(`Share failed: ${err.message || "error"}`);
     });
   });
 
-  // year
+  $("#btn-cloud-retry")?.addEventListener("click", () => {
+    retryCloudConnect().catch((err) => {
+      console.warn(err);
+      showToast(`Retry failed: ${err.message || "error"}`);
+    });
+  });
+
+  // year + deploy version
   const y = $("#year");
   if (y) y.textContent = String(new Date().getFullYear());
+  const ver = $("#site-version");
+  if (ver && window.SITE_VERSION) {
+    ver.textContent = `v${window.SITE_VERSION.id} · ${window.SITE_VERSION.repo}`;
+  }
 
   // ----- Fun facts deck -----
   const FUN_FACTS = [
@@ -560,20 +675,42 @@
 
   // Cloud init after SDKs + scripts (defer) have run
   function bootCloud() {
-    if (!window.ArcadeCloud) return;
+    if (!window.ArcadeCloud) {
+      const statusEl = $("#cloud-status");
+      if (statusEl) statusEl.textContent = "Cloud module failed to load — hard-refresh (Ctrl+Shift+R)";
+      return;
+    }
     window.ArcadeCloud.onChange?.(() => {
       renderGlobalHall();
       updateCloudChrome();
     });
-    // Firebase compat scripts are also defer — wait a tick if needed
+    updateCloudChrome();
+
+    let attempts = 0;
     const tryInit = () => {
+      attempts += 1;
       if (typeof firebase === "undefined" && window.ArcadeCloud.isConfigured?.()) {
-        setTimeout(tryInit, 80);
+        if (attempts < 40) {
+          setTimeout(tryInit, 100);
+          return;
+        }
+        // SDK never arrived
+        showToast("Firebase SDK failed to load");
+        updateCloudChrome();
         return;
       }
       window.ArcadeCloud.init?.().then((ok) => {
-        if (ok) showToast("Global scoreboard online");
         refreshHud();
+        updateCloudChrome();
+        renderGlobalHall();
+        if (ok) {
+          // Quiet success — banner already says live
+          console.info("[Arcade] cloud online", window.ArcadeCloud.getDiagnostics?.());
+        } else if (window.ArcadeCloud.isConfigured?.()) {
+          const err = window.ArcadeCloud.getLastError?.() || "unknown";
+          showToast(`Cloud offline: ${err}`);
+          console.warn("[Arcade] cloud init failed", window.ArcadeCloud.getDiagnostics?.());
+        }
       });
     };
     tryInit();
