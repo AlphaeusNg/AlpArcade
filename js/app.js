@@ -42,6 +42,39 @@
     tapper: "Tap glowing cells · keys 1–9 · three lives",
   };
 
+  let lastRunShare = null;
+
+  function updateShareButton() {
+    const btn = $("#btn-share-run");
+    if (!btn) return;
+    btn.hidden = !lastRunShare;
+  }
+
+  async function shareLastRun() {
+    if (!lastRunShare) {
+      showToast("Finish a run first");
+      return;
+    }
+    const { label, score, gameId, isHighScore } = lastRunShare;
+    const scoreText = ArcadeScores.formatScore(gameId, score);
+    const text = `I scored ${scoreText} in ${label} on AlpArcade${isHighScore ? " (personal best!)" : ""} — ${location.origin}${location.pathname}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "AlpArcade", text, url: location.href.split("#")[0] });
+        showToast("Shared!");
+        return;
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Share text copied");
+    } catch {
+      prompt("Copy to share:", text);
+    }
+  }
+
   const scriptPromises = Object.create(null);
 
   function loadScript(src) {
@@ -732,6 +765,13 @@
           let msg = `+${xpGained} XP`;
           if (isHighScore) msg = `🏆 New best! ${msg}`;
           showToast(msg);
+          lastRunShare = {
+            gameId: id,
+            score,
+            isHighScore,
+            label: ArcadeScores.GAMES[id]?.label || id,
+          };
+          updateShareButton();
 
           const unlocked = window.ArcadeAchievements?.evaluateAfterRun?.(id, score, {
             result,
@@ -833,6 +873,9 @@
   });
 
   $("#btn-back")?.addEventListener("click", backToLobby);
+  $("#btn-share-run")?.addEventListener("click", () => {
+    shareLastRun().catch(() => showToast("Share failed"));
+  });
 
   // Escape: close modal first; otherwise return to lobby from a game.
   window.addEventListener("keydown", (e) => {

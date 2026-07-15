@@ -1822,7 +1822,7 @@ body.salmon-mode .fun-fact-text {
   bottom: 1.4rem;
   left: 50%;
   transform: translateX(-50%) translateY(12px);
-  z-index: 50;
+  z-index: 80;
   padding: 0.7rem 1.15rem;
   border-radius: 999px;
   background: rgba(8, 14, 26, 0.95);
