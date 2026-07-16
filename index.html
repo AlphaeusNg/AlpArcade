@@ -38,13 +38,13 @@
     </a>
     <nav class="top-nav" aria-label="Primary">
       <a href="#scores-panel">Scores</a>
-      <a href="#bg-music">Music</a>
       <a href="#achievements-panel">Badges</a>
       <button type="button" class="nav-text-btn" id="btn-help">Help</button>
-      <a href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
-      <a href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener" title="Scripture memory games">VerseKeep ↗</a>
-      <a href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source ↗</a>
+      <a href="#bg-music" class="nav-music">Music</a>
       <button type="button" class="mute-btn" id="btn-mute" aria-pressed="false" title="Toggle sound">🔊</button>
+      <a class="nav-extra" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
+      <a class="nav-extra" href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener" title="Scripture memory games">VerseKeep ↗</a>
+      <a class="nav-extra" href="https://github.com/AlphaeusNg/AlpArcade" target="_blank" rel="noopener">Source ↗</a>
     </nav>
   </header>
 
@@ -233,7 +233,7 @@
           <h2 class="section-title" id="achievements-title">Achievements</h2>
           <span class="achievements-count mono" id="achievements-count">0 / 0</span>
         </div>
-        <ul class="achievements-list" id="achievements-list"></ul>
+        <ul class="achievements-list list-scroll list-scroll-ach" id="achievements-list"></ul>
       </section>
 
       <section class="scores glass" id="scores-panel">
@@ -264,23 +264,23 @@
           <button type="button" class="lb-chip" data-lb-game="tapper" role="tab">Target Tap</button>
         </div>
         <div class="scores-grid">
-          <div>
+          <div class="scores-col">
             <h3>Personal bests <small class="scores-sub">(this device)</small></h3>
-            <ul class="hs-list" id="highscores-list"></ul>
+            <ul class="hs-list list-scroll list-scroll-pb" id="highscores-list"></ul>
           </div>
-          <div>
+          <div class="scores-col">
             <h3>Hall of fame <small class="scores-sub">(this device)</small></h3>
-            <ul class="hall-list" id="hall-list"></ul>
+            <ul class="hall-list list-scroll list-scroll-hof" id="hall-list"></ul>
           </div>
-          <div class="scores-wide">
+          <div class="scores-col scores-col-global">
             <h3>Global leaderboard <small class="scores-sub" id="global-hall-label">(all games)</small></h3>
-            <ul class="hall-list global-hall-list" id="global-hall-list">
+            <ul class="hall-list global-hall-list list-scroll list-scroll-global" id="global-hall-list">
               <li class="empty">Loading global board…</li>
             </ul>
           </div>
           <div class="scores-wide">
             <h3>Recent runs <small class="scores-sub">(this device)</small></h3>
-            <ul class="history-list" id="history-list"></ul>
+            <ul class="history-list list-scroll list-scroll-history" id="history-list"></ul>
           </div>
         </div>
       </section>
