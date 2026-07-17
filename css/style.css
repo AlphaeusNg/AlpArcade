@@ -103,6 +103,22 @@ main,
   top: 0;
   z-index: 20;
   min-height: 0;
+  transition: transform 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
+  will-change: transform;
+}
+
+/* Phone: hide sticky section header while scrolling down to free space */
+.topbar.is-scroll-hidden {
+  transform: translateY(-110%);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.topbar:focus-within {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .brand {
@@ -947,10 +963,11 @@ body.salmon-mode .fun-fact-text {
   background: #000;
 }
 
-/* Follow bottom of screen when section is off-view / game open */
+/* Follow bottom-left of screen when section is off-view / game open */
 .music-player-shell.is-docked {
   position: fixed;
-  right: 1rem;
+  left: 1rem;
+  right: auto;
   bottom: 1rem;
   z-index: 60;
   width: min(380px, calc(100vw - 1.5rem));
@@ -1949,6 +1966,12 @@ body.salmon-mode .fun-fact-text {
     gap: 0.4rem;
   }
 
+  .music-player-shell.is-docked {
+    left: 0.55rem;
+    bottom: 0.55rem;
+    width: min(320px, calc(100vw - 1.1rem));
+  }
+
   .brand-mark {
     width: 28px;
     height: 28px;
@@ -2209,6 +2232,23 @@ body.salmon-mode .fun-fact-text {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .topbar,
+  .topbar.is-scroll-hidden {
+    transition: none;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Desktop: never auto-hide the top section header */
+@media (min-width: 721px) {
+  .topbar.is-scroll-hidden {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 

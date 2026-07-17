@@ -101,12 +101,12 @@
             <p class="eyebrow">Background</p>
             <h2 class="section-title bg-music-title">Music</h2>
           </div>
-          <p class="bg-music-hint mono">Alphaeus picks · optional</p>
+          <p class="bg-music-hint mono">Autoplays · left dock follows you</p>
         </div>
         <div class="bg-music-picks" role="group" aria-label="Playlists">
           <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
             <strong>Lofi Beats</strong>
-            <small>chill background</small>
+            <small>chill background · default</small>
           </button>
           <button type="button" class="bg-music-btn" data-playlist="dgray" data-embed="https://open.spotify.com/embed/playlist/3OXFbQpZflLoxvjQ5vGJrL?utm_source=generator">
             <strong>D.Gray-Man</strong>
@@ -115,7 +115,7 @@
           <button type="button" class="btn small ghost" id="bg-music-stop">Stop</button>
         </div>
         <div class="music-player-slot" id="music-player-slot">
-          <p id="bg-music-empty" class="bg-music-empty">Pick Lofi or D.Gray-Man — free Spotify login may be needed.</p>
+          <p id="bg-music-empty" class="bg-music-empty">Starting Lofi… free Spotify login may be needed.</p>
           <div class="music-player-shell" id="music-player-shell" hidden>
             <div class="music-player-bar">
               <span class="music-player-label mono" id="music-player-label">Playing…</span>
@@ -127,7 +127,7 @@
                 id="bg-music-frame"
                 title="Spotify background playlist"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
+                loading="eager"
               ></iframe>
             </div>
           </div>

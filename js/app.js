@@ -512,14 +512,26 @@
         item.gameId,
         item.best,
         { shared: true },
-        { force: true, isHighScore: true }
+        { force: true, isHighScore: true, quiet: true }
       );
       if (result?.ok && result.improved !== false) pushed += 1;
-      if (result?.ok) lastMsg = result.message || lastMsg;
-      else lastMsg = result?.message || lastMsg;
+      if (result?.ok) {
+        lastMsg = result.message || lastMsg;
+        continue;
+      }
+      lastMsg = result?.message || lastMsg;
+      // Stop flooding the console / Firestore when rules or App Check block writes
+      if (
+        result?.reason === "permission-denied" ||
+        result?.reason === "auth-required" ||
+        /permission-denied|insufficient|sign in/i.test(result?.message || "")
+      ) {
+        console.warn("[Arcade] cloud post stopped:", lastMsg);
+        return { ok: false, message: lastMsg || "Cloud blocked the write" };
+      }
     }
     return {
-      ok: pushed > 0 || lastMsg.includes("already"),
+      ok: pushed > 0 || /already/i.test(lastMsg),
       message: pushed
         ? `Posted ${pushed} best${pushed === 1 ? "" : "s"}`
         : lastMsg || "Nothing new to post",
@@ -713,8 +725,10 @@
     const target = window.ArcadeDaily.formatTarget(ch);
     el.innerHTML = `
       <div class="daily-head">
-        <p class="eyebrow">Daily challenge</p>
-        <span class="daily-badge mono${done ? " is-done" : ""}">${done ? "Done ✓" : ch.day}</span>
+        <p class="eyebrow">Daily challenge · SGT</p>
+        <span class="daily-badge mono${done ? " is-done" : ""}" title="Resets at midnight Singapore time">${
+          done ? "Done ✓" : escapeHtml(ch.day)
+        }</span>
       </div>
       <p class="daily-task">
         <strong>${escapeHtml(ch.label)}</strong>
@@ -1167,18 +1181,68 @@
       syncMuteButtons();
     });
   });
-  // unlock audio on first interaction
+  // unlock Web Audio only after a real gesture (avoids AudioContext console noise)
   const unlockOnce = () => {
     window.ArcadeSFX?.unlock?.();
     window.removeEventListener("pointerdown", unlockOnce);
     window.removeEventListener("keydown", unlockOnce);
+    window.removeEventListener("touchstart", unlockOnce);
   };
-  window.addEventListener("pointerdown", unlockOnce);
+  window.addEventListener("pointerdown", unlockOnce, { passive: true });
   window.addEventListener("keydown", unlockOnce);
+  window.addEventListener("touchstart", unlockOnce, { passive: true });
   syncMuteButtons();
 
+  // Phone: hide sticky topbar while scrolling down; show on scroll up / near top
+  (function bindPhoneHeaderHide() {
+    const bar = document.querySelector(".topbar");
+    if (!bar) return;
+    const mq = window.matchMedia("(max-width: 720px)");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let lastY = window.scrollY || 0;
+    let ticking = false;
+
+    function apply() {
+      ticking = false;
+      if (!mq.matches || reduce.matches) {
+        bar.classList.remove("is-scroll-hidden");
+        return;
+      }
+      const y = window.scrollY || 0;
+      const delta = y - lastY;
+      if (y < 24) {
+        bar.classList.remove("is-scroll-hidden");
+      } else if (delta > 6) {
+        bar.classList.add("is-scroll-hidden");
+      } else if (delta < -6) {
+        bar.classList.remove("is-scroll-hidden");
+      }
+      lastY = y;
+    }
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(apply);
+        }
+      },
+      { passive: true }
+    );
+    window.addEventListener("resize", () => {
+      if (!mq.matches) bar.classList.remove("is-scroll-hidden");
+    });
+    mq.addEventListener?.("change", () => {
+      if (!mq.matches) bar.classList.remove("is-scroll-hidden");
+    });
+  })();
+
   $$("[data-game]").forEach((card) => {
-    card.addEventListener("pointerdown", () => window.ArcadeSFX?.click?.());
+    card.addEventListener("pointerdown", () => {
+      window.ArcadeSFX?.unlock?.();
+      window.ArcadeSFX?.click?.();
+    });
   });
 
   window.addEventListener("hashchange", routeFromHash);

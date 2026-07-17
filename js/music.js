@@ -1,13 +1,15 @@
 /**
  * Spotify background music.
+ * Auto-starts a default (or last) playlist on page load.
  * Plays inline in the Music section; when that section scrolls out of view
- * (or lobby hides for a game), the same player docks to the bottom of the screen.
+ * (or lobby hides for a game), the same player docks to the bottom-left.
  * Iframe is never reloaded unless station changes or Stop.
  */
 (function () {
   "use strict";
 
   const KEY = "alparcade-bg-music";
+  const DEFAULT_ID = "lofi";
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -27,6 +29,17 @@
   }
   function empty() {
     return $("#bg-music-empty");
+  }
+
+  function withAutoplay(url) {
+    if (!url) return url;
+    try {
+      const u = new URL(url, location.href);
+      u.searchParams.set("autoplay", "1");
+      return u.toString();
+    } catch {
+      return url.includes("?") ? `${url}&autoplay=1` : `${url}?autoplay=1`;
+    }
   }
 
   function setActiveButtons(id) {
@@ -68,6 +81,8 @@
     const e = empty();
     if (!f || !s) return;
 
+    const src = withAutoplay(embed);
+
     if (currentEmbed === embed && playing) {
       setActiveButtons(id);
       updateDockState();
@@ -76,8 +91,8 @@
 
     currentEmbed = embed;
     currentId = id || "";
-    if (f.getAttribute("src") !== embed) {
-      f.src = embed;
+    if (f.getAttribute("src") !== src) {
+      f.src = src;
     }
     playing = true;
     s.hidden = false;
@@ -151,6 +166,27 @@
     }
   }
 
+  function autoStart() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data?.embed) {
+          play(data.id || "restored", data.embed, data.label || "");
+          return;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const btn =
+      $(`.bg-music-btn[data-playlist="${DEFAULT_ID}"]`) || $(".bg-music-btn[data-embed]");
+    if (!btn) return;
+    const label = btn.querySelector("strong")?.textContent || btn.dataset.playlist;
+    play(btn.dataset.playlist, btn.dataset.embed, label);
+  }
+
   function boot() {
     $$(".bg-music-btn[data-embed]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -162,15 +198,7 @@
     $("#music-player-stop")?.addEventListener("click", stop);
 
     watchVisibility();
-
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data?.embed) play(data.id || "restored", data.embed, data.label || "");
-    } catch {
-      /* ignore */
-    }
+    autoStart();
   }
 
   if (document.readyState === "loading") {

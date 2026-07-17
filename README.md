@@ -10,7 +10,7 @@ Browser mini-games by **Alphaeus Ng** — local + optional global scoreboard, We
 Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target Tap
 
 ### Daily & achievements
-- **Daily challenge** — one seeded target per UTC day (local completion flag).
+- **Daily challenge** — one seeded target per **Singapore (SGT)** calendar day (local completion flag).
 - **Achievements** — unlocks stored in `localStorage` (no account required).
 
 ### Scoreboard

@@ -36,7 +36,7 @@ js/
   cloud-scores.js   # Firebase global boards
   firebase-config.js
   achievements.js
-  daily.js
+  daily.js          # Daily challenge keyed to SGT (Asia/Singapore)
   version.js        # SITE_VERSION — bump every deploy
   games/*.js
 assets/

@@ -1,24 +1,36 @@
 /**
  * Lightweight Web Audio SFX — no external files.
+ * AudioContext is only created after a user gesture (unlock) so Chrome
+ * does not log autoplay / resume violations on cold load.
  */
 (function (global) {
   "use strict";
 
   const MUTE_KEY = "alphaeus-arcade-mute";
   let ctx = null;
+  let unlocked = false;
   let muted = localStorage.getItem(MUTE_KEY) === "1";
 
   function ac() {
     if (muted) return null;
     if (typeof window === "undefined") return null;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
-      // still allow sounds unless muted; reduced motion users can mute
-    }
+    // Never construct until the player has interacted — avoids:
+    // "The AudioContext was not allowed to start"
+    if (!unlocked) return null;
     const C = window.AudioContext || window.webkitAudioContext;
     if (!C) return null;
-    if (!ctx) ctx = new C();
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    return ctx;
+    if (!ctx) {
+      try {
+        ctx = new C();
+      } catch {
+        return null;
+      }
+    }
+    if (ctx.state === "suspended") {
+      // resume() is allowed after a gesture; swallow rejections
+      ctx.resume().catch(() => {});
+    }
+    return ctx.state === "running" || ctx.state === "suspended" ? ctx : null;
   }
 
   function tone({ freq = 440, type = "sine", dur = 0.12, gain = 0.08, slide = 0, delay = 0 }) {
@@ -74,8 +86,25 @@
     toggleMute() {
       return SFX.setMuted(!muted);
     },
+    /** Call from a click / key / pointer handler before playing tones. */
     unlock() {
-      ac();
+      unlocked = true;
+      const c = ac();
+      if (!c) return false;
+      // Silent blip helps some browsers fully unlock the graph
+      try {
+        const g = c.createGain();
+        g.gain.value = 0.0001;
+        g.connect(c.destination);
+        const o = c.createOscillator();
+        o.frequency.value = 1;
+        o.connect(g);
+        o.start();
+        o.stop(c.currentTime + 0.01);
+      } catch {
+        /* ignore */
+      }
+      return true;
     },
     click() {
       tone({ freq: 520, type: "triangle", dur: 0.05, gain: 0.05 });

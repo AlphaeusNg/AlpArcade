@@ -1,14 +1,31 @@
 /**
- * Daily challenge — deterministic target per UTC day.
+ * Daily challenge — deterministic target per Singapore calendar day (SGT, UTC+8).
  */
 (function (global) {
   "use strict";
 
   const KEY = "alparcade-daily-v1";
+  const TZ = "Asia/Singapore"; // SGT year-round (no DST)
   const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe"];
 
+  /**
+   * YYYY-MM-DD for the calendar day in Singapore time.
+   * At 00:33 SGT this is the new SGT date, not the still-previous UTC date.
+   */
   function dayKey(d = new Date()) {
-    return d.toISOString().slice(0, 10); // YYYY-MM-DD UTC
+    try {
+      // en-CA formats as YYYY-MM-DD
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(d);
+    } catch {
+      // Fallback: fixed UTC+8 offset (SGT has no DST)
+      const shifted = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+      return shifted.toISOString().slice(0, 10);
+    }
   }
 
   function hash(str) {
@@ -38,6 +55,7 @@
       target: targets[game],
       label: global.ArcadeScores?.GAMES?.[game]?.label || game,
       higherIsBetter: game !== "reaction",
+      timezone: "SGT",
     };
   }
 
@@ -100,5 +118,6 @@
     markAttempt,
     formatTarget,
     dayKey,
+    TZ,
   };
 })(window);

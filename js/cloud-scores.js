@@ -385,11 +385,13 @@
       if (!ok || !db) return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
     }
 
-    // Refresh from live auth — stale `user` causes permission-denied
-    user = auth?.currentUser || user;
-    if (!user?.uid) {
+    // Only trust live Auth — a stale cached user writes as unauthenticated → permission-denied
+    const live = auth?.currentUser;
+    if (!live?.uid) {
+      user = null;
       return { ok: false, reason: "auth-required", message: "Sign in with Google to save" };
     }
+    user = live;
 
     const googleOk = user.providerData?.some((p) => p.providerId === "google.com");
     if (!googleOk) {
@@ -413,16 +415,35 @@
       return { ok: false, reason: "bad-score", message: "Invalid score" };
     }
 
-    const docId = scoreDocId(user.uid, gameId);
+    // Firestore rules accept number; keep finite plain numbers only
+    const scoreVal = Math.round(num * 1000) / 1000;
+    const rankVal = Number(rankScore(gameId, scoreVal));
+    if (!Number.isFinite(rankVal)) {
+      return { ok: false, reason: "bad-score", message: "Invalid rank score" };
+    }
+
+    const uid = String(user.uid);
+    const docId = scoreDocId(uid, gameId);
     const ref = db.collection(SCORES).doc(docId);
 
     try {
-      await user.getIdToken(true);
+      // Hard-fail if token cannot be refreshed — otherwise Firestore sees no auth
+      try {
+        await user.getIdToken(true);
+      } catch (tokenErr) {
+        return {
+          ok: false,
+          reason: "auth-required",
+          message: "Session expired — sign in with Google again",
+          err: tokenErr,
+          code: tokenErr?.code || null,
+        };
+      }
 
       const existing = await ref.get();
       if (existing.exists) {
         const old = existing.data() || {};
-        if (!isBetter(gameId, num, old.score) && !opts.force) {
+        if (!isBetter(gameId, scoreVal, old.score) && !opts.force) {
           return {
             ok: true,
             reason: "not-better",
@@ -430,7 +451,7 @@
             improved: false,
           };
         }
-        if (opts.force && !isBetter(gameId, num, old.score)) {
+        if (opts.force && !isBetter(gameId, scoreVal, old.score)) {
           return {
             ok: true,
             reason: "not-better",
@@ -441,33 +462,44 @@
       }
 
       const now = Date.now();
-      // Flat payload only — fields the rules validate
+      // Flat payload only — fields the rules validate (+ harmless client clocks)
       const payload = {
         game: String(gameId),
         playerName: String(profile.username).trim().slice(0, 16),
-        score: num,
-        rankScore: Number(rankScore(gameId, num)),
-        userId: String(user.uid),
+        score: scoreVal,
+        rankScore: rankVal,
+        userId: uid,
         clientAt: now,
         timestamp: now,
       };
-
-      console.info("[ArcadeCloud] writing score", {
-        docId,
-        projectId: cfg().projectId,
-        payload,
-        authUid: user.uid,
-        providers: user.providerData?.map((p) => p.providerId),
-      });
 
       await ref.set(payload);
       if (status !== "online") setStatus("online");
       return { ok: true, message: "Saved to cloud", improved: true };
     } catch (err) {
-      console.error("[ArcadeCloud] write failed", err, getDiagnostics());
+      const code = err?.code || "";
       const message = friendlyError(err);
+      // One clear error line — avoid spamming the console on batch posts
+      if (opts.quiet) {
+        /* batch caller logs once */
+      } else {
+        console.warn("[ArcadeCloud] write failed:", message, {
+          gameId,
+          docId,
+          code: code || null,
+          projectId: cfg().projectId,
+        });
+      }
       setStatus("error", message);
-      return { ok: false, reason: "write-error", message, err, code: err?.code || null };
+      return {
+        ok: false,
+        reason: /permission-denied|insufficient/i.test(code + message)
+          ? "permission-denied"
+          : "write-error",
+        message,
+        err,
+        code: code || null,
+      };
     }
   }
 

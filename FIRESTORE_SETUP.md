@@ -1,6 +1,6 @@
 # Fix “Firestore blocked the write” (verify checklist)
 
-**Important:** `git push` does **not** update Firebase rules. You must **Publish** in the console.
+**Important:** `git push` does **not** update Firebase rules. You must **Publish** rules (console or CLI).
 
 ## 1. Confirm project
 
@@ -8,21 +8,27 @@ App project: **`alparcade-cb87c`** (`js/firebase-config.js`).
 
 Firebase Console top bar must show **alparcade-cb87c**.
 
-## 2. Paste & Publish rules
+## 2. Publish rules (pick one)
+
+### Option A — Console (no CLI)
 
 1. [Firestore → Rules](https://console.firebase.google.com/project/alparcade-cb87c/firestore/rules)
 2. Select all → delete
 3. Paste entire [`firestore.rules`](./firestore.rules) from this repo
 4. **Publish**
 
-After publish, rules must contain:
+### Option B — CLI (after `firebase login`)
 
-```
-function signedIn() {
-  return request.auth != null && request.auth.uid != null;
-}
+```bash
+cd /home/alph/projects/AlpArcade
+npx firebase-tools deploy --only firestore:rules
+# optional indexes:
+npx firebase-tools deploy --only firestore:indexes
 ```
 
+Uses `.firebaserc` → project `alparcade-cb87c` and `firebase.json`.
+
+After publish, rules must contain `function signedIn()` / `validScoreWrite()` and **include `tapper`**.  
 They must **not** require `sign_in_provider == 'google.com'` (that broke many sessions).
 
 ## 3. App Check (hidden killer)
@@ -36,7 +42,7 @@ If Firestore **enforcement is ON** and this site doesn’t send App Check tokens
 ## 4. Auth
 
 - **Authentication → Google** enabled  
-- Authorized domains: `alphaeusng.github.io`, `localhost`
+- Authorized domains: `alphaeusng.github.io`, `localhost`, **`127.0.0.1`** (if you preview on that host)
 
 ## 5. Browser probe
 
