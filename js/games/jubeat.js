@@ -57,187 +57,237 @@
   }
 
   /**
-   * Chart helpers — panel map:
+   * Panel map:
    *  0  1  2  3
    *  4  5  6  7
    *  8  9 10 11
    * 12 13 14 15
+   *
+   * Charts are phrase-based and beat-quantized — one primary pattern per bar,
+   * strong downbeats, readable density. Notes at the same time merge into chords.
    */
+  const P = {
+    clock: [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4],
+    clockR: [4, 8, 12, 13, 14, 15, 11, 7, 3, 2, 1, 0],
+    diag: [0, 5, 10, 15],
+    diagR: [3, 6, 9, 12],
+    center: [5, 6, 9, 10],
+    corners: [0, 3, 12, 15],
+    ring: [1, 2, 7, 11, 14, 13, 8, 4],
+    snake: [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12],
+    shuffle: [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12],
+    cols: [
+      [0, 4, 8, 12],
+      [1, 5, 9, 13],
+      [2, 6, 10, 14],
+      [3, 7, 11, 15],
+    ],
+    rows: [
+      [0, 1, 2, 3],
+      [4, 5, 6, 7],
+      [8, 9, 10, 11],
+      [12, 13, 14, 15],
+    ],
+  };
+
   function buildChart(song) {
     const bpm = song.bpm;
-    const beat = 60000 / bpm;
+    const beatMs = 60000 / bpm;
     const durationSec = song.durationSec || 100;
-    const totalBeats = Math.ceil((durationSec * bpm) / 60);
-    const notes = [];
-    const push = (beatIndex, panels) => {
-      if (beatIndex < 0 || beatIndex > totalBeats + 4) return;
-      notes.push(note(Math.round(beatIndex * beat), panels));
+    const chartStartBeat = song.chartStartBeat || 0;
+    const totalBeats = Math.floor((durationSec * bpm) / 60) - chartStartBeat;
+    // timeMs → Set of panel indices (merge simultaneous hits into chords)
+    const buckets = new Map();
+
+    const add = (beatIndex, panels) => {
+      if (beatIndex < 0 || beatIndex > totalBeats + 2) return;
+      // Quantize to 1/16 beat so stacked patterns collapse cleanly
+      const q = Math.round(beatIndex * 16) / 16;
+      const t = Math.round((q + chartStartBeat) * beatMs);
+      let set = buckets.get(t);
+      if (!set) {
+        set = new Set();
+        buckets.set(t, set);
+      }
+      const list = Array.isArray(panels) ? panels : [panels];
+      for (const p of list) {
+        if (p >= 0 && p < CELLS) set.add(p);
+      }
     };
 
-    // Shared streams used by real EXT charts
-    const clock = [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4];
-    const clockR = [...clock].reverse();
-    const diag = [0, 5, 10, 15];
-    const diagR = [3, 6, 9, 12];
-    const cross = [1, 2, 4, 7, 8, 11, 13, 14];
-    const center = [5, 6, 9, 10];
-    const corners = [0, 3, 12, 15];
-    const shuffle = [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12];
-    const snake = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12];
-    const spiral = [5, 6, 10, 9, 1, 2, 7, 11, 14, 13, 8, 4, 0, 3, 15, 12];
+    /** Single-panel stream along a path at a fixed step (beats). */
+    const stream = (start, end, path, step = 0.5, pathOffset = 0) => {
+      let i = 0;
+      for (let b = start; b < end - 0.001; b += step) {
+        add(b, [path[(i + pathOffset) % path.length]]);
+        i++;
+      }
+    };
+
+    /**
+     * One 4-beat bar with a clear role. Roles:
+     *  sparse | quarters | eighths | bounce | chord | stream | roll | peak
+     */
+    const bar = (base, role, seed = 0) => {
+      const path = seed % 2 === 0 ? P.clock : P.clockR;
+      const path2 = seed % 2 === 0 ? P.snake : P.shuffle;
+      switch (role) {
+        case "sparse":
+          add(base, P.corners);
+          add(base + 2, P.center);
+          break;
+        case "quarters":
+          add(base, [path[seed % path.length]]);
+          add(base + 1, [path[(seed + 3) % path.length]]);
+          add(base + 2, [path[(seed + 6) % path.length]]);
+          add(base + 3, [path[(seed + 9) % path.length]]);
+          break;
+        case "eighths":
+          stream(base, base + 4, path, 0.5, seed);
+          break;
+        case "bounce":
+          // Downbeats + off-beat taps (classic jubeat groove)
+          add(base, P.corners);
+          add(base + 0.5, [path2[seed % 16]]);
+          add(base + 1, P.center);
+          add(base + 1.5, [path2[(seed + 2) % 16]]);
+          add(base + 2, P.corners);
+          add(base + 2.5, [path2[(seed + 4) % 16]]);
+          add(base + 3, P.center);
+          add(base + 3.5, [path2[(seed + 6) % 16]]);
+          break;
+        case "chord":
+          add(base, P.corners);
+          add(base + 1, P.center);
+          add(base + 2, P.corners);
+          add(base + 3, P.center);
+          add(base + 0.5, [P.ring[seed % 8]]);
+          add(base + 1.5, [P.ring[(seed + 2) % 8]]);
+          add(base + 2.5, [P.ring[(seed + 4) % 8]]);
+          add(base + 3.5, [P.ring[(seed + 6) % 8]]);
+          break;
+        case "stream":
+          // 8ths along a path + chord anchors on 1 and 3 only
+          stream(base, base + 4, path2, 0.5, seed);
+          add(base, seed % 2 === 0 ? P.corners : P.diag);
+          add(base + 2, seed % 2 === 0 ? P.center : P.diagR);
+          break;
+        case "roll": {
+          // Column or row roll — vertical/horizontal phrasing
+          const useCol = seed % 2 === 0;
+          for (let i = 0; i < 8; i++) {
+            const lane = (seed + i) % 4;
+            const cells = useCol ? P.cols[lane] : P.rows[lane];
+            // two panels from the lane so it reads as a roll, not a wall
+            add(base + i * 0.5, [cells[i % 4], cells[(i + 2) % 4]]);
+          }
+          break;
+        }
+        case "peak":
+          // Dense but musical: 8ths stream + off-beat single + big chords on 1/3
+          stream(base, base + 4, path, 0.5, seed);
+          add(base, P.corners);
+          add(base + 1, P.diag);
+          add(base + 2, P.center);
+          add(base + 3, P.diagR);
+          add(base + 0.5, [path2[(seed + 1) % 16]]);
+          add(base + 1.5, [path2[(seed + 5) % 16]]);
+          add(base + 2.5, [path2[(seed + 9) % 16]]);
+          add(base + 3.5, [path2[(seed + 13) % 16]]);
+          break;
+        case "rest":
+          // Breath — single downbeat only
+          add(base, [P.center[seed % 4]]);
+          break;
+        default:
+          add(base, [seed % 16]);
+      }
+    };
+
+    /** Fill a section with a repeating 4-bar phrase of roles. */
+    const section = (startBar, endBar, phraseRoles) => {
+      for (let m = startBar; m < endBar; m++) {
+        const role = phraseRoles[m % phraseRoles.length];
+        bar(m * 4, role, m);
+      }
+    };
+
+    const lastBar = Math.max(4, Math.floor(totalBeats / 4) - 1);
 
     if (song.id === "imsosohappy") {
-      // EXT ~806 notes · 1:40 · 183 BPM — dense 16ths, happy chords, center×corners
-      // Intro (measures 0–7): sparse quarters → 8ths
-      for (let b = 0; b < 16; b++) {
-        push(b, b % 4 === 0 ? corners : [b % 16]);
-      }
-      for (let b = 16; b < 32; b++) {
-        push(b, [clock[b % clock.length]]);
-        if (b % 2 === 0) push(b + 0.5, [clockR[b % clockR.length]]);
-      }
-      // Body A — 16th streams + corner chords (classic Happy EXT)
-      for (let m = 8; m < 28; m++) {
-        const base = m * 4;
-        const path = m % 2 === 0 ? clock : clockR;
-        for (let i = 0; i < 16; i++) push(base + i * 0.25, [path[i % path.length]]);
-        push(base, corners);
-        push(base + 2, center);
-        if (m % 2 === 0) {
-          push(base + 1, [1, 2, 13, 14]);
-          push(base + 3, [4, 7, 8, 11]);
-        }
-        if (m % 3 === 0) {
-          for (let i = 0; i < 8; i++) push(base + i * 0.5 + 0.125, [snake[(i + m) % 16]]);
-        }
-      }
-      // Chorus — multi-panel chords on downbeats + 16ths
-      for (let m = 28; m < 42; m++) {
-        const base = m * 4;
-        push(base, corners);
-        push(base + 1, center);
-        push(base + 2, corners);
-        push(base + 3, center);
-        for (let i = 0; i < 16; i++) {
-          push(base + i * 0.25, [spiral[(i + m * 3) % spiral.length]]);
-        }
-        if (m % 2 === 1) {
-          push(base + 0.5, diag);
-          push(base + 1.5, diagR);
-          push(base + 2.5, diag);
-          push(base + 3.5, diagR);
-        }
-      }
-      // Finale — denser doubles
-      for (let m = 42; m < 50; m++) {
-        const base = m * 4;
-        for (let i = 0; i < 16; i++) {
-          push(base + i * 0.25, [shuffle[i]]);
-          push(base + i * 0.25 + 0.125, [(shuffle[i] + 8) % 16]);
-        }
-        push(base, corners);
-        push(base + 2, center);
-      }
-      // Outro hit
-      push(totalBeats - 2, corners);
-      push(totalBeats - 1, center);
-      push(totalBeats, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
+      // Happy hardstyle: bright pulse, corner chords, room to breathe every 4th bar
+      section(0, 4, ["sparse", "quarters", "sparse", "quarters"]);
+      section(4, 8, ["quarters", "eighths", "bounce", "rest"]);
+      section(8, 16, ["bounce", "eighths", "bounce", "chord"]);
+      section(16, 24, ["stream", "bounce", "stream", "rest"]);
+      section(24, 32, ["chord", "peak", "chord", "bounce"]);
+      section(32, 40, ["peak", "stream", "peak", "chord"]);
+      section(40, Math.min(48, lastBar), ["peak", "peak", "stream", "rest"]);
+      if (lastBar > 48) section(48, lastBar, ["bounce", "chord", "eighths", "rest"]);
+      add(totalBeats - 2, P.corners);
+      add(totalBeats - 1, P.center);
+      add(totalBeats, P.corners.concat(P.center));
     } else if (song.id === "albida") {
-      // EXT · BPM 185 · baroque columns + diagonal crosses (~2 min)
-      for (let b = 0; b < 12; b++) push(b, [diag[b % 4]]);
-      for (let m = 3; m < Math.floor(totalBeats / 4) - 2; m++) {
-        const base = m * 4;
-        // Column rolls (Albida signature verticals)
-        for (let i = 0; i < 8; i++) {
-          const col = (m + i) % 4;
-          const pair = [col, col + 4, col + 8, col + 12].filter(
-            (_, k) => k === i % 4 || k === (i + 2) % 4
-          );
-          push(base + i * 0.5, pair);
-        }
-        push(base, diag);
-        push(base + 1, diagR);
-        push(base + 2, corners);
-        push(base + 3, center);
-        // Renaissance ornaments
-        for (let s = 0; s < 4; s++) {
-          push(base + 0.25 + s, [(m * 3 + s * 5) % 16]);
-          push(base + 0.75 + s, [(m * 7 + s * 3) % 16]);
-        }
-        if (m > 10) {
-          for (let i = 0; i < 16; i++) push(base + i * 0.25, [(m * 5 + i * 3) % 16]);
-        }
-        if (m % 4 === 0) {
-          push(base + 1.5, [0, 5, 10, 15, 3, 6, 9, 12]);
-        }
+      // Baroque columns + diagonals — rolls read as the motif
+      section(0, 4, ["sparse", "quarters", "sparse", "quarters"]);
+      section(4, 10, ["roll", "quarters", "roll", "rest"]);
+      section(10, 20, ["roll", "chord", "roll", "bounce"]);
+      section(20, 30, ["stream", "roll", "chord", "rest"]);
+      section(30, Math.min(42, lastBar), ["peak", "roll", "peak", "chord"]);
+      if (lastBar > 42) section(42, lastBar, ["roll", "stream", "bounce", "rest"]);
+      // Signature X hits every 8 bars in the body
+      for (let m = 8; m < lastBar; m += 8) {
+        add(m * 4 + 1.5, P.diag.concat(P.diagR));
       }
-      push(totalBeats - 1, corners);
-      push(totalBeats, center);
+      add(totalBeats - 1, P.corners);
+      add(totalBeats, P.center);
     } else if (song.id === "flower") {
-      // EXT · BPM 173 · circular / petal streams (trance)
-      const ring = [1, 2, 7, 11, 14, 13, 8, 4];
-      const petals = [0, 3, 12, 15, 5, 6, 9, 10];
-      for (let b = 0; b < 12; b++) {
-        push(b, b % 2 === 0 ? center : [ring[b % ring.length]]);
+      // Trance petals: ring orbits, center blooms
+      const ringStream = (startBar, endBar) => {
+        for (let m = startBar; m < endBar; m++) {
+          const base = m * 4;
+          stream(base, base + 4, P.ring, 0.5, m);
+          if (m % 4 !== 3) {
+            add(base, P.center);
+            add(base + 2, P.corners);
+          } else {
+            add(base, P.corners);
+          }
+        }
+      };
+      section(0, 4, ["sparse", "sparse", "quarters", "rest"]);
+      ringStream(4, 12);
+      section(12, 20, ["chord", "eighths", "bounce", "rest"]);
+      ringStream(20, 28);
+      section(28, Math.min(36, lastBar), ["peak", "chord", "stream", "bounce"]);
+      if (lastBar > 36) {
+        ringStream(36, Math.min(44, lastBar));
+        if (lastBar > 44) section(44, lastBar, ["chord", "eighths", "rest", "sparse"]);
       }
-      for (let m = 3; m < Math.floor(totalBeats / 4) - 2; m++) {
-        const base = m * 4;
-        ring.forEach((p, i) => push(base + i * 0.5, [p]));
-        push(base, center);
-        push(base + 2, corners);
-        for (let i = 0; i < 8; i++) {
-          const a = (m + i) % 16;
-          push(base + i * 0.5 + 0.25, [a, (a + 5) % 16]);
-        }
-        if (m % 2 === 1) {
-          petals.forEach((p, i) => push(base + i * 0.5, [p]));
-          push(base + 1, [1, 4, 7, 13]);
-          push(base + 3, [2, 8, 11, 14]);
-        }
-        if (m > 12) {
-          ring.forEach((p, i) => push(base + i * 0.25, [(p + 2) % 16]));
-          for (let i = 0; i < 8; i++) push(base + i * 0.5 + 0.125, [spiral[i % spiral.length]]);
-        }
-        if (m % 4 === 0) push(base + 1.5, [0, 3, 5, 6, 9, 10, 12, 15]);
-      }
-      push(totalBeats - 2, ring);
-      push(totalBeats - 1, center);
-      push(totalBeats, corners);
+      add(totalBeats - 2, P.ring);
+      add(totalBeats - 1, P.center);
+      add(totalBeats, P.corners);
     } else {
-      // Evans EXT · BPM 180 · shuffle 16ths, classic hard denseness
-      for (let b = 0; b < 8; b++) push(b, [shuffle[b]]);
-      for (let m = 2; m < Math.floor(totalBeats / 4) - 2; m++) {
-        const base = m * 4;
-        // Main shuffle stream
-        shuffle.forEach((p, i) => push(base + i * 0.25, [p]));
-        // Off-beat counters (Evans density)
-        if (m > 4) {
-          for (let i = 0; i < 8; i++) {
-            push(base + i * 0.5 + 0.125, [(shuffle[i] + 3) % 16]);
-          }
-        }
-        if (m > 12) {
-          for (let i = 0; i < 16; i++) {
-            push(base + i * 0.25 + 0.125, [(shuffle[i] + 7) % 16]);
-          }
-        }
-        // Anchor chords
-        push(base, [0, 3]);
-        push(base + 1, [12, 15]);
-        push(base + 2, [0, 15]);
-        push(base + 3, [3, 12]);
-        if (m % 4 === 0) push(base + 1.5, center);
-        if (m % 2 === 0) {
-          push(base + 0.5, [5, 10]);
-          push(base + 2.5, [6, 9]);
-        }
+      // Evans — shuffle feel: 8ths with syncopated bounce, not 16th walls
+      section(0, 4, ["sparse", "quarters", "eighths", "rest"]);
+      section(4, 12, ["bounce", "eighths", "bounce", "rest"]);
+      section(12, 20, ["stream", "bounce", "stream", "chord"]);
+      section(20, 28, ["peak", "stream", "bounce", "rest"]);
+      section(28, Math.min(40, lastBar), ["peak", "peak", "stream", "chord"]);
+      if (lastBar > 40) section(40, lastBar, ["bounce", "stream", "peak", "rest"]);
+      // Evans corner pairs on every 4th downbeat
+      for (let m = 4; m < lastBar; m += 4) {
+        add(m * 4, [0, 3]);
+        add(m * 4 + 2, [12, 15]);
       }
-      push(totalBeats - 2, [0, 3, 12, 15]);
-      push(totalBeats - 1, center);
-      push(totalBeats, shuffle);
+      add(totalBeats - 2, P.corners);
+      add(totalBeats - 1, P.center);
+      add(totalBeats, P.shuffle.slice(0, 8));
     }
 
-    notes.sort((a, b) => a.t - b.t || a.panels[0] - b.panels[0]);
+    const notes = [...buckets.entries()]
+      .map(([t, set]) => note(t, [...set].sort((a, b) => a - b)))
+      .sort((a, b) => a.t - b.t || a.panels[0] - b.panels[0]);
     return notes;
   }
 
@@ -246,45 +296,50 @@
       id: "imsosohappy",
       title: "I'm so Happy",
       artist: "Ryu☆",
-      level: 10,
+      level: 9,
       bpm: 183,
-      durationSec: 100, // official ~1:40
+      durationSec: 100, // ~1:40
+      // Skip non-musical lead-in on the YT upload (ms subtracted from video time)
+      audioOffsetMs: 0,
       color: "#f472b6",
       youtubeId: "9TFe1oHsb-s",
-      notesHint: "EXT ~806",
+      notesHint: "beat chart",
     },
     {
       id: "albida",
       title: "Albida",
       artist: "DJ YOSHITAKA",
-      level: 10,
+      level: 9,
       bpm: 185,
       durationSec: 118,
+      audioOffsetMs: 0,
       color: "#38bdf8",
       youtubeId: "H-tHnjxkkNg",
-      notesHint: "EXT",
+      notesHint: "columns",
     },
     {
       id: "flower",
       title: "Flower",
       artist: "DJ YOSHITAKA",
-      level: 9,
+      level: 8,
       bpm: 173,
       durationSec: 125,
+      audioOffsetMs: 0,
       color: "#c084fc",
       youtubeId: "3K6OnRqo4og",
-      notesHint: "EXT",
+      notesHint: "petals",
     },
     {
       id: "evans",
       title: "Evans",
       artist: "DJ YOSHITAKA",
-      level: 10,
+      level: 9,
       bpm: 180,
       durationSec: 122,
+      audioOffsetMs: 0,
       color: "#fbbf24",
       youtubeId: "6FRGiRCbfr8",
-      notesHint: "EXT ~718",
+      notesHint: "shuffle",
     },
   ].map((s) => ({ ...s, chart: null }));
 
@@ -315,7 +370,7 @@
           <div id="jb-yt" class="jb-yt" aria-label="Song BGM"></div>
           <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track · unmute if needed</p>
         </div>
-        <p class="game-hint" id="jb-hint">Shutter marker · hit when blades close + TOUCH · miss never fails the chart</p>
+        <p class="game-hint" id="jb-hint">Hit when the shutter closes on the beat · miss never fails the chart · 1–4 QWER ASDF ZXCV</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -392,6 +447,10 @@
     let useVideoClock = false;
     let destroyed = false;
     let clockStarted = false;
+    // Hybrid clock: sample YT occasionally, interpolate with performance.now
+    let clockAnchorVideoMs = 0;
+    let clockAnchorPerf = 0;
+    let lastVideoSamplePerf = 0;
 
     function song() {
       return SONGS[songIndex];
@@ -616,19 +675,49 @@
       }
     }
 
-    function nowMs() {
+    function sampleVideoMs() {
       const s = song();
       const offset = s.audioOffsetMs || 0;
-      if (useVideoClock && ytPlayer?.getCurrentTime) {
+      if (!ytPlayer?.getCurrentTime) return null;
+      try {
+        const state = ytPlayer.getPlayerState?.();
+        // 1 = playing; keep last sample while buffering so chart doesn't jump
+        if (state === 1) {
+          return Math.max(0, ytPlayer.getCurrentTime() * 1000 - offset);
+        }
+        if (state === 3 /* buffering */ || state === 2 /* paused */) {
+          return clockAnchorVideoMs;
+        }
+      } catch {
+        /* ignore */
+      }
+      return null;
+    }
+
+    function nowMs() {
+      if (useVideoClock) {
+        const perf = performance.now();
         try {
-          if (ytPlayer.getPlayerState?.() === 1) {
-            return Math.max(0, ytPlayer.getCurrentTime() * 1000 - offset);
+          const state = ytPlayer?.getPlayerState?.();
+          // Freeze the chart while buffering/paused so we don't drift off the beat
+          if (state === 2 || state === 3) {
+            return clockAnchorVideoMs;
           }
         } catch {
-          /* fall through */
+          /* ignore */
         }
+        // Resample YouTube time ~8×/s — API is coarse; interpolate between samples
+        if (perf - lastVideoSamplePerf > 120) {
+          const v = sampleVideoMs();
+          if (v != null) {
+            clockAnchorVideoMs = v;
+            clockAnchorPerf = perf;
+            lastVideoSamplePerf = perf;
+          }
+        }
+        return Math.max(0, clockAnchorVideoMs + (perf - clockAnchorPerf));
       }
-      return performance.now() - t0;
+      return Math.max(0, performance.now() - t0);
     }
 
     function spawnNote(panel, hitTime) {
@@ -787,12 +876,49 @@
       raf = requestAnimationFrame(frame);
     }
 
-    function beginChartClock() {
+    function beginChartClock(fromVideo) {
       if (clockStarted || !running || destroyed) return;
       clockStarted = true;
-      t0 = performance.now();
-      useVideoClock = !!(ytPlayer && song().youtubeId);
+      const perf = performance.now();
+      t0 = perf;
+      useVideoClock = !!fromVideo;
+      clockAnchorVideoMs = 0;
+      clockAnchorPerf = perf;
+      lastVideoSamplePerf = perf;
+      if (useVideoClock) {
+        const v = sampleVideoMs();
+        if (v != null) {
+          clockAnchorVideoMs = v;
+        }
+      }
       raf = requestAnimationFrame(frame);
+    }
+
+    /**
+     * Wait until the YT player is actually playing, then lock the chart clock
+     * to video time so shutters close on the beat.
+     */
+    function waitForPlaybackThenStart(deadlineMs) {
+      const deadline = performance.now() + deadlineMs;
+      const poll = () => {
+        if (!running || destroyed || clockStarted) return;
+        try {
+          const state = ytPlayer?.getPlayerState?.();
+          if (state === 1) {
+            beginChartClock(true);
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
+        if (performance.now() >= deadline) {
+          // Fallback: local clock if YT never reports playing
+          beginChartClock(false);
+          return;
+        }
+        setTimeout(poll, 50);
+      };
+      poll();
     }
 
     function warmPanelMedia() {
@@ -811,12 +937,14 @@
       chartIndex = 0;
       running = true;
       clockStarted = false;
+      useVideoClock = false;
       submitted = false;
       score = 0;
       combo = 0;
       bestCombo = 0;
       counts = { excellent: 0, great: 0, good: 0, miss: 0 };
-      approachMs = Math.max(480, Math.round((60000 / s.bpm) * 1.75));
+      // Approach ≈ 2 beats so the shutter reads the pulse
+      approachMs = Math.max(520, Math.round((60000 / s.bpm) * 2));
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
       excEl.textContent = "0";
@@ -827,18 +955,30 @@
       paintSongs();
       warmPanelMedia();
       const mins = Math.round((s.durationSec || 100) / 6) / 10;
-      hintEl.textContent = `${s.title} · EXT ${s.level} · ~${mins} min · Shutter · ${chart.length} notes · miss OK`;
+      const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
+      hintEl.textContent = `${s.title} · EXT ${s.level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-      blip(523, 0.08, 0.04);
-      setTimeout(() => blip(659, 0.08, 0.04), 200);
-      setTimeout(() => blip(784, 0.1, 0.04), 400);
+      // Count-in blips on the song's beat grid
+      const beatMs = 60000 / s.bpm;
+      blip(523, 0.07, 0.035);
+      setTimeout(() => blip(523, 0.07, 0.035), beatMs);
+      setTimeout(() => blip(659, 0.07, 0.035), beatMs * 2);
+      setTimeout(() => blip(784, 0.09, 0.04), beatMs * 3);
 
-      const startAt = performance.now() + 650;
-      playBgm(s).then(() => {
-        if (!running || destroyed) return;
-        setTimeout(() => beginChartClock(), Math.max(0, startAt - performance.now()));
+      playBgm(s).then((ok) => {
+        if (!running || destroyed || clockStarted) return;
+        if (ok) {
+          // Chart starts when audio is audible — stays locked to YT time
+          waitForPlaybackThenStart(4000);
+        } else {
+          // No video: count-in then local clock
+          setTimeout(() => beginChartClock(false), Math.round(beatMs * 4));
+        }
       });
-      setTimeout(() => beginChartClock(), 2200);
+      // Absolute fallback so a hung YT API never soft-locks the board
+      setTimeout(() => {
+        if (running && !clockStarted && !destroyed) beginChartClock(false);
+      }, 5000);
     }
 
     startBtn.addEventListener("click", start);
