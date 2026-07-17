@@ -9,12 +9,12 @@
 
   const DEFS = [
     { id: "first-run", title: "Insert Coin", blurb: "Finish any game once", icon: "🪙" },
-    { id: "level-5", title: "Cabinet Regular", blurb: "Reach player level 5", icon: "📶" },
-    { id: "level-10", title: "Arcade Ace", blurb: "Reach player level 10", icon: "🏆" },
+    { id: "level-5", title: "Cabinet Regular", blurb: "Reach level 5 · unlocks Reaction Lab & Space Shooter", icon: "📶" },
+    { id: "level-10", title: "Arcade Ace", blurb: "Reach level 10 · unlocks Memory Match", icon: "🏆" },
     { id: "level-15", title: "Floor Legend", blurb: "Reach player level 15", icon: "⭐" },
-    { id: "level-20", title: "High Roller", blurb: "Reach player level 20 · unlocks Circuit Breaker", icon: "💎" },
+    { id: "level-20", title: "High Roller", blurb: "Reach player level 20", icon: "💎" },
     { id: "level-25", title: "Neon Immortal", blurb: "Reach player level 25", icon: "👑" },
-    { id: "level-50", title: "No Cap", blurb: "Reach player level 50 · unlocks Pulse Grid", icon: "♾️" },
+    { id: "level-50", title: "No Cap", blurb: "Reach level 50 · unlocks Pulse Grid", icon: "♾️" },
     { id: "ttt-win", title: "Three in a Row", blurb: "Win a Tic-Tac-Toe match", icon: "⭕" },
     { id: "snake-50", title: "Ssssolid", blurb: "Score 50+ in Snake", icon: "🐍" },
     { id: "snake-150", title: "Long Boi", blurb: "Score 150+ in Snake", icon: "🐉" },
@@ -37,22 +37,36 @@
 
   /**
    * Games gated behind achievements (or player level as fallback).
-   * Base cabinets have no entry here → always free.
+   * Free by default (no entry): Tic-Tac-Toe, Snake, Circuit Breaker, Target Tap.
    */
   const UNLOCKS = {
+    reaction: {
+      label: "Reaction Lab",
+      blurb: "ms timing · decoys",
+      icon: "⚡",
+      requireAchievement: "level-5",
+      requireLevel: 5,
+    },
+    shooter: {
+      label: "Space Shooter",
+      blurb: "Waves · powerups · lives",
+      icon: "🚀",
+      requireAchievement: "level-5",
+      requireLevel: 5,
+    },
+    memory: {
+      label: "Memory Match",
+      blurb: "Hearts · expanding boards",
+      icon: "🧠",
+      requireAchievement: "level-10",
+      requireLevel: 10,
+    },
     jubeat: {
       label: "Pulse Grid",
       blurb: "4×4 rhythm panels — jubeat vibes · real song BGM",
       icon: "🎹",
       requireAchievement: "level-50",
       requireLevel: 50,
-    },
-    breaker: {
-      label: "Circuit Breaker",
-      blurb: "Brick breaker · power-ups",
-      icon: "🧱",
-      requireAchievement: "level-20",
-      requireLevel: 20,
     },
   };
 

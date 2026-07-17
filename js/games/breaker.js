@@ -1,5 +1,5 @@
 /**
- * Circuit Breaker — simple brick breaker unlockable cabinet.
+ * Circuit Breaker — simple brick breaker (free cabinet).
  * Endless brick rows; paddle control; no hard level cap.
  */
 (function (global) {
