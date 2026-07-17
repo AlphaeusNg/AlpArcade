@@ -162,7 +162,11 @@
 
     function onCell(i) {
       window.ArcadeSFX?.unlock?.();
-      if (!running) return;
+      // Tap the playfield to start when idle
+      if (!running) {
+        start();
+        return;
+      }
       const cell = grid.querySelector(`[data-i="${i}"]`);
       if (!cell) return;
       if (!active.has(i)) {

@@ -126,9 +126,10 @@
       if (multiLevel > 0 && !has("multi")) {
         // permanent stacks shouldn't happen; multi is timed
       }
+      // Always fill the reserved power strip so the canvas never jumps mid-run
       powersEl.innerHTML = chips.length
         ? chips.join("")
-        : `<span class="sh-power-empty">No powerups — destroy ships to drop gear</span>`;
+        : `<span class="sh-power-empty">Powerups drop from wrecks</span>`;
     }
 
     function showPickup(text, color) {
@@ -699,12 +700,18 @@
 
     let dragging = false;
     canvas.addEventListener("pointerdown", (e) => {
+      // Tap playfield to launch when not already running
+      if (!running) {
+        start();
+      }
       dragging = true;
       canvas.setPointerCapture?.(e.pointerId);
       const r = canvas.getBoundingClientRect();
       if (ship) {
         ship.x = ((e.clientX - r.left) / r.width) * W;
         ship.y = ((e.clientY - r.top) / r.height) * H;
+        ship.x = Math.max(18, Math.min(W - 18, ship.x));
+        ship.y = Math.max(28, Math.min(H - 24, ship.y));
       }
     });
     canvas.addEventListener("pointermove", (e) => {
@@ -754,7 +761,7 @@
     ctx.fillStyle = "#93a4c3";
     ctx.font = "16px Outfit, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("Press Launch", W / 2, H / 2);
+    ctx.fillText("Tap or Launch", W / 2, H / 2);
     ctx.font = "12px JetBrains Mono, monospace";
     ctx.fillText("WASD · powerups drop from wrecks", W / 2, H / 2 + 28);
 

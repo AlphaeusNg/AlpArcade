@@ -532,17 +532,33 @@
     let touchStart = null;
     function onTouchStart(e) {
       const t = e.changedTouches[0];
-      touchStart = { x: t.clientX, y: t.clientY };
+      touchStart = { x: t.clientX, y: t.clientY, t: Date.now() };
     }
     function onTouchEnd(e) {
       if (!touchStart) return;
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStart.x;
       const dy = t.clientY - touchStart.y;
+      const dist = Math.hypot(dx, dy);
+      // Tap (not swipe) on playfield starts / restarts when idle
+      if (!running && dist < 18) {
+        start();
+        touchStart = null;
+        return;
+      }
       if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
       else setDir(0, dy > 0 ? 1 : -1);
       touchStart = null;
     }
+
+    // Mouse / pen: click playfield to start when not running
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "touch") return; // touch handled above
+      if (!running) {
+        e.preventDefault();
+        start();
+      }
+    });
 
     window.addEventListener("keydown", onKey);
     canvas.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -578,6 +594,14 @@
 
     reset();
     draw();
+    // Idle prompt on canvas
+    try {
+      const idle = canvas.getContext("2d");
+      // draw() already painted board; overlay start hint if available
+      if (hintEl) hintEl.textContent = "Tap board or Start · arrows / WASD · swipe";
+    } catch {
+      /* ignore */
+    }
 
     return {
       destroy() {

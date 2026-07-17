@@ -166,8 +166,16 @@
           "aria-label",
           c.matched ? `Matched ${c.icon}` : faceUp ? `Card ${c.icon}` : `Hidden card ${i + 1}`
         );
-        btn.disabled = gameOver || c.matched || lock;
-        btn.addEventListener("click", () => flip(i));
+        btn.disabled = (gameOver ? false : c.matched || lock);
+        btn.addEventListener("click", () => {
+          // After a run ends, tap the board to start a new one
+          if (gameOver) {
+            ArcadeSFX?.click?.();
+            startRun();
+            return;
+          }
+          flip(i);
+        });
         grid.appendChild(btn);
       });
     }

@@ -55,23 +55,26 @@
       showToast("Finish a run first");
       return;
     }
-    const { label, score, gameId, isHighScore } = lastRunShare;
-    const scoreText = ArcadeScores.formatScore(gameId, score);
-    const text = `I scored ${scoreText} in ${label} on AlpArcade${isHighScore ? " (personal best!)" : ""} — ${location.origin}${location.pathname}`;
+    // Always copy the arcade link (no native share sheet)
+    const link = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "AlpArcade", text, url: location.href.split("#")[0] });
-        showToast("Shared!");
-        return;
-      }
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast("Share text copied");
+      await navigator.clipboard.writeText(link);
+      showToast("Link copied");
     } catch {
-      prompt("Copy to share:", text);
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("Link copied");
+      } catch {
+        prompt("Copy this link:", link);
+      }
     }
   }
 

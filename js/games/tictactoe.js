@@ -159,7 +159,15 @@
           "aria-label",
           cell ? `Row ${row} column ${col}: ${cell}` : `Row ${row} column ${col}: empty`
         );
-        btn.addEventListener("click", () => play(i));
+        btn.addEventListener("click", () => {
+          // After a finished match, tap the board to start a new one
+          if (locked && winner(board)) {
+            reset();
+            if (!board[i]) play(i);
+            return;
+          }
+          play(i);
+        });
         boardEl.appendChild(btn);
       });
     }

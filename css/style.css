@@ -1721,28 +1721,36 @@ body.salmon-mode .fun-fact-text {
   animation: sh-lives-pop 0.7s ease;
 }
 
+/* Fixed height so stacking powerups never shoves the canvas down mid-run */
 .sh-powers {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.4rem;
+  align-content: flex-start;
+  gap: 0.35rem;
   max-width: 420px;
-  margin: 0 auto 0.65rem;
-  min-height: 1.6rem;
+  width: 100%;
+  margin: 0 auto 0.55rem;
+  min-height: 3.5rem;
+  max-height: 3.5rem;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sh-power-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.28rem 0.55rem;
+  gap: 0.2rem;
+  padding: 0.22rem 0.45rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent);
   background: color-mix(in srgb, var(--pc) 14%, rgba(0, 0, 0, 0.35));
   color: var(--pc);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   font-family: var(--mono);
+  line-height: 1.15;
+  max-width: 100%;
 }
 
 .sh-power-chip small {
@@ -1751,9 +1759,31 @@ body.salmon-mode .fun-fact-text {
 }
 
 .sh-power-empty {
-  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.5rem;
+  margin: 0;
+  font-size: 0.72rem;
   color: var(--dim);
   font-family: var(--mono);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.shooter-wrap {
+  /* keep stage from reflowing when HUD chips change */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sh-stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(100%, 420px);
+  margin: 0 auto;
 }
 
 .sh-pickup-toast {
