@@ -2120,6 +2120,40 @@ body.salmon-mode .fun-fact-text {
   transition: width 0.08s linear;
 }
 
+.jb-music {
+  width: min(100%, 360px);
+  margin: 0.15rem auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.jb-yt {
+  width: 100%;
+  min-height: 152px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #000;
+}
+
+.jb-yt iframe {
+  display: block;
+  width: 100% !important;
+  height: 152px !important;
+}
+
+.jb-music-note {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--dim);
+  text-align: center;
+}
+
+.jb-meta .jb-bgm {
+  color: var(--teal);
+}
+
 /* Circuit Breaker */
 .breaker-wrap {
   display: flex;

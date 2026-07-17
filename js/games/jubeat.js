@@ -1,7 +1,8 @@
 /**
- * Pulse Grid — jubeat-style 4×4 charts.
+ * Pulse Grid — jubeat-style 4×4 charts with real song BGM (YouTube).
  * Songs: I'm so Happy · Albida · Flower · Evans (EXTREME only).
  * Judges: EXCELLENT · GREAT · GOOD · MISS — misses do not end the run.
+ * Unlock: player level 50.
  */
 (function (global) {
   "use strict";
@@ -15,6 +16,34 @@
     great: 90,
     good: 140,
   };
+
+  let ytApiPromise = null;
+
+  function loadYouTubeApi() {
+    if (global.YT && global.YT.Player) return Promise.resolve();
+    if (ytApiPromise) return ytApiPromise;
+    ytApiPromise = new Promise((resolve, reject) => {
+      const prev = global.onYouTubeIframeAPIReady;
+      global.onYouTubeIframeAPIReady = () => {
+        try {
+          prev?.();
+        } catch {
+          /* ignore */
+        }
+        resolve();
+      };
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const s = document.createElement("script");
+        s.src = "https://www.youtube.com/iframe_api";
+        s.async = true;
+        s.onerror = () => reject(new Error("YouTube API failed to load"));
+        document.head.appendChild(s);
+      }
+      // Already present (race)
+      if (global.YT && global.YT.Player) resolve();
+    });
+    return ytApiPromise;
+  }
 
   /**
    * Chart helpers: build EXTREME streams on a 4×4 pad.
@@ -153,6 +182,10 @@
     return notes;
   }
 
+  /**
+   * youtubeId — public OST / game audio uploads used as BGM (not redistributed).
+   * audioOffsetMs — subtract from video time if the track has leading silence.
+   */
   const SONGS = [
     {
       id: "imsosohappy",
@@ -161,18 +194,22 @@
       difficulty: "EXTREME",
       level: 10,
       bpm: 183,
-      durationSec: 195, // ~3.2 min
+      durationSec: 195,
       color: "#f472b6",
+      youtubeId: "9TFe1oHsb-s",
+      audioOffsetMs: 0,
     },
     {
       id: "albida",
       title: "Albida",
-      artist: "dj TAKA",
+      artist: "DJ YOSHITAKA",
       difficulty: "EXTREME",
       level: 10,
       bpm: 155,
-      durationSec: 200, // ~3.3 min
+      durationSec: 200,
       color: "#38bdf8",
+      youtubeId: "H-tHnjxkkNg",
+      audioOffsetMs: 0,
     },
     {
       id: "flower",
@@ -181,8 +218,10 @@
       difficulty: "EXTREME",
       level: 9,
       bpm: 173,
-      durationSec: 185, // ~3.1 min
+      durationSec: 185,
       color: "#c084fc",
+      youtubeId: "3K6OnRqo4og",
+      audioOffsetMs: 0,
     },
     {
       id: "evans",
@@ -191,12 +230,13 @@
       difficulty: "EXTREME",
       level: 10,
       bpm: 180,
-      durationSec: 210, // ~3.5 min
+      durationSec: 210,
       color: "#fbbf24",
+      youtubeId: "6FRGiRCbfr8",
+      audioOffsetMs: 0,
     },
   ].map((s) => ({ ...s, chart: null }));
 
-  // Lazy chart build
   function chartFor(song) {
     if (!song.chart) song.chart = buildChart(song);
     return song.chart;
@@ -220,7 +260,11 @@
           <div class="jb-judge" id="jb-judge" hidden aria-live="polite"></div>
           <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
         </div>
-        <p class="game-hint" id="jb-hint">EXTREME charts (~3 min) · EXCELLENT / GREAT / GOOD / MISS · miss is OK — play the full song</p>
+        <div class="jb-music" id="jb-music">
+          <div id="jb-yt" class="jb-yt" aria-label="Song BGM"></div>
+          <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track via YouTube · unmute if needed</p>
+        </div>
+        <p class="game-hint" id="jb-hint">EXTREME charts (~3 min) · real BGM · EXCELLENT / GREAT / GOOD / MISS · miss is OK</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -238,6 +282,8 @@
     const judgeEl = root.querySelector("#jb-judge");
     const progEl = root.querySelector("#jb-progress");
     const startBtn = root.querySelector("#jb-start");
+    const musicNoteEl = root.querySelector("#jb-music-note");
+    const ytHost = root.querySelector("#jb-yt");
 
     /** @type {HTMLButtonElement[]} */
     const cells = [];
@@ -267,10 +313,15 @@
     let raf = 0;
     let submitted = false;
     let judgeTimer = null;
-    /** active: key "t-panel" -> { t, panel, born } */
+    /** active: key "t-panel" -> { t, panel, key } */
     let active = new Map();
     let approachMs = 520;
     let audioCtx = null;
+    /** @type {YT.Player | null} */
+    let ytPlayer = null;
+    let ytVideoId = "";
+    let useVideoClock = false;
+    let destroyed = false;
 
     function song() {
       return SONGS[songIndex];
@@ -281,7 +332,7 @@
         (s, i) => `
         <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${running ? "disabled" : ""} style="--sc:${s.color}">
           <strong>${escapeHtml(s.title)}</strong>
-          <small>EXTREME ${s.level} · ${s.bpm} BPM</small>
+          <small>EXTREME ${s.level} · ${s.bpm} BPM · ♪</small>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
@@ -290,6 +341,7 @@
           songIndex = Number(btn.dataset.s);
           paintSongs();
           paintMeta();
+          cuePreview(song());
           global.ArcadeSFX?.click?.();
         });
       });
@@ -307,8 +359,9 @@
       const s = song();
       metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
         <span class="jb-diff">EXTREME ${s.level}</span>
-        <span>${s.artist}</span>
-        <span>${s.bpm} BPM</span>`;
+        <span>${escapeHtml(s.artist)}</span>
+        <span>${s.bpm} BPM</span>
+        <span class="jb-bgm">♪ BGM</span>`;
       grid.style.setProperty("--jb-accent", s.color);
     }
 
@@ -327,7 +380,118 @@
       active.clear();
     }
 
-    function blip(freq, dur = 0.06) {
+    function stopBgm() {
+      useVideoClock = false;
+      try {
+        if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+          ytPlayer.pauseVideo();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function ensureYtPlayer(videoId) {
+      return loadYouTubeApi()
+        .then(
+          () =>
+            new Promise((resolve, reject) => {
+              if (destroyed) {
+                reject(new Error("destroyed"));
+                return;
+              }
+              if (ytPlayer && ytVideoId === videoId) {
+                resolve(ytPlayer);
+                return;
+              }
+              if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
+                ytVideoId = videoId;
+                try {
+                  ytPlayer.cueVideoById({ videoId, startSeconds: 0 });
+                } catch {
+                  ytPlayer.loadVideoById(videoId);
+                }
+                resolve(ytPlayer);
+                return;
+              }
+              // Fresh player
+              if (ytHost) ytHost.innerHTML = "";
+              ytVideoId = videoId;
+              // eslint-disable-next-line no-undef
+              ytPlayer = new global.YT.Player(ytHost, {
+                height: "152",
+                width: "100%",
+                videoId,
+                host: "https://www.youtube-nocookie.com",
+                playerVars: {
+                  autoplay: 0,
+                  controls: 1,
+                  modestbranding: 1,
+                  rel: 0,
+                  playsinline: 1,
+                  fs: 0,
+                  origin: location.origin,
+                },
+                events: {
+                  onReady: (e) => resolve(e.target),
+                  onError: () => {
+                    if (musicNoteEl) {
+                      musicNoteEl.textContent =
+                        "BGM unavailable (blocked or region) · chart still playable";
+                    }
+                    resolve(ytPlayer);
+                  },
+                },
+              });
+            })
+        )
+        .catch((err) => {
+          if (musicNoteEl) {
+            musicNoteEl.textContent = "BGM failed to load · chart still playable without audio";
+          }
+          console.warn("[jubeat] YouTube", err);
+          return null;
+        });
+    }
+
+    /** Quiet cue when selecting a song (does not autoplay until Start). */
+    function cuePreview(s) {
+      if (!s?.youtubeId) return;
+      ensureYtPlayer(s.youtubeId).then((p) => {
+        try {
+          p?.cueVideoById?.({ videoId: s.youtubeId, startSeconds: 0 });
+        } catch {
+          /* ignore */
+        }
+      });
+      if (musicNoteEl) {
+        musicNoteEl.textContent = `♪ ${s.title} · ${s.artist} · Start chart to play BGM`;
+      }
+    }
+
+    function playBgm(s) {
+      if (!s?.youtubeId) return Promise.resolve(false);
+      return ensureYtPlayer(s.youtubeId).then((p) => {
+        if (!p || destroyed) return false;
+        try {
+          if (typeof p.loadVideoById === "function") {
+            p.loadVideoById({ videoId: s.youtubeId, startSeconds: 0 });
+          }
+          p.unMute?.();
+          p.setVolume?.(100);
+          p.playVideo?.();
+          if (musicNoteEl) {
+            musicNoteEl.textContent = `Now playing · ${s.title} · ${s.artist}`;
+          }
+          return true;
+        } catch (err) {
+          console.warn("[jubeat] play", err);
+          return false;
+        }
+      });
+    }
+
+    function blip(freq, dur = 0.06, gain = 0.035) {
       try {
         if (!audioCtx) {
           const C = window.AudioContext || window.webkitAudioContext;
@@ -341,7 +505,7 @@
         o.type = "square";
         o.frequency.setValueAtTime(freq, t);
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         o.connect(g);
         g.connect(audioCtx.destination);
@@ -353,6 +517,20 @@
     }
 
     function nowMs() {
+      const s = song();
+      const offset = s.audioOffsetMs || 0;
+      // Prefer YouTube clock when playing for better song sync
+      if (useVideoClock && ytPlayer && typeof ytPlayer.getCurrentTime === "function") {
+        try {
+          const state = ytPlayer.getPlayerState?.();
+          // 1 = PLAYING
+          if (state === 1) {
+            return Math.max(0, ytPlayer.getCurrentTime() * 1000 - offset);
+          }
+        } catch {
+          /* fall through */
+        }
+      }
       return performance.now() - t0;
     }
 
@@ -385,7 +563,7 @@
       setJudge("MISS", "miss");
       despawn(n.key, n.panel, true);
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
-      blip(120, 0.05);
+      blip(120, 0.05, 0.025);
     }
 
     function onPanel(i) {
@@ -395,7 +573,6 @@
         return;
       }
       const t = nowMs();
-      // nearest active note on this panel still in good window
       let best = null;
       let bestErr = Infinity;
       for (const n of active.values()) {
@@ -407,7 +584,6 @@
         }
       }
       if (!best || bestErr > WIN.good) {
-        // empty hit — soft feedback only, no miss counter (jubeat empty tap)
         cells[i].classList.add("is-miss");
         setTimeout(() => cells[i].classList.remove("is-miss"), 120);
         global.ArcadeSFX?.tick?.();
@@ -422,21 +598,21 @@
         cls = "excellent";
         pts = 1000 + Math.min(200, combo * 3);
         counts.excellent += 1;
-        blip(880 + (i % 4) * 40, 0.05);
+        blip(880 + (i % 4) * 40, 0.04, 0.03);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
       } else if (bestErr <= WIN.great) {
         label = "GREAT";
         cls = "great";
         pts = 700 + Math.min(120, combo * 2);
         counts.great += 1;
-        blip(660, 0.05);
+        blip(660, 0.04, 0.028);
         global.ArcadeSFX?.click?.();
       } else {
         label = "GOOD";
         cls = "good";
         pts = 300;
         counts.good += 1;
-        blip(440, 0.05);
+        blip(440, 0.04, 0.025);
         global.ArcadeSFX?.tick?.();
       }
 
@@ -457,7 +633,7 @@
       submitted = true;
       running = false;
       cancelAnimationFrame(raf);
-      // Remaining active → miss
+      stopBgm();
       for (const n of [...active.values()]) registerMiss(n);
       clearPanels();
       startBtn.disabled = false;
@@ -467,6 +643,9 @@
       const total = counts.excellent + counts.great + counts.good + counts.miss;
       const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
       hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
+      if (musicNoteEl) {
+        musicNoteEl.textContent = `♪ ${s.title} finished · Start again or pick another chart`;
+      }
       onScore?.({
         score,
         meta: {
@@ -488,18 +667,15 @@
       const chart = chartFor(s);
       const duration = chart.length ? chart[chart.length - 1].t + 800 : 1000;
 
-      // spawn approaching notes
       while (chartIndex < chart.length && chart[chartIndex].t <= t + approachMs) {
         const n = chart[chartIndex++];
         n.panels.forEach((p) => spawnNote(p, n.t));
       }
 
-      // auto-miss notes past good window
       for (const n of [...active.values()]) {
         if (t - n.t > WIN.good) registerMiss(n);
       }
 
-      // approach animation intensity via CSS var
       for (const n of active.values()) {
         const el = cells[n.panel];
         const left = n.t - t;
@@ -516,9 +692,16 @@
       raf = requestAnimationFrame(frame);
     }
 
+    function beginChartClock() {
+      t0 = performance.now();
+      useVideoClock = !!(ytPlayer && song().youtubeId);
+      raf = requestAnimationFrame(frame);
+    }
+
     function start() {
       cancelAnimationFrame(raf);
       clearPanels();
+      stopBgm();
       const s = song();
       chart = chartFor(s);
       chartIndex = 0;
@@ -538,13 +721,27 @@
       startBtn.textContent = "Playing…";
       paintSongs();
       const mins = Math.round((s.durationSec || 180) / 6) / 10;
-      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · miss is OK · play to the end`;
-      t0 = performance.now() + 600; // short count-in
+      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · ♪ BGM on · miss is OK`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-      blip(523, 0.08);
-      setTimeout(() => blip(659, 0.08), 200);
-      setTimeout(() => blip(784, 0.1), 400);
-      raf = requestAnimationFrame(frame);
+      // Short count-in while BGM loads / starts
+      blip(523, 0.08, 0.04);
+      setTimeout(() => blip(659, 0.08, 0.04), 200);
+      setTimeout(() => blip(784, 0.1, 0.04), 400);
+
+      const startAt = performance.now() + 650;
+      playBgm(s).then(() => {
+        if (!running || destroyed) return;
+        const wait = Math.max(0, startAt - performance.now());
+        setTimeout(() => {
+          if (!running || destroyed) return;
+          beginChartClock();
+        }, wait);
+      });
+      // Fallback clock if BGM is slow/blocked
+      setTimeout(() => {
+        if (!running || destroyed || raf) return;
+        beginChartClock();
+      }, 2200);
     }
 
     startBtn.addEventListener("click", start);
@@ -584,14 +781,24 @@
 
     paintSongs();
     paintMeta();
+    // Warm YouTube API + cue first song
+    cuePreview(song());
 
     return {
       destroy() {
+        destroyed = true;
         running = false;
         cancelAnimationFrame(raf);
         clearTimeout(judgeTimer);
         clearPanels();
+        stopBgm();
         window.removeEventListener("keydown", onKey);
+        try {
+          if (ytPlayer && typeof ytPlayer.destroy === "function") ytPlayer.destroy();
+        } catch {
+          /* ignore */
+        }
+        ytPlayer = null;
         try {
           audioCtx?.close?.();
         } catch {

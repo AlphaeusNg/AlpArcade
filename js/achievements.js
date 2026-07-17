@@ -10,11 +10,11 @@
   const DEFS = [
     { id: "first-run", title: "Insert Coin", blurb: "Finish any game once", icon: "🪙" },
     { id: "level-5", title: "Cabinet Regular", blurb: "Reach player level 5", icon: "📶" },
-    { id: "level-10", title: "Arcade Ace", blurb: "Reach player level 10 · unlocks Pulse Grid", icon: "🏆" },
+    { id: "level-10", title: "Arcade Ace", blurb: "Reach player level 10", icon: "🏆" },
     { id: "level-15", title: "Floor Legend", blurb: "Reach player level 15", icon: "⭐" },
     { id: "level-20", title: "High Roller", blurb: "Reach player level 20 · unlocks Circuit Breaker", icon: "💎" },
     { id: "level-25", title: "Neon Immortal", blurb: "Reach player level 25", icon: "👑" },
-    { id: "level-50", title: "No Cap", blurb: "Reach player level 50 — levels never end", icon: "♾️" },
+    { id: "level-50", title: "No Cap", blurb: "Reach player level 50 · unlocks Pulse Grid", icon: "♾️" },
     { id: "ttt-win", title: "Three in a Row", blurb: "Win a Tic-Tac-Toe match", icon: "⭕" },
     { id: "snake-50", title: "Ssssolid", blurb: "Score 50+ in Snake", icon: "🐍" },
     { id: "snake-150", title: "Long Boi", blurb: "Score 150+ in Snake", icon: "🐉" },
@@ -42,10 +42,10 @@
   const UNLOCKS = {
     jubeat: {
       label: "Pulse Grid",
-      blurb: "4×4 rhythm panels — jubeat vibes",
+      blurb: "4×4 rhythm panels — jubeat vibes · real song BGM",
       icon: "🎹",
-      requireAchievement: "level-10",
-      requireLevel: 10,
+      requireAchievement: "level-50",
+      requireLevel: 50,
     },
     breaker: {
       label: "Circuit Breaker",
