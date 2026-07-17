@@ -905,54 +905,62 @@ body.salmon-mode .fun-fact-text {
   color: var(--dim);
 }
 
-/* Inline player in Music section; docks when you scroll away */
-.music-player-slot {
-  margin-top: 0.75rem;
-  min-height: 2.5rem;
+/* Floating mini player — bottom-right popup */
+.music-popup-host {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 70;
+  width: min(340px, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.music-popup-host .music-player-shell {
+  pointer-events: auto;
+}
+
+.music-player-slot[hidden] {
+  display: none !important;
 }
 
 .bg-music-empty {
-  margin: 0;
-  padding: 0.75rem 0.85rem;
-  font-size: 0.85rem;
-  color: var(--dim);
-  border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.22);
+  display: none;
 }
 
 .music-player-shell {
   border-radius: 12px;
-  border: 1px solid rgba(45, 212, 191, 0.28);
-  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  background: rgba(8, 12, 18, 0.96);
   overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
 }
 
 .music-player-shell[hidden] {
   display: none !important;
 }
 
+.music-player-shell.is-popup,
+.music-player-shell.is-docked {
+  position: relative;
+  width: 100%;
+}
+
 .music-player-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.55rem;
+  padding: 0.35rem 0.55rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .music-player-label {
   flex: 1;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--teal);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.music-dock-pin {
-  font-size: 0.65rem;
-  color: var(--dim);
-  flex-shrink: 0;
 }
 
 .music-player-frame-wrap iframe {
@@ -961,25 +969,6 @@ body.salmon-mode .fun-fact-text {
   height: 152px;
   border: 0;
   background: #000;
-}
-
-/* Follow bottom-left of screen when section is off-view / game open */
-.music-player-shell.is-docked {
-  position: fixed;
-  left: 1rem;
-  right: auto;
-  bottom: 1rem;
-  z-index: 60;
-  width: min(380px, calc(100vw - 1.5rem));
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  border-color: rgba(45, 212, 191, 0.4);
-  background: rgba(8, 12, 18, 0.96);
-  backdrop-filter: blur(12px);
-}
-
-.music-player-slot.is-player-docked {
-  /* keep layout from collapsing awkwardly while shell is fixed */
-  min-height: 0;
 }
 
 .cloud-banner {
@@ -1970,10 +1959,10 @@ body.salmon-mode .fun-fact-text {
     gap: 0.4rem;
   }
 
-  .music-player-shell.is-docked {
-    left: 0.55rem;
+  .music-popup-host {
+    right: 0.55rem;
     bottom: 0.55rem;
-    width: min(320px, calc(100vw - 1.1rem));
+    width: min(300px, calc(100vw - 1.1rem));
   }
 
   .brand-mark {
