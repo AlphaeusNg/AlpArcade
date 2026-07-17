@@ -197,6 +197,11 @@
     s.classList.add("is-home");
     s.hidden = !playing;
     clearShellPos(s);
+    const t = tab();
+    if (t) {
+      t.classList.remove("is-player-mini");
+      t.style.zIndex = "";
+    }
 
     if (!playing || !sl) {
       setChrome(false);
