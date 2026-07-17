@@ -282,7 +282,7 @@
           <div id="jb-yt" class="jb-yt" aria-label="Song BGM"></div>
           <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track via YouTube · unmute if needed</p>
         </div>
-        <p class="game-hint" id="jb-hint">EXTREME · real BGM · judges on each panel · ${MAX_MISSES} misses = fail</p>
+        <p class="game-hint" id="jb-hint">Shutter marker · hit when TOUCH meets · ${MAX_MISSES} misses = fail</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -315,10 +315,24 @@
       btn.className = "jb-cell";
       btn.dataset.i = String(i);
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
+      // Shutter marker (classic jubeat): blades close from all sides; TOUCH near full close
       btn.innerHTML = `
         <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
-        <span class="jb-ring" aria-hidden="true"></span>
-        <span class="jb-core" aria-hidden="true"></span>
+        <span class="jb-shutter" aria-hidden="true">
+          <span class="jb-iris">
+            <span class="jb-blade" style="--i:0"></span>
+            <span class="jb-blade" style="--i:1"></span>
+            <span class="jb-blade" style="--i:2"></span>
+            <span class="jb-blade" style="--i:3"></span>
+            <span class="jb-blade" style="--i:4"></span>
+            <span class="jb-blade" style="--i:5"></span>
+          </span>
+          <span class="jb-edge-n"></span>
+          <span class="jb-edge-s"></span>
+          <span class="jb-edge-e"></span>
+          <span class="jb-edge-w"></span>
+          <span class="jb-touch">TOUCH</span>
+        </span>
         <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       btn.addEventListener("pointerdown", (e) => {
         e.preventDefault();

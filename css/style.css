@@ -2203,49 +2203,140 @@ body.salmon-mode .fun-fact-text {
   opacity: 1;
 }
 
-/* Approach ring over brown panel */
-.jb-cell .jb-ring {
+/*
+ * Shutter marker — classic jubeat “Shutter”
+ * Blades close from around; TOUCH appears near full close.
+ * Progress driven by --jb-p (0 open → 1 closed / hit timing).
+ */
+.jb-shutter {
   position: absolute;
-  inset: 12%;
-  border-radius: 50%;
-  border: 2.5px solid transparent;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
   opacity: 0;
-  z-index: 2;
-  transform: scale(calc(1.2 - 0.28 * var(--jb-p, 0)));
-  box-shadow: none;
-  transition: border-color 0.05s, opacity 0.05s, box-shadow 0.05s;
-  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
-.jb-cell.is-approach .jb-ring {
-  opacity: calc(0.4 + 0.6 * var(--jb-p, 0));
-  border-color: rgba(255, 248, 230, calc(0.35 + 0.55 * var(--jb-p, 0)));
-  box-shadow:
-    0 0 10px rgba(255, 240, 200, calc(0.15 + 0.35 * var(--jb-p, 0))),
-    inset 0 0 12px rgba(255, 240, 200, calc(0.08 + 0.2 * var(--jb-p, 0)));
+.jb-cell.is-approach .jb-shutter,
+.jb-cell.is-armed .jb-shutter {
+  opacity: 1;
 }
 
-/* Core unused for texture panels — keep for layout/hit scale */
-.jb-cell .jb-core {
+.jb-iris {
   position: absolute;
-  inset: 28%;
+  inset: -8%;
   border-radius: 50%;
-  background: transparent;
-  z-index: 2;
-  pointer-events: none;
-  transition: transform 0.08s;
 }
 
-.jb-cell.is-armed .jb-core {
-  background: transparent;
+/* Six metallic iris blades */
+.jb-blade {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78%;
+  height: 78%;
+  margin: -39% 0 0 -39%;
+  /* Wedge from center outward */
+  clip-path: polygon(50% 50%, 8% 0%, 92% 0%);
+  background:
+    linear-gradient(
+      165deg,
+      rgba(190, 205, 225, 0.92) 0%,
+      rgba(90, 110, 140, 0.95) 38%,
+      rgba(35, 48, 68, 0.98) 72%,
+      rgba(18, 26, 38, 0.99) 100%
+    );
+  border: 1px solid rgba(220, 235, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 6px rgba(0, 0, 0, 0.35);
+  /* Open (p=0): blades retracted; closed (p=1): full coverage */
+  transform: rotate(calc(var(--i) * 60deg)) scale(calc(0.28 + 0.82 * var(--jb-p, 0)));
+  transform-origin: 50% 50%;
+  opacity: calc(0.35 + 0.65 * var(--jb-p, 0));
+  will-change: transform, opacity;
+}
+
+/* Soft edge curtains reinforce “from all sides” read */
+.jb-edge-n,
+.jb-edge-s,
+.jb-edge-e,
+.jb-edge-w {
+  position: absolute;
+  background: linear-gradient(
+    to bottom,
+    rgba(25, 35, 50, 0.88),
+    rgba(40, 55, 75, 0.55) 55%,
+    transparent
+  );
+  opacity: calc(0.2 + 0.8 * var(--jb-p, 0));
+  pointer-events: none;
+}
+
+.jb-edge-n {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--jb-p, 0) * 48%);
+  background: linear-gradient(to bottom, rgba(20, 30, 45, 0.9), transparent);
+}
+
+.jb-edge-s {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--jb-p, 0) * 48%);
+  background: linear-gradient(to top, rgba(20, 30, 45, 0.9), transparent);
+}
+
+.jb-edge-w {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--jb-p, 0) * 48%);
+  background: linear-gradient(to right, rgba(20, 30, 45, 0.9), transparent);
+}
+
+.jb-edge-e {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: calc(var(--jb-p, 0) * 48%);
+  background: linear-gradient(to left, rgba(20, 30, 45, 0.9), transparent);
+}
+
+/* TOUCH — appears from top/bottom and meets near perfect timing */
+.jb-touch {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  transform: translate(-50%, -50%) scale(calc(0.55 + 0.45 * var(--jb-p, 0)));
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: clamp(0.48rem, 2.8vw, 0.78rem);
+  letter-spacing: 0.18em;
+  color: #f4f7ff;
+  text-shadow:
+    0 0 8px rgba(120, 180, 255, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
+  /* Visible mainly in the last third of the approach */
+  opacity: calc(max(0, (var(--jb-p, 0) - 0.55) / 0.45));
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .jb-cell.is-hit {
   transform: scale(0.97);
 }
 
-.jb-cell.is-hit .jb-core {
-  transform: scale(0.96);
+/* Hide shutter while judge flash is showing */
+.jb-cell.is-judge-excellent .jb-shutter,
+.jb-cell.is-judge-great .jb-shutter,
+.jb-cell.is-judge-good .jb-shutter,
+.jb-cell.is-judge-miss .jb-shutter {
+  opacity: 0;
 }
 
 /* Judge face swaps (still frames) */
