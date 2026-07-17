@@ -1,5 +1,6 @@
 /**
  * Local achievements for AlpArcade — unlocks stored in localStorage.
+ * Some achievements unlock premium cabinets (see UNLOCKS).
  */
 (function (global) {
   "use strict";
@@ -9,7 +10,11 @@
   const DEFS = [
     { id: "first-run", title: "Insert Coin", blurb: "Finish any game once", icon: "🪙" },
     { id: "level-5", title: "Cabinet Regular", blurb: "Reach player level 5", icon: "📶" },
-    { id: "level-10", title: "Arcade Ace", blurb: "Reach player level 10", icon: "🏆" },
+    { id: "level-10", title: "Arcade Ace", blurb: "Reach player level 10 · unlocks Pulse Grid", icon: "🏆" },
+    { id: "level-15", title: "Floor Legend", blurb: "Reach player level 15", icon: "⭐" },
+    { id: "level-20", title: "High Roller", blurb: "Reach player level 20 · unlocks Circuit Breaker", icon: "💎" },
+    { id: "level-25", title: "Neon Immortal", blurb: "Reach player level 25", icon: "👑" },
+    { id: "level-50", title: "No Cap", blurb: "Reach player level 50 — levels never end", icon: "♾️" },
     { id: "ttt-win", title: "Three in a Row", blurb: "Win a Tic-Tac-Toe match", icon: "⭕" },
     { id: "snake-50", title: "Ssssolid", blurb: "Score 50+ in Snake", icon: "🐍" },
     { id: "snake-150", title: "Long Boi", blurb: "Score 150+ in Snake", icon: "🐉" },
@@ -19,12 +24,36 @@
     { id: "memory-200", title: "Card Shark", blurb: "Score 200+ in Memory", icon: "🧠" },
     { id: "tapper-100", title: "Whack Happy", blurb: "Score 100+ in Target Tap", icon: "🎯" },
     { id: "tapper-300", title: "Grid God", blurb: "Score 300+ in Target Tap", icon: "✨" },
+    { id: "jubeat-5k", title: "Panel Poet", blurb: "Score 5000+ in Pulse Grid", icon: "🎹" },
+    { id: "jubeat-12k", title: "Jubeat Heart", blurb: "Score 12000+ in Pulse Grid", icon: "💜" },
+    { id: "breaker-800", title: "Brick Layer", blurb: "Score 800+ in Circuit Breaker", icon: "🧱" },
     { id: "five-games", title: "Tour the Floor", blurb: "Play 5 different cabinets", icon: "🕹️" },
     { id: "streak-10", title: "On a Roll", blurb: "Complete 10 runs total", icon: "🔥" },
     { id: "salmon", title: "Salmon Mode", blurb: "Unlock the salmon easter egg", icon: "🍣" },
     { id: "daily", title: "Daily Driver", blurb: "Complete today's daily challenge", icon: "📅" },
     { id: "cloud-post", title: "On the Board", blurb: "Post a score to the global board", icon: "☁️" },
   ];
+
+  /**
+   * Games gated behind achievements (or player level as fallback).
+   * Base cabinets have no entry here → always free.
+   */
+  const UNLOCKS = {
+    jubeat: {
+      label: "Pulse Grid",
+      blurb: "4×4 rhythm panels — jubeat vibes",
+      icon: "🎹",
+      requireAchievement: "level-10",
+      requireLevel: 10,
+    },
+    breaker: {
+      label: "Circuit Breaker",
+      blurb: "Brick breaker · power-ups",
+      icon: "🧱",
+      requireAchievement: "level-20",
+      requireLevel: 20,
+    },
+  };
 
   function load() {
     try {
@@ -55,7 +84,6 @@
     if (!def) return null;
     state.unlocked[id] = Date.now();
     save(state);
-    // Mirror to Firebase when signed in (best-effort)
     try {
       if (global.ArcadeCloud?.getState?.()?.signedIn) {
         global.ArcadeCloud.syncAccountProgress?.({ reason: "achievement" });
@@ -70,15 +98,10 @@
     return !!load().unlocked[id];
   }
 
-  /** { [id]: timestamp } for cloud sync */
   function getUnlockedMap() {
     return { ...load().unlocked };
   }
 
-  /**
-   * Union cloud unlocks into local (keep earliest unlock time).
-   * @returns {string[]} newly applied ids
-   */
   function mergeUnlocked(cloudMap) {
     if (!cloudMap || typeof cloudMap !== "object") return [];
     const state = load();
@@ -114,6 +137,40 @@
     };
   }
 
+  function playerLevel() {
+    const xp = global.ArcadeScores?.getState?.()?.xp || 0;
+    return global.ArcadeScores?.getLevel?.(xp)?.level || 1;
+  }
+
+  /** Whether a cabinet may be opened (locked premium games). */
+  function isGameUnlocked(gameId) {
+    const gate = UNLOCKS[gameId];
+    if (!gate) return true;
+    if (gate.requireAchievement && isUnlocked(gate.requireAchievement)) return true;
+    if (gate.requireLevel && playerLevel() >= gate.requireLevel) return true;
+    return false;
+  }
+
+  function unlockRequirement(gameId) {
+    const gate = UNLOCKS[gameId];
+    if (!gate) return null;
+    if (isGameUnlocked(gameId)) return null;
+    return {
+      ...gate,
+      message: gate.requireLevel
+        ? `Reach Lv ${gate.requireLevel} to unlock`
+        : "Achievement required",
+    };
+  }
+
+  function listLockedGames() {
+    return Object.entries(UNLOCKS).map(([id, g]) => ({
+      id,
+      ...g,
+      unlocked: isGameUnlocked(id),
+    }));
+  }
+
   /**
    * Evaluate after a run. Returns newly unlocked defs.
    */
@@ -131,6 +188,10 @@
       const { level } = global.ArcadeScores.getLevel(st.xp);
       if (level >= 5) push("level-5");
       if (level >= 10) push("level-10");
+      if (level >= 15) push("level-15");
+      if (level >= 20) push("level-20");
+      if (level >= 25) push("level-25");
+      if (level >= 50) push("level-50");
       if (st.gamesPlayed >= 10) push("streak-10");
 
       const played = new Set((st.history || []).map((h) => h.game));
@@ -153,12 +214,18 @@
       if (score >= 100) push("tapper-100");
       if (score >= 300) push("tapper-300");
     }
+    if (gameId === "jubeat") {
+      if (score >= 5000) push("jubeat-5k");
+      if (score >= 12000) push("jubeat-12k");
+    }
+    if (gameId === "breaker" && score >= 800) push("breaker-800");
 
     return fresh;
   }
 
   global.ArcadeAchievements = {
     DEFS,
+    UNLOCKS,
     list,
     count,
     unlock,
@@ -166,5 +233,8 @@
     getUnlockedMap,
     mergeUnlocked,
     evaluateAfterRun,
+    isGameUnlocked,
+    unlockRequirement,
+    listLockedGames,
   };
 })(window);

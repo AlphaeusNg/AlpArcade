@@ -17,6 +17,7 @@
     reaction: { label: "Reaction Lab", higherIsBetter: false, unit: "ms" },
     memory: { label: "Memory Match", higherIsBetter: true, unit: "pts" },
     tapper: { label: "Target Tap", higherIsBetter: true, unit: "pts" },
+    jubeat: { label: "Pulse Grid", higherIsBetter: true, unit: "pts" },
   };
 
   function defaultState() {
@@ -31,6 +32,7 @@
         reaction: { best: null },
         memory: { best: 0 },
         tapper: { best: 0 },
+        jubeat: { best: 0 },
       },
       history: [],
       hallOfFame: [],
@@ -185,14 +187,18 @@
   }
 
   function getLevel(xp) {
-    // Soft curve
+    // Unlimited levels — no hard cap. Curve eases after mid-levels so high ranks stay reachable.
     let level = 1;
     let need = 50;
-    let remaining = xp;
-    while (remaining >= need) {
+    let remaining = Math.max(0, Math.floor(Number(xp) || 0));
+    // Safety: never infinite-loop on huge XP
+    const hardStop = 100000;
+    while (remaining >= need && level < hardStop) {
       remaining -= need;
       level += 1;
-      need = Math.floor(need * 1.35);
+      // Early: classic ramp · later: gentler growth so levels don't soft-cap
+      const mult = level < 12 ? 1.28 : level < 30 ? 1.14 : 1.08;
+      need = Math.max(40, Math.floor(need * mult));
     }
     return { level, progress: remaining, next: need };
   }

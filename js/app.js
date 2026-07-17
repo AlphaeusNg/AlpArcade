@@ -21,6 +21,8 @@
     reaction: () => window.GameReaction,
     memory: () => window.GameMemory,
     tapper: () => window.GameTapper,
+    jubeat: () => window.GameJubeat,
+    breaker: () => window.GameBreaker,
   };
 
   /** Lazy-loaded game bundles (only fetch the cabinet you open). */
@@ -31,6 +33,8 @@
     reaction: "js/games/reaction.js",
     memory: "js/games/memory.js",
     tapper: "js/games/tapper.js",
+    jubeat: "js/games/jubeat.js",
+    breaker: "js/games/breaker.js",
   };
 
   const GAME_CONTROLS = {
@@ -40,6 +44,8 @@
     reaction: "Click / tap the pad · wait for green",
     memory: "Tap cards to match pairs · hearts are lives",
     tapper: "Tap glowing cells · keys 1–9 · three lives",
+    jubeat: "Tap panels on the beat · 1–4 / QWER / ASDF / ZXCV",
+    breaker: "Drag paddle · tap to start · endless brick rows",
   };
 
   let lastRunShare = null;
@@ -151,11 +157,31 @@
       const id = card.dataset.game;
       const g = ArcadeScores.GAMES[id];
       if (!g) return;
+      const locked = window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(id);
+      const req = window.ArcadeAchievements?.unlockRequirement?.(id);
+      card.classList.toggle("is-locked", !!locked);
+      card.setAttribute("aria-disabled", locked ? "true" : "false");
+      let lockEl = card.querySelector(".cab-lock");
+      if (locked) {
+        if (!lockEl) {
+          lockEl = document.createElement("span");
+          lockEl.className = "cab-lock";
+          lockEl.setAttribute("aria-hidden", "true");
+          card.appendChild(lockEl);
+        }
+        lockEl.textContent = "🔒";
+      } else if (lockEl) {
+        lockEl.remove();
+      }
       let bestEl = card.querySelector(".cab-best");
       if (!bestEl) {
         bestEl = document.createElement("span");
         bestEl.className = "cab-best mono";
         card.querySelector(".cab-body")?.appendChild(bestEl);
+      }
+      if (locked) {
+        bestEl.textContent = req?.message || "Locked";
+        return;
       }
       const hs = state.highScores[id];
       if (id === "tictactoe") {
@@ -181,7 +207,10 @@
     const gamesEl = $("#games-played");
     if (nameEl) nameEl.textContent = state.playerName;
     if (xpEl) xpEl.textContent = `${state.xp} XP`;
-    if (levelEl) levelEl.textContent = `Lv ${level}`;
+    if (levelEl) {
+      levelEl.textContent = `Lv ${level}`;
+      levelEl.title = "Player level has no hard cap — keep earning XP";
+    }
     if (gamesEl) gamesEl.textContent = String(state.gamesPlayed);
     if (bar) bar.style.width = `${Math.min(100, (progress / next) * 100)}%`;
 
@@ -740,8 +769,16 @@
     if (!list?.length) return;
     for (const a of list) {
       showToast(`${a.icon || "🏅"} ${a.title}`);
+      // Celebrate cabinet unlocks tied to this achievement
+      const unlocks = Object.entries(window.ArcadeAchievements?.UNLOCKS || {}).filter(
+        ([, g]) => g.requireAchievement === a.id
+      );
+      for (const [, g] of unlocks) {
+        showToast(`${g.icon || "🎁"} Unlocked: ${g.label}`);
+      }
     }
     paintAchievements();
+    paintCabinetBests();
   }
 
   function paintAchievements() {
@@ -787,12 +824,24 @@
         ${done ? "Play again" : "Play challenge"}
       </button>
     `;
-    $("#btn-daily-play")?.addEventListener("click", () => openGame(ch.game));
+    $("#btn-daily-play")?.addEventListener("click", () => {
+      if (window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(ch.game)) {
+        const req = window.ArcadeAchievements.unlockRequirement?.(ch.game);
+        showToast(req?.message || "Cabinet locked — play free cabinets for XP first");
+        return;
+      }
+      openGame(ch.game);
+    });
   }
 
   // ----- Navigation -----
   async function openGame(id) {
     if (!GAME_SCRIPTS[id] || opening) return;
+    if (window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(id)) {
+      const req = window.ArcadeAchievements.unlockRequirement?.(id);
+      showToast(req?.message || "Cabinet locked");
+      return;
+    }
     // Re-activating the same game via hash is a no-op once mounted.
     if (activeGameId === id && activeGame && !playView.hidden) return;
 

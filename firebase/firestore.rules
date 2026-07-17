@@ -15,7 +15,7 @@ service cloud.firestore {
     }
 
     function validGame(g) {
-      return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory', 'tapper'];
+      return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory', 'tapper', 'jubeat', 'breaker'];
     }
 
     // scoreId is the path wildcard — always pass it in from the match block.

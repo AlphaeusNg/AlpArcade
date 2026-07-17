@@ -10,7 +10,16 @@
   const PLAYERS = "players";
   const PROGRESS = "progress";
   const GLOBAL_LIMIT = 25;
-  const GAME_IDS = ["tictactoe", "shooter", "snake", "reaction", "memory", "tapper"];
+  const GAME_IDS = [
+    "tictactoe",
+    "shooter",
+    "snake",
+    "reaction",
+    "memory",
+    "tapper",
+    "jubeat",
+    "breaker",
+  ];
 
   let db = null;
   let auth = null;

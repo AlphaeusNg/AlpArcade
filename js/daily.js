@@ -6,7 +6,7 @@
 
   const KEY = "alparcade-daily-v1";
   const TZ = "Asia/Singapore"; // SGT year-round (no DST)
-  const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe"];
+  const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe", "jubeat", "breaker"];
 
   /**
    * YYYY-MM-DD for the calendar day in Singapore time.
@@ -48,6 +48,8 @@
       memory: 80 + (h % 120),
       tapper: 80 + (h % 140),
       tictactoe: 1, // win once
+      jubeat: 2500 + (h % 4000),
+      breaker: 200 + (h % 500),
     };
     return {
       day: key,
