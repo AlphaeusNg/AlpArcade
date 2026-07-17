@@ -6,7 +6,7 @@
 (function (global) {
   "use strict";
   global.SITE_VERSION = {
-    id: "2026.07.18.24",
+    id: "2026.07.18.25",
     repo: "AlpArcade",
     label: "arcade",
   };
