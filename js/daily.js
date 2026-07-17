@@ -114,6 +114,15 @@
     return `≥ ${ch.target} pts`;
   }
 
+  function resetAll() {
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    return {};
+  }
+
   global.ArcadeDaily = {
     challengeFor,
     isComplete,
@@ -121,5 +130,6 @@
     formatTarget,
     dayKey,
     TZ,
+    resetAll,
   };
 })(window);

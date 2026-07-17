@@ -117,6 +117,15 @@
     return { ...load().unlocked };
   }
 
+  function resetAll() {
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    return { unlocked: {}, seen: {} };
+  }
+
   function mergeUnlocked(cloudMap) {
     if (!cloudMap || typeof cloudMap !== "object") return [];
     const state = load();
@@ -260,6 +269,7 @@
     isUnlocked,
     getUnlockedMap,
     mergeUnlocked,
+    resetAll,
     evaluateAfterRun,
     isGameUnlocked,
     unlockRequirement,

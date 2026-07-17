@@ -20,6 +20,8 @@ Zero-build browser mini-games (“pass the time”) with local progress, optiona
 | `reaction` | Reaction Lab |
 | `memory` | Memory Match |
 | `tapper` | Target Tap |
+| `breaker` | Circuit Breaker |
+| `jubeat` | Pulse Grid (rhythm · Lv 15) |
 
 Game modules: `js/games/<id>.js` — **lazy-loaded** when a cabinet opens (`js/app.js`).
 
@@ -29,21 +31,22 @@ Game modules: `js/games/<id>.js` — **lazy-loaded** when a cabinet opens (`js/a
 index.html
 css/style.css
 js/
-  app.js            # Lobby, routing, HUD, help, phone header hide
-  music.js          # Spotify bg music: autoplay + left dock
-  audio.js          # SFX / mute
-  scores.js         # Local scores, XP, export/import
-  cloud-scores.js   # Firebase global boards
+  app.js              # Lobby, routing, HUD, help, phone header hide
+  music.js            # Spotify bg music: autoplay + left dock
+  audio.js            # SFX / mute
+  scores.js           # Local scores, XP, export/import
+  cloud-scores.js     # Firebase global boards + account sync
   firebase-config.js  # runtime web keys (loaded by index.html)
   achievements.js
   daily.js            # Daily challenge keyed to SGT (Asia/Singapore)
   version.js          # SITE_VERSION — bump every deploy
   games/*.js
-firebase/               # rules, indexes, deploy docs (not served as app logic)
+firebase/             # backend infra only (not served as app logic)
   README.md
   firestore.rules
   firestore.indexes.json
-firebase.json  .firebaserc  # CLI entry at repo root
+firebase.json         # CLI entry (repo root — standard)
+.firebaserc
 assets/
 manifest.webmanifest
 ```
@@ -52,7 +55,7 @@ manifest.webmanifest
 
 - Default autoplay: **Lofi Beats** (`data-playlist="lofi"`), or last station in `localStorage` key `alparcade-bg-music`.
 - **Left-edge dock** (`#bg-music`): vertical tab opens/closes the panel; open state in `alparcade-music-dock-open`.
-- Iframe stays mounted when closed so audio never cuts. Nav **Music** toggles the dock.
+- Mini player shell is **viewport-fixed** (no scroll re-pin). Nav **Music** toggles the dock.
 
 ## Phone UX
 
@@ -65,8 +68,9 @@ manifest.webmanifest
 - Posting / sync: **Google sign-in**. While signed in, hide Sign-in CTA; auto-sync
   personal bests (`scores`) + full progress (`progress/{uid}`: XP, high scores, achievements).
 - Guests still get an opt-in “save with Google” modal on strong personal bests.
-- Config: `js/firebase-config.js`. Indexes: `firebase/firestore.indexes.json`.
-- After rule changes that add `progress`, re-publish `firebase/firestore.rules`.
+- Factory reset (signed in) can wipe local + cloud account data (username kept by default).
+- **Infra:** `firebase/` · **Runtime keys:** `js/firebase-config.js`
+- After rule changes, re-publish: `npx firebase-tools deploy --only firestore:rules`
 
 ## Commands
 
@@ -109,3 +113,4 @@ git push origin main
 2. If portfolio *wording/link* about the arcade changes, edit `alphaeusng.github.io` separately.
 3. Test at least lobby + one game path + music dock after UI changes.
 4. Bump version; push this remote only.
+5. Firebase rules/indexes: edit under `firebase/`; deploy from this root (or combined rules from portfolio if vault shares the project).

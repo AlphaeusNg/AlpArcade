@@ -18,6 +18,7 @@
     memory: { label: "Memory Match", higherIsBetter: true, unit: "pts" },
     tapper: { label: "Target Tap", higherIsBetter: true, unit: "pts" },
     jubeat: { label: "Pulse Grid", higherIsBetter: true, unit: "pts" },
+    breaker: { label: "Circuit Breaker", higherIsBetter: true, unit: "pts" },
   };
 
   function defaultState() {
@@ -33,6 +34,7 @@
         memory: { best: 0 },
         tapper: { best: 0 },
         jubeat: { best: 0 },
+        breaker: { best: 0 },
       },
       history: [],
       hallOfFame: [],

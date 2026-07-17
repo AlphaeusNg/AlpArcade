@@ -804,6 +804,177 @@
     return submitCloudScore("snake", 1, { probe: true }, { force: true, isHighScore: true });
   }
 
+  /**
+   * Factory-reset cloud data for the signed-in user.
+   * Deletes progress/{uid}, scores/{uid}_*, and optionally players/{uid}.
+   * Falls back to empty overwrite if delete is blocked by rules.
+   */
+  async function wipeAccountData(opts = {}) {
+    if (!isConfigured()) {
+      return { ok: false, reason: "off", message: "Cloud not configured" };
+    }
+    if (!ready || !db) {
+      const ok = await init();
+      if (!ok || !db) return { ok: false, reason: "offline", message: lastError || "Cloud offline" };
+    }
+
+    const live = auth?.currentUser;
+    if (!live?.uid) {
+      return { ok: false, reason: "auth-required", message: "Sign in with Google to wipe cloud data" };
+    }
+    user = live;
+    const uid = String(live.uid);
+    const keepUsername = opts.keepUsername !== false;
+    const keptName = sanitizeUsername(
+      profile?.username || global.ArcadeScores?.getState?.()?.playerName || "Player"
+    );
+
+    try {
+      await live.getIdToken(true);
+    } catch (tokenErr) {
+      return {
+        ok: false,
+        reason: "auth-required",
+        message: "Session expired — sign in again",
+        err: tokenErr,
+      };
+    }
+
+    const result = {
+      ok: true,
+      progress: null,
+      players: null,
+      scores: {},
+      errors: [],
+    };
+
+    // 1) progress/{uid} — prefer delete, else hard-replace with empty
+    try {
+      await db.collection(PROGRESS).doc(uid).delete();
+      result.progress = "deleted";
+    } catch (delErr) {
+      try {
+        await db.collection(PROGRESS).doc(uid).set({
+          username: keptName,
+          playerName: keptName,
+          xp: 0,
+          gamesPlayed: 0,
+          highScores: {},
+          achievements: {},
+          clientAt: Date.now(),
+          userId: uid,
+          wipedAt: Date.now(),
+        });
+        result.progress = "zeroed";
+      } catch (writeErr) {
+        result.ok = false;
+        result.errors.push("progress: " + friendlyError(writeErr));
+        result.progress = "failed";
+      }
+    }
+
+    // 2) Public leaderboard rows scores/{uid}_{game}
+    for (const gameId of GAME_IDS) {
+      const ref = db.collection(SCORES).doc(scoreDocId(uid, gameId));
+      try {
+        const snap = await ref.get();
+        if (!snap.exists) {
+          result.scores[gameId] = "absent";
+          continue;
+        }
+        try {
+          await ref.delete();
+          result.scores[gameId] = "deleted";
+        } catch {
+          await ref.set({
+            game: String(gameId),
+            playerName: keptName,
+            score: 0,
+            rankScore: 0,
+            userId: uid,
+            clientAt: Date.now(),
+            timestamp: Date.now(),
+            wipedAt: Date.now(),
+          });
+          result.scores[gameId] = "zeroed";
+        }
+      } catch (err) {
+        result.ok = false;
+        result.scores[gameId] = "failed";
+        result.errors.push(gameId + ": " + friendlyError(err));
+      }
+    }
+
+    // 3) players/{uid} — keep username by default so re-sync is smooth
+    if (opts.wipeProfile) {
+      try {
+        await db.collection(PLAYERS).doc(uid).delete();
+        profile = null;
+        result.players = "deleted";
+      } catch (err) {
+        result.errors.push("players: " + friendlyError(err));
+        result.players = "failed";
+      }
+    } else if (keepUsername && keptName) {
+      try {
+        await db.collection(PLAYERS).doc(uid).set(
+          { username: keptName, email: live.email || "", updatedAt: Date.now(), wipedAt: Date.now() },
+          { merge: true }
+        );
+        profile = { username: keptName, email: live.email || null };
+        result.players = "kept";
+      } catch {
+        result.players = "skipped";
+      }
+    } else {
+      result.players = "skipped";
+    }
+
+    notify();
+    if (result.errors.length) {
+      console.warn("[ArcadeCloud] wipeAccountData partial", result);
+    } else {
+      console.log("[ArcadeCloud] wipeAccountData ok", result);
+    }
+    return result;
+  }
+
+  /**
+   * Local + cloud factory reset helper for the console / UI.
+   * Clears localStorage progress keys then wipes Firebase account docs.
+   */
+  async function factoryReset(opts = {}) {
+    const cloud = opts.cloud !== false;
+    let cloudResult = null;
+
+    if (cloud && auth?.currentUser) {
+      cloudResult = await wipeAccountData(opts);
+    }
+
+    try {
+      global.ArcadeScores?.resetAll?.();
+    } catch {
+      /* ignore */
+    }
+    try {
+      global.ArcadeAchievements?.resetAll?.();
+    } catch {
+      /* ignore */
+    }
+    try {
+      global.ArcadeDaily?.resetAll?.();
+    } catch {
+      /* ignore */
+    }
+
+    notify();
+    return {
+      ok: !cloudResult || cloudResult.ok !== false,
+      local: true,
+      cloud: cloudResult,
+    };
+  }
+
   // Back-compat alias
   function getGlobalHall() {
     return leaderboard.slice();
@@ -832,6 +1003,8 @@
     submitCloudScore,
     saveRunToCloud,
     syncAccountProgress,
+    wipeAccountData,
+    factoryReset,
     loadLeaderboard,
     setLeaderboardGame,
     getLeaderboard,

@@ -1,0 +1,23 @@
+# Firebase CLI cache
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
+
+# Dependencies (none required; ignore if tools ever install)
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local env / secrets (never commit service accounts)
+.env
+.env.*
+*-firebase-adminsdk-*.json
+serviceAccount*.json

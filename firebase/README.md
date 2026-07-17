@@ -1,15 +1,30 @@
 # Firebase — AlpArcade
 
-Infra for the **global scoreboard** (Firestore + Google Auth).  
-Runtime web config stays at [`../js/firebase-config.js`](../js/firebase-config.js) (loaded by the static site).
+Infra for the **global scoreboard** (Firestore + Google Auth).
+
+## Layout (standard practice)
 
 | Path | Role |
 |------|------|
-| `firestore.rules` | Security rules for `scores`, `players`, `progress` |
-| `firestore.indexes.json` | Composite index: `scores` · `game` ASC + `rankScore` DESC |
-| `../firebase.json` | Firebase CLI entry (repo root) |
+| `firestore.rules` | Security rules: `scores`, `players`, `progress` |
+| `firestore.indexes.json` | Composite index: `scores` · `game` + `rankScore` |
+| `../firebase.json` | Firebase CLI entry (must stay at **repo root**) |
 | `../.firebaserc` | Default project `alparcade-cb87c` |
-| `../js/firebase-config.js` | Public web SDK keys (`enabled`, project id, …) |
+| `../js/firebase-config.js` | **Runtime** web SDK keys (loaded by `index.html`) |
+
+```text
+AlpArcade/
+  firebase.json          # CLI config (root — required by firebase-tools default)
+  .firebaserc
+  firebase/              # all backend/infra for this product
+    firestore.rules
+    firestore.indexes.json
+    README.md
+  js/firebase-config.js  # client config stays with the static app
+```
+
+> **Why config is not under `firebase/`:** the browser loads `js/firebase-config.js` as a public static file.  
+> Rules/indexes are deploy-only and never served by GitHub Pages.
 
 ## Project
 
@@ -17,7 +32,7 @@ Runtime web config stays at [`../js/firebase-config.js`](../js/firebase-config.j
 - **Live app:** https://alphaeusng.github.io/AlpArcade/
 - Writes need **Google sign-in**. Play works fully offline/local without an account.
 
-> **Important:** `git push` does **not** publish rules. Deploy with the CLI or paste in the console.
+> **`git push` does not publish rules.** Deploy with the CLI or paste in the console.
 
 ## Deploy rules / indexes
 
@@ -25,11 +40,12 @@ From the **AlpArcade repo root**:
 
 ```bash
 cd /home/alph/projects/AlpArcade
-# once per machine
-npx firebase-tools login
+npx firebase-tools login   # once per machine
 
 npx firebase-tools deploy --only firestore:rules
 npx firebase-tools deploy --only firestore:indexes
+# or both:
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
 ```
 
 ### Console alternative
@@ -38,23 +54,15 @@ npx firebase-tools deploy --only firestore:indexes
 2. Paste entire [`firestore.rules`](./firestore.rules)
 3. **Publish**
 
-Rules must use `validScoreWrite(scoreId)` (**pass scoreId**), include **`tapper`**, and
-`signedIn()` only — do **not** require `sign_in_provider == 'google.com'`.
+Rules must use `validScoreWrite(scoreId)` (**pass scoreId**), allow games including `jubeat` + `breaker`, and use `signedIn()` only — do **not** require `sign_in_provider == 'google.com'`.
+
+Owner may **delete** own `scores` / `players` / `progress` docs (factory reset).
 
 ## Fix “Missing or insufficient permissions”
 
-### Root cause we hit (Jul 2026)
-
-Rules used `scoreId` **inside** `validScoreWrite()` without taking it as a parameter.
-In Firestore rules, path wildcards are **not** in scope inside top-level functions, so the write check always failed even when Google auth worked (username saves could succeed while scores failed).
-
-**Fix:** `validScoreWrite(scoreId)` and `allow create: if validScoreWrite(scoreId);`
-
-### Checklist
-
 1. Confirm console project is **`alparcade-cb87c`**
-2. Paste the **current** [`firestore.rules`](./firestore.rules) (with `validScoreWrite(scoreId)`) and **Publish**
-3. **App Check** → turn **enforcement OFF** for Cloud Firestore if you have not wired App Check tokens
+2. Paste the **current** [`firestore.rules`](./firestore.rules) and **Publish**
+3. **App Check** → turn **enforcement OFF** for Cloud Firestore if App Check tokens are not wired
 4. **Authentication → Google** enabled  
    Authorized domains: `alphaeusng.github.io`, `localhost`, `127.0.0.1`
 5. Hard-refresh the arcade, sign in, run:
@@ -81,4 +89,4 @@ If the vault editor uses the **same** Firebase project, deploy the **combined** 
 
 `/home/alph/projects/alphaeusng.github.io/firebase/`
 
-Those rules include arcade `scores`/`players` **and** `vaultNotes`. Deploying only this arcade-only file would drop vault write access.
+Those rules include arcade `scores` / `players` / `progress` **and** `vaultNotes`. Deploying only this arcade-only file would drop vault write access.

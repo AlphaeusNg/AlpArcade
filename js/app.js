@@ -1103,11 +1103,54 @@
     }
   });
 
-  $("#btn-reset")?.addEventListener("click", () => {
-    if (confirm("Reset all arcade scores on this device?")) {
+  $("#btn-reset")?.addEventListener("click", async () => {
+    const signedIn = !!window.ArcadeCloud?.getState?.()?.signedIn;
+    const localMsg =
+      "Factory reset this device?\n\n" +
+      "• XP, personal bests, history\n" +
+      "• Achievements\n" +
+      "• Daily challenge progress";
+    const cloudMsg = signedIn
+      ? "\n\nYou are signed in — this will ALSO wipe your Firebase data:\n" +
+        "• progress/{you}\n" +
+        "• leaderboard scores for every game\n" +
+        "(username is kept)"
+      : "\n\nNot signed in — cloud data will not change. Sign in first if you also want Firebase wiped.";
+
+    if (!confirm(localMsg + cloudMsg + "\n\nThis cannot be undone.")) return;
+    if (signedIn && !confirm("Confirm: wipe LOCAL + Firebase account data from scratch?")) return;
+
+    try {
+      showToast(signedIn ? "Wiping local + cloud…" : "Wiping local scores…");
+      if (signedIn && window.ArcadeCloud?.wipeAccountData) {
+        const cloud = await window.ArcadeCloud.wipeAccountData({ keepUsername: true });
+        if (cloud && cloud.ok === false) {
+          console.warn("[reset] cloud wipe", cloud);
+          showToast(
+            "Cloud wipe incomplete: " + (cloud.errors?.[0] || cloud.message || "see console")
+          );
+        }
+      }
       ArcadeScores.resetAll();
+      window.ArcadeAchievements?.resetAll?.();
+      window.ArcadeDaily?.resetAll?.();
       refreshHud();
-      showToast("Scores wiped");
+      paintAchievements();
+      paintDaily();
+      paintCabinetBests();
+      // Re-pull leaderboard so wiped rows disappear from the board view
+      if (signedIn) {
+        window.ArcadeCloud?.loadLeaderboard?.(window.ArcadeCloud.getState?.()?.leaderboardGame || null)
+          ?.then(() => {
+            renderGlobalHall?.();
+            renderPlayLeaderboard?.();
+          })
+          ?.catch?.(() => {});
+      }
+      showToast(signedIn ? "Clean slate — local + cloud wiped" : "Local scores wiped");
+    } catch (err) {
+      console.warn(err);
+      showToast("Reset failed: " + (err.message || "error"));
     }
   });
 
