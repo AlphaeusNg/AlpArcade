@@ -52,14 +52,19 @@
     const lifeBannerSub = root.querySelector("#sh-life-banner-sub");
     const pickupToast = root.querySelector("#sh-pickup-toast");
 
-    // Logical size in CSS px; buffer scaled for HiDPI so ships stay sharp.
+    // Logical size; buffer scaled for HiDPI. Display size is CSS-centered (100% / max 420).
     const W = 420;
     const H = 520;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
+    canvas.style.width = "100%";
+    canvas.style.height = "auto";
+    canvas.style.maxWidth = W + "px";
+    canvas.style.aspectRatio = `${W} / ${H}`;
+    canvas.style.display = "block";
+    canvas.style.marginLeft = "auto";
+    canvas.style.marginRight = "auto";
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 

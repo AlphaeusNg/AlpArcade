@@ -1646,7 +1646,8 @@ body.salmon-mode .fun-fact-text {
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
   border-radius: 12px;
   border: 1px solid var(--border);
   touch-action: none;
@@ -1702,15 +1703,40 @@ body.salmon-mode .fun-fact-text {
   font-family: var(--mono);
 }
 
-.sh-stage {
-  position: relative;
-  max-width: 420px;
-  margin: 0 auto;
+/* Space shooter stage — always centered (phone + desktop) */
+.shooter-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.sh-stage #sh-canvas {
+.shooter-wrap .game-hud,
+.shooter-wrap .game-hint,
+.shooter-wrap .game-actions {
   width: 100%;
-  margin: 0;
+  max-width: 420px;
+}
+
+.sh-stage {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.sh-stage #sh-canvas,
+#sh-canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 420px;
+  height: auto !important;
+  aspect-ratio: 420 / 520;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .sh-hit-flash {
@@ -1817,20 +1843,6 @@ body.salmon-mode .fun-fact-text {
   font-family: var(--mono);
   text-align: center;
   line-height: 1.3;
-}
-
-.shooter-wrap {
-  /* keep stage from reflowing when HUD chips change */
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.sh-stage {
-  position: relative;
-  flex: 0 0 auto;
-  width: min(100%, 420px);
-  margin: 0 auto;
 }
 
 .sh-pickup-toast {
