@@ -213,7 +213,7 @@
       s.style.left = `${Math.max(0, rect.left)}px`;
       s.style.top = `${Math.max(0, rect.top)}px`;
       s.style.width = `${rect.width}px`;
-      s.style.zIndex = "50"; /* under station panel (56), same idea as VK */
+      s.style.zIndex = "58"; /* above panel (56) so home player is visible in slot */
       sl.style.minHeight = `${Math.max(s.offsetHeight || 180, 168)}px`;
       setChrome(false);
     } else {
@@ -304,9 +304,8 @@
     if (t) {
       t.setAttribute("aria-expanded", dockOpen ? "true" : "false");
       t.classList.toggle("is-active-tab", dockOpen);
-      // Don’t pin left via inline styles — CSS slides tab with the panel border
+      // CSS owns left (edge slide); don’t fight it with inline left
       t.style.pointerEvents = "auto";
-      t.style.zIndex = "120";
     }
     if (sc) {
       const narrow = window.matchMedia("(max-width: 820px)").matches;

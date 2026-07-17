@@ -1146,7 +1146,12 @@ body.salmon-mode .fun-fact-text {
   display: none !important;
 }
 
-/* Shell on body — keep below station panel (56) so dashboard is never covered */
+/*
+ * Shell on body.
+ * Stack: page < panel(56) < home player(58) < edge tab(57) … wait tab 57 < home 58
+ * Floating mini must sit ABOVE the edge tab so it never hides under ♪.
+ *   panel 56 · tab 57 · home shell 58 · float shell 80
+ */
 .music-player-shell {
   pointer-events: auto;
   border-radius: 12px;
@@ -1159,18 +1164,16 @@ body.salmon-mode .fun-fact-text {
   z-index: 50;
 }
 
-.music-player-shell.is-popup {
-  z-index: 52;
-}
-
 .music-player-shell.is-home {
   box-shadow: none;
   background: rgba(0, 0, 0, 0.35);
+  z-index: 58; /* above station panel so iframe shows in the slot */
 }
 
 .music-player-shell.is-popup {
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   border-color: rgba(45, 212, 191, 0.5);
+  z-index: 80; /* above edge tab (57) — mini player never buried */
 }
 
 .music-player-shell.is-dragging {
@@ -2786,8 +2789,7 @@ body.salmon-mode .fun-fact-text {
     padding: 0.8rem 0.4rem;
   }
 
-  .music-dock-tab,
-  .music-dock-panel {
+  .music-dock {
     --music-panel-w: min(20rem, calc(100vw - 2.25rem));
   }
 
