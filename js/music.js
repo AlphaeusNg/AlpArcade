@@ -213,7 +213,7 @@
       s.style.left = `${Math.max(0, rect.left)}px`;
       s.style.top = `${Math.max(0, rect.top)}px`;
       s.style.width = `${rect.width}px`;
-      s.style.zIndex = "58";
+      s.style.zIndex = "50"; /* under station panel (56), same idea as VK */
       sl.style.minHeight = `${Math.max(s.offsetHeight || 180, 168)}px`;
       setChrome(false);
     } else {
@@ -231,7 +231,7 @@
     s.classList.add("is-popup");
     s.classList.remove("is-home", "is-minimized");
     s.style.position = "fixed";
-    s.style.zIndex = "80";
+    s.style.zIndex = "52"; /* float above page, still under open dock panel */
     s.style.width = "min(340px, calc(100vw - 1.5rem))";
     s.style.maxWidth = "calc(100vw - 1rem)";
 

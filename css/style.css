@@ -868,27 +868,27 @@ body.salmon-mode .fun-fact-text {
   line-height: 1.45;
 }
 
-/* —— Left music dock —— */
-/* Root is only a grouping hook; tab + panel are fixed to the viewport. */
+/* —— Left music dock (match VK stacking: panel above page, tab on outer edge) —— */
 .music-dock {
-  position: static;
+  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
   width: 0;
   height: 0;
   overflow: visible;
-  pointer-events: none;
-  z-index: auto;
 }
 
-/* Single left tab — closed at left edge; open rides the panel’s right border */
+/* Closed: left edge · Open: rides the station panel’s right border */
 .music-dock-tab {
-  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
   pointer-events: auto !important;
-  position: fixed !important;
+  position: fixed;
   left: 0;
-  top: 50% !important;
-  z-index: 120 !important;
+  top: 50%;
+  z-index: 57;
   transform: translateY(-50%);
-  display: inline-flex !important;
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -908,14 +908,13 @@ body.salmon-mode .fun-fact-text {
   box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
   transition:
-    left 0.22s ease,
+    left 0.28s ease,
     color 0.15s,
     border-color 0.15s,
     background 0.15s,
     box-shadow 0.15s;
 }
 
-/* Slide tab to the open station panel’s outer edge */
 .music-dock.is-dock .music-dock-tab,
 .music-dock.is-open .music-dock-tab,
 .music-dock-tab.is-active-tab {
@@ -923,6 +922,7 @@ body.salmon-mode .fun-fact-text {
   color: var(--teal);
   border-color: rgba(45, 212, 191, 0.65);
   background: rgba(8, 14, 20, 0.98);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
 }
 
 .music-dock.is-playing .music-dock-tab-icon,
@@ -966,17 +966,16 @@ body.salmon-mode .fun-fact-text {
   white-space: nowrap;
 }
 
-/* Station list panel */
+/* Station list — z-index above page chrome; below only the edge tab */
 .music-dock-panel {
-  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
   pointer-events: none;
   position: fixed;
   left: 0;
   top: 4.25rem;
   bottom: 1rem;
-  width: var(--music-panel-w);
+  width: var(--music-panel-w, min(22rem, calc(100vw - 2.5rem)));
   max-height: calc(100vh - 5.25rem);
-  z-index: 110;
+  z-index: 56;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -991,25 +990,24 @@ body.salmon-mode .fun-fact-text {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* Closed: hide fully (no transform trap) */
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.18s ease, visibility 0.18s ease;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .music-dock.is-dock .music-dock-panel,
 .music-dock.is-open .music-dock-panel,
 .music-dock-panel.is-open {
   pointer-events: auto;
-  visibility: visible !important;
-  opacity: 1 !important;
+  visibility: visible;
+  opacity: 1;
 }
 
 .music-dock-scrim {
   pointer-events: none;
   position: fixed;
   inset: 0;
-  z-index: 105;
+  z-index: 54;
   background: rgba(2, 6, 12, 0.48);
   border: 0;
   display: none;
@@ -1148,7 +1146,7 @@ body.salmon-mode .fun-fact-text {
   display: none !important;
 }
 
-/* Shell is mounted on document.body so it can float freely */
+/* Shell on body — keep below station panel (56) so dashboard is never covered */
 .music-player-shell {
   pointer-events: auto;
   border-radius: 12px;
@@ -1158,7 +1156,11 @@ body.salmon-mode .fun-fact-text {
   width: min(340px, calc(100vw - 1.5rem));
   max-width: calc(100vw - 0.75rem);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
-  z-index: 80;
+  z-index: 50;
+}
+
+.music-player-shell.is-popup {
+  z-index: 52;
 }
 
 .music-player-shell.is-home {
