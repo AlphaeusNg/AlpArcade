@@ -30,21 +30,29 @@
   function buildChart(song) {
     const bpm = song.bpm;
     const beat = 60000 / bpm;
+    // Target full chart length (~2.5–3.5 min) — never short “8 miss” runs
+    const durationSec = song.durationSec || 180;
+    const totalBeats = Math.ceil((durationSec * bpm) / 60);
+    // One “measure” = 4 beats
+    const totalMeasures = Math.max(32, Math.ceil(totalBeats / 4));
+    const bodyStart = 4;
+    const bodyEnd = totalMeasures - 4; // leave room for outro
+
     const notes = [];
     const push = (beatIndex, panels) => {
+      if (beatIndex < 0 || beatIndex > totalBeats + 16) return;
       notes.push(note(Math.round(beatIndex * beat), panels));
     };
 
-    // Intro 4 bars
-    for (let b = 0; b < 16; b++) {
+    // Intro — 4 measures
+    for (let b = 0; b < bodyStart * 4; b++) {
       push(b, b % 4 === 0 ? [5, 6, 9, 10] : [b % 16]);
     }
 
     if (song.id === "imsosohappy") {
       // Dense happy-hardcore style: 16ths + corner chords + center cross
-      for (let m = 4; m < 48; m++) {
+      for (let m = bodyStart; m < bodyEnd; m++) {
         const base = m * 4;
-        // 16th stream patterns
         const streams = [
           [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4],
           [0, 5, 10, 15, 14, 9, 4, 1, 6, 11, 7, 2],
@@ -53,7 +61,6 @@
         ];
         const stream = streams[m % streams.length];
         stream.forEach((p, i) => push(base + i * 0.25, p));
-        // Chord accents on beat 1 & 3
         push(base, [0, 3, 12, 15]);
         push(base + 2, [5, 6, 9, 10]);
         if (m % 2 === 0) push(base + 1.5, [1, 2, 13, 14]);
@@ -61,36 +68,42 @@
           push(base + 0.5, [4, 7]);
           push(base + 2.5, [8, 11]);
         }
+        // Late chart denser doubles
+        if (m > bodyStart + 20) {
+          for (let i = 0; i < 8; i++) {
+            push(base + i * 0.5 + 0.125, [(stream[i % stream.length] + 2) % 16]);
+          }
+        }
       }
     } else if (song.id === "albida") {
-      // Angular / tech patterns — diagonals + columns
-      for (let m = 4; m < 44; m++) {
+      for (let m = bodyStart; m < bodyEnd; m++) {
         const base = m * 4;
         for (let i = 0; i < 8; i++) {
           const col = (m + i) % 4;
-          push(base + i * 0.5, [col, col + 4, col + 8, col + 12].filter((_, k) => k === i % 4 || k === (i + 1) % 4));
+          push(
+            base + i * 0.5,
+            [col, col + 4, col + 8, col + 12].filter((_, k) => k === i % 4 || k === (i + 1) % 4)
+          );
         }
-        // X pattern
         push(base, [0, 5, 10, 15]);
         push(base + 1, [3, 6, 9, 12]);
         push(base + 2, [0, 3, 12, 15]);
         push(base + 3, [5, 6, 9, 10]);
-        // 16th sprinkle
         for (let s = 0; s < 4; s++) {
           push(base + 0.25 + s, [(m * 3 + s * 5) % 16]);
           push(base + 0.75 + s, [(m * 7 + s * 3) % 16]);
         }
+        if (m > bodyStart + 16) {
+          for (let i = 0; i < 16; i++) push(base + i * 0.25, [(m * 5 + i * 3) % 16]);
+        }
       }
     } else if (song.id === "flower") {
-      // Flowing petals — rotating rings + blossoms
-      for (let m = 4; m < 46; m++) {
+      for (let m = bodyStart; m < bodyEnd; m++) {
         const base = m * 4;
         const ring = [1, 2, 7, 11, 14, 13, 8, 4];
         ring.forEach((p, i) => push(base + i * 0.5, p));
-        // blossom chords
         push(base, [5, 6, 9, 10]);
         push(base + 2, [0, 3, 12, 15]);
-        // petal pairs
         for (let i = 0; i < 8; i++) {
           const a = (m + i) % 16;
           const b = (a + 5) % 16;
@@ -100,20 +113,26 @@
           push(base + 1, [1, 4, 7, 13]);
           push(base + 3, [2, 8, 11, 14]);
         }
+        if (m > bodyStart + 18) {
+          ring.forEach((p, i) => push(base + i * 0.25, [(p + 2) % 16]));
+        }
       }
     } else {
       // Evans — classic dense shuffle / hard 16ths
-      for (let m = 4; m < 50; m++) {
+      for (let m = bodyStart; m < bodyEnd; m++) {
         const base = m * 4;
         const shuffle = [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12];
         shuffle.forEach((p, i) => push(base + i * 0.25, p));
-        // double taps every half beat late chart
-        if (m > 12) {
+        if (m > bodyStart + 8) {
           for (let i = 0; i < 8; i++) {
             push(base + i * 0.5 + 0.125, [(shuffle[i] + 3) % 16]);
           }
         }
-        // Evans-style corners
+        if (m > bodyStart + 24) {
+          for (let i = 0; i < 16; i++) {
+            push(base + i * 0.25 + 0.125, [(shuffle[i] + 7) % 16]);
+          }
+        }
         push(base, [0, 3]);
         push(base + 1, [12, 15]);
         push(base + 2, [0, 15]);
@@ -122,13 +141,15 @@
       }
     }
 
-    // Outro
-    const endBeat = notes.reduce((m, n) => Math.max(m, n.t / beat), 0) + 4;
-    push(endBeat, [5, 6, 9, 10]);
-    push(endBeat + 1, [0, 3, 12, 15]);
-    push(endBeat + 2, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
+    // Outro — last ~4 measures
+    const endBeat = bodyEnd * 4;
+    for (let b = 0; b < 12; b++) {
+      push(endBeat + b * 0.5, b % 2 === 0 ? [5, 6, 9, 10] : [0, 3, 12, 15]);
+    }
+    push(endBeat + 6, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
+    push(endBeat + 8, [5, 6, 9, 10]);
 
-    notes.sort((a, b) => a.t - b.t);
+    notes.sort((a, b) => a.t - b.t || a.panels[0] - b.panels[0]);
     return notes;
   }
 
@@ -140,6 +161,7 @@
       difficulty: "EXTREME",
       level: 10,
       bpm: 183,
+      durationSec: 195, // ~3.2 min
       color: "#f472b6",
     },
     {
@@ -149,6 +171,7 @@
       difficulty: "EXTREME",
       level: 10,
       bpm: 155,
+      durationSec: 200, // ~3.3 min
       color: "#38bdf8",
     },
     {
@@ -158,6 +181,7 @@
       difficulty: "EXTREME",
       level: 9,
       bpm: 173,
+      durationSec: 185, // ~3.1 min
       color: "#c084fc",
     },
     {
@@ -167,6 +191,7 @@
       difficulty: "EXTREME",
       level: 10,
       bpm: 180,
+      durationSec: 210, // ~3.5 min
       color: "#fbbf24",
     },
   ].map((s) => ({ ...s, chart: null }));
@@ -195,7 +220,7 @@
           <div class="jb-judge" id="jb-judge" hidden aria-live="polite"></div>
           <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
         </div>
-        <p class="game-hint" id="jb-hint">EXTREME charts only · EXCELLENT / GREAT / GOOD / MISS · miss is OK, finish the song</p>
+        <p class="game-hint" id="jb-hint">EXTREME charts (~3 min) · EXCELLENT / GREAT / GOOD / MISS · miss is OK — play the full song</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -512,7 +537,8 @@
       startBtn.disabled = true;
       startBtn.textContent = "Playing…";
       paintSongs();
-      hintEl.textContent = `${s.title} · EXTREME ${s.level} · EXCELLENT / GREAT / GOOD / MISS · finish the chart`;
+      const mins = Math.round((s.durationSec || 180) / 6) / 10;
+      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · miss is OK · play to the end`;
       t0 = performance.now() + 600; // short count-in
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       blip(523, 0.08);
