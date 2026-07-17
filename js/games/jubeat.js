@@ -1,14 +1,16 @@
 /**
  * Pulse Grid — jubeat-style 4×4 charts with real song BGM (YouTube).
  * Songs: I'm so Happy · Albida · Flower · Evans (EXTREME only).
- * Judges: EXCELLENT · GREAT · GOOD · MISS — misses do not end the run.
- * Unlock: player level 50.
+ * Judges: EXCELLENT · GREAT · GOOD · MISS on each panel.
+ * Too many misses (MAX_MISSES) fails the chart.
  */
 (function (global) {
   "use strict";
 
   const COLS = 4;
   const CELLS = 16;
+  /** Miss this many and the chart dies (classic jubeat pressure). */
+  const MAX_MISSES = 8;
 
   // Timing windows vs note time (ms) — jubeat-like ladder
   const WIN = {
@@ -252,19 +254,19 @@
           <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
           <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
           <div><span class="hud-label">EXC</span><strong id="jb-exc">0</strong></div>
-          <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
+          <div><span class="hud-label">Miss</span><strong id="jb-miss">0/${MAX_MISSES}</strong></div>
         </div>
         <div class="jb-meta mono" id="jb-meta"></div>
         <div class="jb-stage">
           <div class="jb-grid" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
-          <div class="jb-judge" id="jb-judge" hidden aria-live="polite"></div>
+          <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
           <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
         </div>
         <div class="jb-music" id="jb-music">
           <div id="jb-yt" class="jb-yt" aria-label="Song BGM"></div>
           <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track via YouTube · unmute if needed</p>
         </div>
-        <p class="game-hint" id="jb-hint">EXTREME charts (~3 min) · real BGM · EXCELLENT / GREAT / GOOD / MISS · miss is OK</p>
+        <p class="game-hint" id="jb-hint">EXTREME · real BGM · judges on each panel · ${MAX_MISSES} misses = fail</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -279,7 +281,7 @@
     const missEl = root.querySelector("#jb-miss");
     const metaEl = root.querySelector("#jb-meta");
     const hintEl = root.querySelector("#jb-hint");
-    const judgeEl = root.querySelector("#jb-judge");
+    const srJudgeEl = root.querySelector("#jb-sr-judge");
     const progEl = root.querySelector("#jb-progress");
     const startBtn = root.querySelector("#jb-start");
     const musicNoteEl = root.querySelector("#jb-music-note");
@@ -287,13 +289,15 @@
 
     /** @type {HTMLButtonElement[]} */
     const cells = [];
+    /** @type {ReturnType<typeof setTimeout>[]} */
+    const cellJudgeTimers = Array(CELLS).fill(null);
     for (let i = 0; i < CELLS; i++) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "jb-cell";
       btn.dataset.i = String(i);
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
-      btn.innerHTML = `<span class="jb-ring" aria-hidden="true"></span><span class="jb-core" aria-hidden="true"></span>`;
+      btn.innerHTML = `<span class="jb-ring" aria-hidden="true"></span><span class="jb-core" aria-hidden="true"></span><span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       btn.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         onPanel(i);
@@ -312,7 +316,7 @@
     let t0 = 0;
     let raf = 0;
     let submitted = false;
-    let judgeTimer = null;
+    let failedRun = false;
     /** active: key "t-panel" -> { t, panel, key } */
     let active = new Map();
     let approachMs = 520;
@@ -366,18 +370,43 @@
       grid.style.setProperty("--jb-accent", s.color);
     }
 
-    function setJudge(text, cls) {
-      judgeEl.hidden = false;
-      judgeEl.textContent = text;
-      judgeEl.className = "jb-judge " + (cls || "");
-      clearTimeout(judgeTimer);
-      judgeTimer = setTimeout(() => {
-        judgeEl.hidden = true;
-      }, 380);
+    /** Show judge text on the individual panel that was hit / missed. */
+    function setCellJudge(panel, text, cls) {
+      const el = cells[panel];
+      if (!el) return;
+      const j = el.querySelector(".jb-cell-judge");
+      if (!j) return;
+      j.hidden = false;
+      j.textContent = text;
+      j.className = "jb-cell-judge " + (cls || "");
+      if (cellJudgeTimers[panel]) clearTimeout(cellJudgeTimers[panel]);
+      cellJudgeTimers[panel] = setTimeout(() => {
+        j.hidden = true;
+        j.textContent = "";
+        j.className = "jb-cell-judge";
+      }, 480);
+      if (srJudgeEl) srJudgeEl.textContent = text;
+    }
+
+    function paintMissHud() {
+      missEl.textContent = `${counts.miss}/${MAX_MISSES}`;
+      missEl.classList.toggle("is-danger", counts.miss >= MAX_MISSES - 2);
     }
 
     function clearPanels() {
-      cells.forEach((c) => c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach"));
+      cells.forEach((c) => {
+        c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach");
+        const j = c.querySelector(".jb-cell-judge");
+        if (j) {
+          j.hidden = true;
+          j.textContent = "";
+          j.className = "jb-cell-judge";
+        }
+      });
+      cellJudgeTimers.forEach((t, i) => {
+        if (t) clearTimeout(t);
+        cellJudgeTimers[i] = null;
+      });
       active.clear();
     }
 
@@ -557,14 +586,28 @@
     }
 
     function registerMiss(n) {
+      if (!running || submitted) return;
       counts.miss += 1;
-      missEl.textContent = String(counts.miss);
+      paintMissHud();
       combo = 0;
       comboEl.textContent = "0";
-      setJudge("MISS", "miss");
+      setCellJudge(n.panel, "MISS", "miss");
       despawn(n.key, n.panel, true);
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
       blip(120, 0.05, 0.025);
+      if (counts.miss >= MAX_MISSES) {
+        failChart();
+      }
+    }
+
+    function failChart() {
+      if (submitted) return;
+      failedRun = true;
+      // Stop first so leftover notes don't chain more misses
+      running = false;
+      cancelAnimationFrame(raf);
+      active.clear();
+      finish({ failed: true });
     }
 
     function onPanel(i) {
@@ -585,6 +628,7 @@
         }
       }
       if (!best || bestErr > WIN.good) {
+        // Empty tap — flash only, does not count as chart miss
         cells[i].classList.add("is-miss");
         setTimeout(() => cells[i].classList.remove("is-miss"), 120);
         global.ArcadeSFX?.tick?.();
@@ -623,19 +667,21 @@
       scoreEl.textContent = String(score);
       comboEl.textContent = String(combo);
       excEl.textContent = String(counts.excellent);
-      setJudge(label, cls);
+      setCellJudge(i, label, cls);
       despawn(best.key, best.panel, false);
       cells[i].classList.add("is-hit");
       setTimeout(() => cells[i].classList.remove("is-hit"), 140);
     }
 
-    function finish() {
+    function finish({ failed = false } = {}) {
       if (submitted) return;
       submitted = true;
       running = false;
+      failedRun = failed;
       cancelAnimationFrame(raf);
       stopBgm();
-      for (const n of [...active.values()]) registerMiss(n);
+      // Natural clear: drop leftover notes without counting (or fail-chaining)
+      active.clear();
       clearPanels();
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
@@ -643,9 +689,18 @@
       const s = song();
       const total = counts.excellent + counts.great + counts.good + counts.miss;
       const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
-      hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
-      if (musicNoteEl) {
-        musicNoteEl.textContent = `♪ ${s.title} finished · Start again or pick another chart`;
+      if (failed) {
+        hintEl.textContent = `FAILED · ${counts.miss}/${MAX_MISSES} misses · ${score} pts · EXC ${counts.excellent} · max combo ${bestCombo}`;
+        if (musicNoteEl) {
+          musicNoteEl.textContent = `♪ ${s.title} failed · try again`;
+        }
+        if (srJudgeEl) srJudgeEl.textContent = "FAILED";
+        global.ArcadeSFX?.foul?.();
+      } else {
+        hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
+        if (musicNoteEl) {
+          musicNoteEl.textContent = `♪ ${s.title} finished · Start again or pick another chart`;
+        }
       }
       onScore?.({
         score,
@@ -657,12 +712,14 @@
           good: counts.good,
           miss: counts.miss,
           bestCombo,
+          failed,
+          cleared: !failed,
         },
       });
     }
 
     function frame() {
-      if (!running) return;
+      if (!running || submitted) return;
       const t = nowMs();
       const s = song();
       const chart = chartFor(s);
@@ -674,6 +731,7 @@
       }
 
       for (const n of [...active.values()]) {
+        if (!running || submitted) break;
         if (t - n.t > WIN.good) registerMiss(n);
       }
 
@@ -687,7 +745,7 @@
       if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
 
       if (chartIndex >= chart.length && active.size === 0 && t > duration) {
-        finish();
+        finish({ failed: false });
         return;
       }
       raf = requestAnimationFrame(frame);
@@ -711,6 +769,7 @@
       running = true;
       clockStarted = false;
       submitted = false;
+      failedRun = false;
       score = 0;
       combo = 0;
       bestCombo = 0;
@@ -719,13 +778,13 @@
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
       excEl.textContent = "0";
-      missEl.textContent = "0";
+      paintMissHud();
       if (progEl) progEl.style.width = "0%";
       startBtn.disabled = true;
       startBtn.textContent = "Playing…";
       paintSongs();
       const mins = Math.round((s.durationSec || 180) / 6) / 10;
-      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · ♪ BGM on · miss is OK`;
+      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · ♪ BGM · ${MAX_MISSES} misses = fail`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       // Short count-in while BGM loads / starts
       blip(523, 0.08, 0.04);
@@ -792,7 +851,6 @@
         destroyed = true;
         running = false;
         cancelAnimationFrame(raf);
-        clearTimeout(judgeTimer);
         clearPanels();
         stopBgm();
         window.removeEventListener("keydown", onKey);
