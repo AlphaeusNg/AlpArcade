@@ -51,8 +51,8 @@ manifest.webmanifest
 ## Music
 
 - Default autoplay: **Lofi Beats** (`data-playlist="lofi"`), or last station in `localStorage` key `alparcade-bg-music`.
-- Inline player in `#bg-music`; docks **bottom-left** when section off-screen or a game is open.
-- Stop clears storage for that session path (next visit defaults again unless restored earlier).
+- **Left-edge dock** (`#bg-music`): vertical tab opens/closes the panel; open state in `alparcade-music-dock-open`.
+- Iframe stays mounted when closed so audio never cuts. Nav **Music** toggles the dock.
 
 ## Phone UX
 

@@ -28,6 +28,51 @@
   <a class="skip-link" href="#cabinets">Skip to games</a>
   <div class="bg-grid" aria-hidden="true"></div>
 
+  <!-- Left music dock — uses empty side space; tab opens/closes the panel -->
+  <aside class="music-dock" id="bg-music" aria-label="Background music">
+    <button type="button" class="music-dock-tab" id="music-dock-tab" aria-expanded="false" aria-controls="music-dock-panel" title="Open or close music">
+      <span class="music-dock-tab-icon" aria-hidden="true">♪</span>
+      <span class="music-dock-tab-text" id="music-dock-tab-text">Music</span>
+    </button>
+    <div class="music-dock-panel glass" id="music-dock-panel" role="dialog" aria-label="Music player" aria-modal="false">
+      <div class="music-dock-head">
+        <div>
+          <p class="eyebrow">Background</p>
+          <h2 class="section-title bg-music-title">Music</h2>
+        </div>
+        <button type="button" class="music-dock-close" id="music-dock-close" title="Close music panel" aria-label="Close music panel">×</button>
+      </div>
+      <p class="bg-music-hint mono">Left dock · pick a station · audio keeps playing when closed</p>
+      <div class="bg-music-picks" role="group" aria-label="Playlists">
+        <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
+          <strong>Lofi Beats</strong>
+          <small>chill background · default</small>
+        </button>
+        <button type="button" class="bg-music-btn" data-playlist="dgray" data-embed="https://open.spotify.com/embed/playlist/3OXFbQpZflLoxvjQ5vGJrL?utm_source=generator">
+          <strong>D.Gray-Man</strong>
+          <small>ディー・グレイマン</small>
+        </button>
+      </div>
+      <div class="music-player-slot" id="music-player-slot">
+        <p id="bg-music-empty" class="bg-music-empty">Starting music…</p>
+        <div class="music-player-shell" id="music-player-shell" hidden>
+          <div class="music-player-bar">
+            <span class="music-player-label mono" id="music-player-label">Playing…</span>
+          </div>
+          <div class="music-player-frame-wrap">
+            <iframe
+              id="bg-music-frame"
+              title="Spotify background playlist"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="eager"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="music-dock-scrim" id="music-dock-scrim" hidden aria-hidden="true"></div>
+  </aside>
+
   <header class="topbar">
     <a class="brand" href="#lobby" id="brand-home" title="Back to lobby">
       <span class="brand-mark brand-mark-aa" aria-hidden="true">AA</span>
@@ -40,7 +85,7 @@
       <a href="#scores-panel">Scores</a>
       <a href="#achievements-panel">Badges</a>
       <button type="button" class="nav-text-btn" id="btn-help">Help</button>
-      <a href="#bg-music" class="nav-music">Music</a>
+      <a href="#bg-music" class="nav-music" id="nav-music" title="Open or close music dock">Music</a>
       <button type="button" class="mute-btn" id="btn-mute" aria-pressed="false" title="Toggle sound">🔊</button>
       <a class="nav-extra" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
       <a class="nav-extra" href="https://alphaeusng.github.io/VerseKeep/" target="_blank" rel="noopener" title="Scripture memory games">VerseKeep ↗</a>
@@ -94,45 +139,6 @@
           <p class="fun-facts-hint mono" id="fun-facts-hint">Collect them all — a secret unlocks around fact #5 spam…</p>
         </section>
       </div>
-
-      <section class="bg-music glass" id="bg-music" aria-label="Background music">
-        <div class="bg-music-head">
-          <div>
-            <p class="eyebrow">Background</p>
-            <h2 class="section-title bg-music-title">Music</h2>
-          </div>
-          <p class="bg-music-hint mono">Soundboard stays here · floats when you leave · – mini · × home (no jump)</p>
-        </div>
-        <div class="bg-music-picks" role="group" aria-label="Playlists">
-          <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
-            <strong>Lofi Beats</strong>
-            <small>chill background · default</small>
-          </button>
-          <button type="button" class="bg-music-btn" data-playlist="dgray" data-embed="https://open.spotify.com/embed/playlist/3OXFbQpZflLoxvjQ5vGJrL?utm_source=generator">
-            <strong>D.Gray-Man</strong>
-            <small>ディー・グレイマン</small>
-          </button>
-        </div>
-        <div class="music-player-slot" id="music-player-slot">
-          <p id="bg-music-empty" class="bg-music-empty">Starting music…</p>
-          <div class="music-player-shell" id="music-player-shell" hidden>
-            <div class="music-player-bar">
-              <span class="music-player-grip" aria-hidden="true" title="Drag when floating">⋮⋮</span>
-              <span class="music-player-label mono" id="music-player-label">Playing…</span>
-              <button type="button" class="music-player-min" id="music-player-min" hidden title="Minimize to tab" aria-label="Minimize music player to a tab">–</button>
-              <button type="button" class="music-player-close" id="music-player-close" hidden title="Return to Music section" aria-label="Close popup and return to Music section">×</button>
-            </div>
-            <div class="music-player-frame-wrap">
-              <iframe
-                id="bg-music-frame"
-                title="Spotify background playlist"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="eager"
-              ></iframe>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section class="player-bar glass" id="player-bar">
         <form id="name-form" class="name-form">
