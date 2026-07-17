@@ -865,53 +865,60 @@ body.salmon-mode .fun-fact-text {
   line-height: 1.45;
 }
 
-/* —— Left music dock (empty side space · open/close tab) —— */
+/* —— Left music dock (fixed mid-edge tab · sliding side panel) —— */
 .music-dock {
+  /* Shell only; children are position:fixed so layout never collapses to top */
   position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 55;
   pointer-events: none;
+  width: 0;
+  height: 0;
+  overflow: visible;
 }
 
 .music-dock-tab {
   pointer-events: auto;
-  position: absolute;
+  position: fixed;
   left: 0;
   top: 50%;
+  z-index: 57;
+  /* Center on the left edge — keep translateY when open */
   transform: translateY(-50%);
-  z-index: 3;
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
   writing-mode: vertical-rl;
-  transform-origin: center;
-  padding: 0.85rem 0.42rem;
-  border: 1px solid rgba(45, 212, 191, 0.4);
+  text-orientation: mixed;
+  padding: 0.95rem 0.48rem;
+  border: 1px solid rgba(45, 212, 191, 0.42);
   border-left: 0;
   border-radius: 0 12px 12px 0;
-  background: rgba(8, 12, 18, 0.94);
+  background: rgba(8, 12, 18, 0.96);
   color: var(--muted);
   font: inherit;
+  line-height: 1.2;
   cursor: pointer;
-  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
-  transition: left 0.28s ease, color 0.15s, border-color 0.15s, background 0.15s;
+  transition: left 0.28s ease, color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .music-dock.is-open .music-dock-tab {
-  left: min(22rem, calc(100vw - 2.75rem));
+  left: min(22rem, calc(100vw - 2.5rem));
   color: var(--teal);
-  border-color: rgba(45, 212, 191, 0.55);
-  background: rgba(8, 14, 20, 0.96);
+  border-color: rgba(45, 212, 191, 0.6);
+  background: rgba(8, 14, 20, 0.98);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
 }
 
 .music-dock-tab:hover,
 .music-dock-tab:focus-visible {
   color: var(--teal);
-  border-color: rgba(45, 212, 191, 0.65);
+  border-color: rgba(45, 212, 191, 0.7);
   outline: none;
 }
 
@@ -919,14 +926,16 @@ body.salmon-mode .fun-fact-text {
   color: var(--teal);
   font-size: 0.95rem;
   writing-mode: horizontal-tb;
+  text-orientation: upright;
+  flex-shrink: 0;
 }
 
 .music-dock-tab-text {
   font-family: var(--mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  max-height: 9rem;
+  max-height: 8.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -934,39 +943,43 @@ body.salmon-mode .fun-fact-text {
 
 .music-dock-panel {
   pointer-events: auto;
-  position: absolute;
+  position: fixed;
   left: 0;
-  top: max(3.75rem, 6vh);
-  bottom: max(0.75rem, 3vh);
-  width: min(22rem, calc(100vw - 2.75rem));
-  z-index: 2;
+  top: 4.25rem;
+  bottom: 1rem;
+  width: min(22rem, calc(100vw - 2.5rem));
+  max-height: calc(100vh - 5.25rem);
+  z-index: 56;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding: 0.9rem 0.95rem 1rem;
+  padding: 0.95rem 1rem 1.05rem;
+  margin: 0;
   border-radius: 0 16px 16px 0;
-  border: 1px solid rgba(45, 212, 191, 0.28);
+  border: 1px solid rgba(45, 212, 191, 0.3);
   border-left: 0;
-  background: rgba(6, 10, 16, 0.96);
-  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.45);
+  background: rgba(6, 10, 16, 0.97);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(14px);
-  overflow: auto;
-  transform: translateX(-105%);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Off-screen when closed; iframe stays mounted so audio continues */
+  transform: translate3d(calc(-100% - 12px), 0, 0);
   transition: transform 0.28s ease;
-  /* Keep iframe mounted off-screen when closed so audio never cuts */
   visibility: visible;
 }
 
 .music-dock.is-open .music-dock-panel {
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
 }
 
 .music-dock-scrim {
   pointer-events: auto;
   position: fixed;
   inset: 0;
-  z-index: 1;
-  background: rgba(2, 6, 12, 0.45);
+  z-index: 54;
+  background: rgba(2, 6, 12, 0.48);
   border: 0;
   display: none;
 }
@@ -980,6 +993,7 @@ body.salmon-mode .fun-fact-text {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .bg-music-title {
@@ -1012,6 +1026,7 @@ body.salmon-mode .fun-fact-text {
   margin: 0;
   font-size: 0.72rem;
   color: var(--dim);
+  flex-shrink: 0;
 }
 
 .bg-music-picks {
@@ -1019,6 +1034,7 @@ body.salmon-mode .fun-fact-text {
   flex-direction: column;
   gap: 0.45rem;
   align-items: stretch;
+  flex-shrink: 0;
 }
 
 .bg-music-btn {
@@ -1063,6 +1079,7 @@ body.salmon-mode .fun-fact-text {
   position: relative;
   margin-top: 0.15rem;
   flex: 0 0 auto;
+  width: 100%;
 }
 
 .bg-music-empty {
@@ -1080,6 +1097,7 @@ body.salmon-mode .fun-fact-text {
   border: 1px solid rgba(45, 212, 191, 0.28);
   background: rgba(0, 0, 0, 0.35);
   overflow: hidden;
+  width: 100%;
 }
 
 .music-player-shell[hidden] {
@@ -1102,6 +1120,11 @@ body.salmon-mode .fun-fact-text {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.music-player-frame-wrap {
+  width: 100%;
+  line-height: 0;
 }
 
 .music-player-frame-wrap iframe {
@@ -2374,16 +2397,19 @@ body.salmon-mode .fun-fact-text {
   }
 
   .music-dock-tab {
-    padding: 0.7rem 0.36rem;
+    padding: 0.8rem 0.4rem;
   }
 
   .music-dock-panel {
-    top: max(3.25rem, 4vh);
-    width: min(20.5rem, calc(100vw - 2.4rem));
+    top: 3.5rem;
+    bottom: 0.65rem;
+    width: min(20rem, calc(100vw - 2.25rem));
+    max-height: calc(100vh - 4.15rem);
+    padding: 0.8rem 0.85rem 0.95rem;
   }
 
   .music-dock.is-open .music-dock-tab {
-    left: min(20.5rem, calc(100vw - 2.4rem));
+    left: min(20rem, calc(100vw - 2.25rem));
   }
 
   .brand-mark {
