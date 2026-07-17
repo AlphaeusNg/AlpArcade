@@ -231,7 +231,7 @@
     s.classList.add("is-popup");
     s.classList.remove("is-home", "is-minimized");
     s.style.position = "fixed";
-    s.style.zIndex = "52"; /* float above page, still under open dock panel */
+    s.style.zIndex = "100"; /* above edge tab — floating board stays in front */
     s.style.width = "min(340px, calc(100vw - 1.5rem))";
     s.style.maxWidth = "calc(100vw - 1rem)";
 
@@ -253,20 +253,39 @@
 
     const sl = slot();
     if (sl) sl.style.minHeight = "";
+    // Tab sits behind the floating board while it’s out
+    const t = tab();
+    if (t) {
+      t.classList.remove("is-player-mini");
+      t.style.zIndex = "";
+    }
     setChrome(true);
     if (!soft) persistUi();
   }
 
-  /** Hide floating player; audio keeps going. One ♪ tab reopens stations + player. */
+  /**
+   * Minimize → board hides; side ♪ tab becomes the mini player at the front.
+   * Click that tab to expand the board again.
+   */
   function placePlayerMini() {
+    // Park on the left edge tab (close station list so tab is the mini face)
+    setDockOpen(false, { persist: false });
     const s = ensureShellOnBody();
     if (s) {
       s.hidden = true;
       s.classList.add("is-minimized", "is-popup");
-      s.classList.remove("is-home");
+      s.classList.remove("is-home", "is-dragging");
+      s.style.zIndex = "";
     }
     playerMode = "mini";
     setChrome(false);
+    const t = tab();
+    if (t) {
+      t.classList.add("is-player-mini");
+      t.style.zIndex = "110"; /* side tab at the front when it IS the mini player */
+      t.style.left = "";
+      t.style.pointerEvents = "auto";
+    }
     updateLabels();
   }
 
@@ -446,6 +465,7 @@
         /* ignore */
       }
       s.classList.add("is-dragging");
+      s.style.zIndex = "200"; /* while dragging — always on top of side tab */
     });
 
     bar.addEventListener("pointermove", (e) => {
@@ -456,6 +476,7 @@
       s.style.top = `${pos.top}px`;
       s.style.right = "auto";
       s.style.bottom = "auto";
+      s.style.zIndex = "200";
       s.classList.add("is-dragged");
       const near = pos.left < SNAP_LEFT && dockOpen;
       s.classList.toggle("is-snap-near", near);
@@ -470,7 +491,7 @@
         floatPos = null;
         setPlayerMode("home");
       } else {
-        setPlayerMode("float");
+        setPlayerMode("float"); /* restores z-index 100 above tab */
       }
     };
     bar.addEventListener("pointerup", end);
@@ -565,9 +586,13 @@
         if (t) {
           e.preventDefault();
           e.stopPropagation();
+          // Minimized → expand floating board in front; otherwise toggle stations
+          if (playing && playerMode === "mini") {
+            setPlayerMode("float");
+            return;
+          }
           const opening = !dockOpen;
           setDockOpen(opening);
-          if (opening && playing && playerMode === "mini") setPlayerMode("home");
           return;
         }
         if (e.target.closest?.("#music-dock-close")) {

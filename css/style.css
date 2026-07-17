@@ -886,7 +886,7 @@ body.salmon-mode .fun-fact-text {
   position: fixed;
   left: 0;
   top: 50%;
-  z-index: 57;
+  z-index: 70; /* normal; float shell 100, mini-on-tab 110, dragging 200 */
   transform: translateY(-50%);
   display: inline-flex;
   flex-direction: row;
@@ -1148,9 +1148,8 @@ body.salmon-mode .fun-fact-text {
 
 /*
  * Shell on body.
- * Stack: page < panel(56) < home player(58) < edge tab(57) … wait tab 57 < home 58
- * Floating mini must sit ABOVE the edge tab so it never hides under ♪.
- *   panel 56 · tab 57 · home shell 58 · float shell 80
+ * panel 56 · tab 70 · home shell 58 · float shell 100 · dragging 200
+ * Minimized: shell hidden, tab.is-player-mini at 110 (front)
  */
 .music-player-shell {
   pointer-events: auto;
@@ -1173,12 +1172,13 @@ body.salmon-mode .fun-fact-text {
 .music-player-shell.is-popup {
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   border-color: rgba(45, 212, 191, 0.5);
-  z-index: 80; /* above edge tab (57) — mini player never buried */
+  z-index: 100; /* above edge tab (70) while floating */
 }
 
 .music-player-shell.is-dragging {
-  opacity: 0.96;
+  opacity: 0.98;
   cursor: grabbing;
+  z-index: 200 !important; /* while dragging — always on top of side tab */
 }
 
 .music-player-shell.is-snap-near {
@@ -1256,10 +1256,13 @@ body.salmon-mode .fun-fact-text {
   background: #000;
 }
 
-/* Single left tab — pulse stronger when player is minimized but still playing */
+/* Minimized player lives on this tab — bring it to the front */
 .music-dock-tab.is-player-mini {
-  border-color: rgba(45, 212, 191, 0.75);
+  z-index: 110 !important;
+  border-color: rgba(45, 212, 191, 0.85);
   color: var(--teal);
+  background: rgba(8, 16, 22, 0.98);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.35), 6px 0 28px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
