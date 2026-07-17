@@ -101,7 +101,7 @@
             <p class="eyebrow">Background</p>
             <h2 class="section-title bg-music-title">Music</h2>
           </div>
-          <p class="bg-music-hint mono">Autoplays · popup bottom-right</p>
+          <p class="bg-music-hint mono">Starts here · floats when you scroll away</p>
         </div>
         <div class="bg-music-picks" role="group" aria-label="Playlists">
           <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
@@ -113,11 +113,13 @@
             <small>ディー・グレイマン</small>
           </button>
         </div>
-        <div class="music-player-slot" id="music-player-slot" hidden>
-          <p id="bg-music-empty" class="bg-music-empty" hidden></p>
-          <div class="music-player-shell is-popup" id="music-player-shell" hidden>
+        <div class="music-player-slot" id="music-player-slot">
+          <p id="bg-music-empty" class="bg-music-empty">Starting music…</p>
+          <div class="music-player-shell" id="music-player-shell" hidden>
             <div class="music-player-bar">
+              <span class="music-player-grip" aria-hidden="true" title="Drag when floating">⋮⋮</span>
               <span class="music-player-label mono" id="music-player-label">Playing…</span>
+              <button type="button" class="music-player-close" id="music-player-close" hidden title="Return to Music section" aria-label="Close popup and return to Music section">×</button>
             </div>
             <div class="music-player-frame-wrap">
               <iframe

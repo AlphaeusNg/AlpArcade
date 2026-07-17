@@ -1,7 +1,9 @@
 /**
  * Spotify background music for AlpArcade.
- * Auto-starts default/last station ASAP; floating mini-player bottom-right.
- * No separate Stop buttons — use the Spotify embed controls.
+ * - Starts inline in the Music section
+ * - When that section (or lobby) leaves view → bottom-right popup (draggable, closable)
+ * - Close returns the player to the Music box
+ * - No separate Stop buttons — use embed controls
  */
 (function () {
   "use strict";
@@ -17,15 +19,25 @@
   let currentId = "";
   let playing = false;
   let gestureHooked = false;
+  let preferInline = false;
+  let docked = false;
+  let drag = null;
+  let popupPos = null;
 
   function shell() {
     return $("#music-player-shell");
+  }
+  function slot() {
+    return $("#music-player-slot");
   }
   function frame() {
     return $("#bg-music-frame");
   }
   function empty() {
     return $("#bg-music-empty");
+  }
+  function closeBtn() {
+    return $("#music-player-close");
   }
 
   function withAutoplay(url) {
@@ -57,12 +69,135 @@
     return host;
   }
 
-  function mountShellInPopup() {
+  function clearPopupPos(s) {
+    if (!s) return;
+    s.style.left = "";
+    s.style.top = "";
+    s.style.right = "";
+    s.style.bottom = "";
+    s.classList.remove("is-dragged");
+  }
+
+  function applyPopupPos(s) {
+    if (!s || !popupPos) return;
+    s.style.left = `${popupPos.left}px`;
+    s.style.top = `${popupPos.top}px`;
+    s.style.right = "auto";
+    s.style.bottom = "auto";
+    s.classList.add("is-dragged");
+  }
+
+  function mountInline() {
+    const s = shell();
+    const sl = slot();
+    if (!s || !sl) return;
+    if (s.parentElement !== sl) sl.appendChild(s);
+    s.classList.remove("is-popup", "is-docked");
+    clearPopupPos(s);
+    docked = false;
+    const btn = closeBtn();
+    if (btn) btn.hidden = true;
+    sl.classList.remove("is-player-docked");
+  }
+
+  function mountPopup() {
     const s = shell();
     if (!s) return;
     const host = ensurePopupHost();
     if (s.parentElement !== host) host.appendChild(s);
     s.classList.add("is-popup", "is-docked");
+    docked = true;
+    const btn = closeBtn();
+    if (btn) btn.hidden = false;
+    slot()?.classList.add("is-player-docked");
+    if (popupPos) applyPopupPos(s);
+    else clearPopupPos(s);
+  }
+
+  function slotVisible() {
+    const sl = slot();
+    if (!sl || sl.closest("[hidden]")) return false;
+    const lobby = $("#lobby");
+    if (lobby && lobby.hidden) return false;
+    const rect = sl.getBoundingClientRect();
+    const vh = window.innerHeight || 0;
+    return rect.bottom > 64 && rect.top < vh - 48;
+  }
+
+  function updateDockState() {
+    const s = shell();
+    if (!s || !playing) return;
+
+    const lobby = $("#lobby");
+    const lobbyHidden = !!(lobby && lobby.hidden);
+    const visible = !lobbyHidden && slotVisible();
+
+    if (visible) {
+      preferInline = false;
+      if (docked) mountInline();
+      return;
+    }
+
+    if (preferInline && !lobbyHidden) {
+      if (docked) mountInline();
+      return;
+    }
+
+    // In a game (lobby hidden) always popup so music stays reachable
+    if (!docked) mountPopup();
+  }
+
+  function closePopupToMusic() {
+    preferInline = true;
+    popupPos = null;
+    mountInline();
+    const lobby = $("#lobby");
+    if (lobby && !lobby.hidden) {
+      $("#bg-music")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  function bindDrag() {
+    const s = shell();
+    const bar = s?.querySelector(".music-player-bar");
+    if (!s || !bar || bar.dataset.dragBound) return;
+    bar.dataset.dragBound = "1";
+
+    bar.addEventListener("pointerdown", (e) => {
+      if (!docked) return;
+      if (e.target.closest("button, a, iframe")) return;
+      e.preventDefault();
+      const rect = s.getBoundingClientRect();
+      drag = {
+        ox: e.clientX - rect.left,
+        oy: e.clientY - rect.top,
+        id: e.pointerId,
+      };
+      bar.setPointerCapture?.(e.pointerId);
+      s.classList.add("is-dragging");
+    });
+
+    bar.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const w = s.offsetWidth;
+      const h = s.offsetHeight;
+      let left = e.clientX - drag.ox;
+      let top = e.clientY - drag.oy;
+      const maxL = Math.max(0, (window.innerWidth || 0) - w - 4);
+      const maxT = Math.max(0, (window.innerHeight || 0) - h - 4);
+      left = Math.min(maxL, Math.max(4, left));
+      top = Math.min(maxT, Math.max(4, top));
+      popupPos = { left, top };
+      applyPopupPos(s);
+    });
+
+    const endDrag = (e) => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      drag = null;
+      s.classList.remove("is-dragging");
+    };
+    bar.addEventListener("pointerup", endDrag);
+    bar.addEventListener("pointercancel", endDrag);
   }
 
   function play(id, embed, label, { forceReload = false } = {}) {
@@ -72,12 +207,12 @@
     const e = empty();
     if (!f || !s) return;
 
-    mountShellInPopup();
     const src = withAutoplay(embed);
 
     if (currentEmbed === embed && playing && !forceReload) {
       setActiveButtons(id);
       s.hidden = false;
+      updateDockState();
       return;
     }
 
@@ -91,6 +226,8 @@
     playing = true;
     s.hidden = false;
     if (e) e.hidden = true;
+    const sl = slot();
+    if (sl) sl.hidden = false;
     setActiveButtons(currentId);
 
     const lab = $("#music-player-label");
@@ -107,6 +244,8 @@
     } catch {
       /* ignore */
     }
+    if (!docked) mountInline();
+    updateDockState();
   }
 
   function nudgeAutoplayOnGesture() {
@@ -153,8 +292,20 @@
   }
 
   function boot() {
-    // Kick player immediately
-    mountShellInPopup();
+    const bar = shell()?.querySelector(".music-player-bar");
+    if (bar && !closeBtn()) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "music-player-close";
+      btn.className = "music-player-close";
+      btn.title = "Return player to Music section";
+      btn.setAttribute("aria-label", "Close popup and return to Music section");
+      btn.hidden = true;
+      btn.textContent = "×";
+      bar.appendChild(btn);
+    }
+
+    mountInline();
     autoStart();
 
     $$(".bg-music-btn[data-embed]").forEach((btn) => {
@@ -163,6 +314,30 @@
         play(btn.dataset.playlist, btn.dataset.embed, label, { forceReload: true });
       });
     });
+    closeBtn()?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closePopupToMusic();
+    });
+    bindDrag();
+    window.addEventListener("scroll", updateDockState, { passive: true });
+    window.addEventListener("resize", updateDockState);
+
+    const lobby = $("#lobby");
+    if (lobby && "MutationObserver" in window) {
+      new MutationObserver(() => updateDockState()).observe(lobby, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+      });
+    }
+    if ("IntersectionObserver" in window && slot()) {
+      new IntersectionObserver(() => updateDockState(), {
+        root: null,
+        threshold: [0, 0.05, 0.2, 0.5, 1],
+        rootMargin: "-40px 0px -40px 0px",
+      }).observe(slot());
+    }
+    updateDockState();
   }
 
   if (document.readyState === "loading") {

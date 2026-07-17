@@ -88,26 +88,27 @@
 
     /**
      * Continuous difficulty — no hard wave cap.
-     * Mid ground: harder than the soft pass (runs were endless), gentler than the old brick-wall ramp.
+     * Speed / spawn / fire rate climb slowly so early–mid waves stay readable.
      */
     function waveMods(w) {
       const d = Math.max(1, w);
-      // HP: wave 1→1, ~3→2, ~5→3, ~8→4, ~12→5… (between /2 and sqrt curves)
-      const enemyHp = 1 + Math.floor(Math.sqrt(Math.max(0, d - 1)) * 1.55);
+      // HP: wave 1→1, ~4→2, ~8→3, ~14→4… (gentler than before)
+      const enemyHp = 1 + Math.floor(Math.sqrt(Math.max(0, d - 1)) * 1.2);
       return {
-        spawnEvery: Math.max(12, 50 - d * 2.35),
-        enemySpeed: 1.2 + d * 0.19,
+        // Spawn interval shrinks slowly (was −2.35/wave, floor 12)
+        spawnEvery: Math.max(18, 54 - d * 1.45),
+        // Enemy descent: slow ramp (was +0.19/wave)
+        enemySpeed: 1.1 + d * 0.1,
         enemyHp,
-        zig: d >= 3,
-        shooters: d >= 3,
-        shootRate: Math.max(34, 105 - d * 4.0),
-        swarm: d >= 5,
-        // Slightly fewer free powerups so skill matters more
-        dropChance: Math.min(0.38, 0.14 + d * 0.018),
+        zig: d >= 4,
+        shooters: d >= 4,
+        // Enemy shots less frequent early; floor higher
+        shootRate: Math.max(48, 120 - d * 2.6),
+        swarm: d >= 7,
+        dropChance: Math.min(0.4, 0.16 + d * 0.016),
         pressure: d,
-        // Extra pack chance scales gently with wave
-        multiSpawn: Math.min(0.55, 0.22 + d * 0.025),
-        shooterChance: Math.min(0.48, 0.28 + d * 0.02),
+        multiSpawn: Math.min(0.48, 0.2 + d * 0.02),
+        shooterChance: Math.min(0.42, 0.22 + d * 0.018),
       };
     }
 
@@ -242,7 +243,7 @@
         w: kind === "swarm" ? 14 : 22 + Math.random() * 10,
         h: kind === "swarm" ? 14 : 18,
         vy: m.enemySpeed * (kind === "swarm" ? 1.4 : 1) + Math.random() * 0.55,
-        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.85 + m.pressure * 0.09) : 0,
+        vx: m.zig ? (Math.random() < 0.5 ? -1 : 1) * (0.7 + m.pressure * 0.05) : 0,
         hp: kind === "shooter" ? m.enemyHp + 1 : m.enemyHp,
         kind,
         hue: kind === "shooter" ? 320 : kind === "swarm" ? 45 : 180 + Math.random() * 60,
