@@ -53,10 +53,6 @@
   function empty() {
     return $("#bg-music-empty");
   }
-  function miniTab() {
-    return $("#music-mini-tab");
-  }
-
   function withAutoplay(url) {
     if (!url) return url;
     try {
@@ -88,25 +84,6 @@
     }
     s.classList.add("music-player-shell");
     return s;
-  }
-
-  function ensureMiniTab() {
-    let el = miniTab();
-    if (el) return el;
-    el = document.createElement("button");
-    el.type = "button";
-    el.id = "music-mini-tab";
-    el.className = "music-mini-tab";
-    el.hidden = true;
-    el.setAttribute("aria-label", "Expand music player");
-    el.innerHTML = `<span class="music-mini-tab-icon" aria-hidden="true">♪</span><span class="music-mini-tab-label mono" id="music-mini-tab-label">Music</span>`;
-    document.body.appendChild(el);
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setPlayerMode("float");
-    });
-    return el;
   }
 
   function ensureBarChrome() {
@@ -154,15 +131,21 @@
       : "Music";
     const tabText = $("#music-dock-tab-text");
     if (tabText) tabText.textContent = short;
-    const miniLab = $("#music-mini-tab-label");
-    if (miniLab) miniLab.textContent = short;
     const t = tab();
     if (t) {
       t.setAttribute("aria-expanded", dockOpen ? "true" : "false");
-      t.title = dockOpen ? "Close stations" : "Open stations";
+      t.title = dockOpen
+        ? "Close stations"
+        : playerMode === "mini" && playing
+          ? `Open stations · ${currentLabel} (playing)`
+          : "Open stations";
       t.classList.toggle("is-active-tab", dockOpen);
+      t.classList.toggle("is-player-mini", playerMode === "mini" && playing);
     }
     dockRoot()?.classList.toggle("is-playing", playing);
+    // Never leave a second left-edge tab around
+    const stray = $("#music-mini-tab");
+    if (stray) stray.remove();
   }
 
   function persistUi() {
@@ -217,8 +200,6 @@
 
     if (!playing || !sl) {
       setChrome(false);
-      const mt = miniTab();
-      if (mt) mt.hidden = true;
       return;
     }
 
@@ -240,8 +221,6 @@
       placePlayerFloat({ soft: true });
       return;
     }
-    const mt = miniTab();
-    if (mt) mt.hidden = true;
   }
 
   function placePlayerFloat({ soft = false } = {}) {
@@ -274,12 +253,11 @@
 
     const sl = slot();
     if (sl) sl.style.minHeight = "";
-    const mt = miniTab();
-    if (mt) mt.hidden = true;
     setChrome(true);
     if (!soft) persistUi();
   }
 
+  /** Hide floating player; audio keeps going. One ♪ tab reopens stations + player. */
   function placePlayerMini() {
     const s = ensureShellOnBody();
     if (s) {
@@ -288,10 +266,8 @@
       s.classList.remove("is-home");
     }
     playerMode = "mini";
-    const mt = ensureMiniTab();
-    mt.hidden = false;
-    updateLabels();
     setChrome(false);
+    updateLabels();
   }
 
   function setPlayerMode(next, { persist = true } = {}) {

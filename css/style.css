@@ -1248,54 +1248,11 @@ body.salmon-mode .fun-fact-text {
   background: #000;
 }
 
-/* Compact floating mini tab (minimized player) */
-.music-mini-tab {
-  position: fixed;
-  /* Sit just below the main stations tab so both stay usable */
-  left: 0;
-  top: calc(50% + 5.5rem);
-  transform: translateY(-50%);
-  z-index: 89;
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.4rem;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  padding: 0.85rem 0.45rem;
-  border: 1px solid rgba(45, 212, 191, 0.45);
-  border-left: 0;
-  border-radius: 0 12px 12px 0;
-  background: rgba(8, 12, 18, 0.96);
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-}
-
-.music-mini-tab:hover {
+/* Single left tab — pulse stronger when player is minimized but still playing */
+.music-dock-tab.is-player-mini {
+  border-color: rgba(45, 212, 191, 0.75);
   color: var(--teal);
-  border-color: rgba(45, 212, 191, 0.7);
 }
-
-.music-mini-tab-icon {
-  color: var(--teal);
-  writing-mode: horizontal-tb;
-}
-
-.music-mini-tab-label {
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  max-height: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* stations tab stays topmost among music chrome */
 
 @media (prefers-reduced-motion: reduce) {
   .music-dock-tab,
