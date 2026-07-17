@@ -285,19 +285,33 @@
   function setDockOpen(open, { persist = true } = {}) {
     dockOpen = !!open;
     const d = dockRoot();
+    const p = panel();
     const t = tab();
     const sc = scrim();
+
+    // Classes on root + panel (belt-and-suspenders so open never fails)
     if (d) {
       d.classList.toggle("is-open", dockOpen);
       d.classList.toggle("is-dock", dockOpen);
       d.classList.toggle("is-tab", !dockOpen);
+      d.classList.toggle("is-playing", playing);
+    }
+    if (p) {
+      p.classList.toggle("is-open", dockOpen);
+      p.hidden = false; // never use [hidden] — CSS visibility handles it
+      p.setAttribute("aria-hidden", dockOpen ? "false" : "true");
     }
     if (t) {
       t.setAttribute("aria-expanded", dockOpen ? "true" : "false");
       t.classList.toggle("is-active-tab", dockOpen);
+      // Keep tab free of inline styles that could pin it off-screen
+      t.style.left = "";
+      t.style.top = "";
+      t.style.transform = "";
+      t.style.pointerEvents = "auto";
+      t.style.zIndex = "120";
     }
     if (sc) {
-      // Scrim on phones only when dock open
       const narrow = window.matchMedia("(max-width: 820px)").matches;
       sc.hidden = !(dockOpen && narrow);
       sc.setAttribute("aria-hidden", sc.hidden ? "true" : "false");
@@ -331,8 +345,6 @@
     }
     setActiveButtons("");
     setPlayerMode("home", { persist: false });
-    const mt = miniTab();
-    if (mt) mt.hidden = true;
     updateLabels();
     try {
       localStorage.setItem(
@@ -542,45 +554,50 @@
     // Critical: shell on body BEFORE any iframe src
     ensureShellOnBody();
     ensureBarChrome();
-    ensureMiniTab();
+    // Remove legacy second tab if present from older builds
+    $("#music-mini-tab")?.remove();
     restoreUi();
     autoStart();
     if (playing) setPlayerMode(playerMode, { persist: false });
     bindPlayerDrag();
 
-    // Dock open/close — always bind (tab must work)
-    const tabBtn = tab();
-    if (tabBtn) {
-      tabBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDockOpen(!dockOpen);
-      });
-    } else {
-      console.warn("[music] #music-dock-tab missing");
-    }
-
-    $("#music-dock-close")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDockOpen(false);
-    });
-    scrim()?.addEventListener("click", (e) => {
-      e.preventDefault();
-      setDockOpen(false);
-    });
-
-    // Player chrome (use capture so iframe bar works)
+    // Capture-phase so nothing (floating shell, games) can swallow the tab click
     document.addEventListener(
       "click",
       (e) => {
-        const min = e.target.closest?.("#music-player-min");
-        const close = e.target.closest?.("#music-player-close");
-        if (min) {
+        const t = e.target.closest?.("#music-dock-tab, .music-dock-tab");
+        if (t) {
+          e.preventDefault();
+          e.stopPropagation();
+          const opening = !dockOpen;
+          setDockOpen(opening);
+          if (opening && playing && playerMode === "mini") setPlayerMode("home");
+          return;
+        }
+        if (e.target.closest?.("#music-dock-close")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setDockOpen(false);
+          return;
+        }
+        if (e.target.closest?.("#music-dock-scrim")) {
+          e.preventDefault();
+          setDockOpen(false);
+          return;
+        }
+        if (e.target.closest?.("#nav-music")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setDockOpen(!dockOpen);
+          return;
+        }
+        if (e.target.closest?.("#music-player-min")) {
           e.preventDefault();
           e.stopPropagation();
           setPlayerMode("mini");
-        } else if (close) {
+          return;
+        }
+        if (e.target.closest?.("#music-player-close")) {
           e.preventDefault();
           e.stopPropagation();
           stopMusic();
@@ -600,11 +617,6 @@
         if (playerMode === "mini") setPlayerMode("float");
         else if (playerMode === "home") placePlayerHome();
       });
-    });
-
-    $("#nav-music")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      setDockOpen(!dockOpen);
     });
 
     if (location.hash === "#bg-music") setDockOpen(true);
