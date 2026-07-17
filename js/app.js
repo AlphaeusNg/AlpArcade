@@ -44,7 +44,7 @@
     reaction: "Click / tap the pad · wait for green",
     memory: "Tap cards to match pairs · hearts are lives",
     tapper: "Tap glowing cells · keys 1–9 · three lives",
-    jubeat: "Tap panels on the beat · 1–4 / QWER / ASDF / ZXCV",
+    jubeat: "EXTREME charts · EXCELLENT/GREAT/GOOD/MISS · 1–4 QWER ASDF ZXCV",
     breaker: "Drag paddle · tap to start · endless brick rows",
   };
 

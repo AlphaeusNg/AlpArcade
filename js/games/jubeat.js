@@ -1,45 +1,217 @@
 /**
- * Pulse Grid — jubeat-inspired 4×4 rhythm panels.
- * Notes approach on panels; tap in the timing window. Endless speed-up, no hard cap.
+ * Pulse Grid — jubeat-style 4×4 charts.
+ * Songs: I'm so Happy · Albida · Flower · Evans (EXTREME only).
+ * Judges: EXCELLENT · GREAT · GOOD · MISS — misses do not end the run.
  */
 (function (global) {
   "use strict";
 
   const COLS = 4;
-  const CELLS = COLS * COLS;
-  const JUDGE = {
-    perfect: 90,
-    great: 150,
-    good: 220,
+  const CELLS = 16;
+
+  // Timing windows vs note time (ms) — jubeat-like ladder
+  const WIN = {
+    excellent: 45,
+    great: 90,
+    good: 140,
   };
 
+  /**
+   * Chart helpers: build EXTREME streams on a 4×4 pad.
+   * Panel map:  0  1  2  3
+   *             4  5  6  7
+   *             8  9 10 11
+   *            12 13 14 15
+   */
+  function note(t, panels) {
+    return { t, panels: Array.isArray(panels) ? panels : [panels] };
+  }
+
+  function buildChart(song) {
+    const bpm = song.bpm;
+    const beat = 60000 / bpm;
+    const notes = [];
+    const push = (beatIndex, panels) => {
+      notes.push(note(Math.round(beatIndex * beat), panels));
+    };
+
+    // Intro 4 bars
+    for (let b = 0; b < 16; b++) {
+      push(b, b % 4 === 0 ? [5, 6, 9, 10] : [b % 16]);
+    }
+
+    if (song.id === "imsosohappy") {
+      // Dense happy-hardcore style: 16ths + corner chords + center cross
+      for (let m = 4; m < 48; m++) {
+        const base = m * 4;
+        // 16th stream patterns
+        const streams = [
+          [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4],
+          [0, 5, 10, 15, 14, 9, 4, 1, 6, 11, 7, 2],
+          [3, 2, 1, 0, 4, 8, 12, 13, 14, 15, 11, 7],
+          [12, 8, 4, 0, 1, 2, 3, 7, 11, 15, 10, 5],
+        ];
+        const stream = streams[m % streams.length];
+        stream.forEach((p, i) => push(base + i * 0.25, p));
+        // Chord accents on beat 1 & 3
+        push(base, [0, 3, 12, 15]);
+        push(base + 2, [5, 6, 9, 10]);
+        if (m % 2 === 0) push(base + 1.5, [1, 2, 13, 14]);
+        if (m % 3 === 0) {
+          push(base + 0.5, [4, 7]);
+          push(base + 2.5, [8, 11]);
+        }
+      }
+    } else if (song.id === "albida") {
+      // Angular / tech patterns — diagonals + columns
+      for (let m = 4; m < 44; m++) {
+        const base = m * 4;
+        for (let i = 0; i < 8; i++) {
+          const col = (m + i) % 4;
+          push(base + i * 0.5, [col, col + 4, col + 8, col + 12].filter((_, k) => k === i % 4 || k === (i + 1) % 4));
+        }
+        // X pattern
+        push(base, [0, 5, 10, 15]);
+        push(base + 1, [3, 6, 9, 12]);
+        push(base + 2, [0, 3, 12, 15]);
+        push(base + 3, [5, 6, 9, 10]);
+        // 16th sprinkle
+        for (let s = 0; s < 4; s++) {
+          push(base + 0.25 + s, [(m * 3 + s * 5) % 16]);
+          push(base + 0.75 + s, [(m * 7 + s * 3) % 16]);
+        }
+      }
+    } else if (song.id === "flower") {
+      // Flowing petals — rotating rings + blossoms
+      for (let m = 4; m < 46; m++) {
+        const base = m * 4;
+        const ring = [1, 2, 7, 11, 14, 13, 8, 4];
+        ring.forEach((p, i) => push(base + i * 0.5, p));
+        // blossom chords
+        push(base, [5, 6, 9, 10]);
+        push(base + 2, [0, 3, 12, 15]);
+        // petal pairs
+        for (let i = 0; i < 8; i++) {
+          const a = (m + i) % 16;
+          const b = (a + 5) % 16;
+          push(base + i * 0.5 + 0.25, [a, b]);
+        }
+        if (m % 2 === 1) {
+          push(base + 1, [1, 4, 7, 13]);
+          push(base + 3, [2, 8, 11, 14]);
+        }
+      }
+    } else {
+      // Evans — classic dense shuffle / hard 16ths
+      for (let m = 4; m < 50; m++) {
+        const base = m * 4;
+        const shuffle = [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12];
+        shuffle.forEach((p, i) => push(base + i * 0.25, p));
+        // double taps every half beat late chart
+        if (m > 12) {
+          for (let i = 0; i < 8; i++) {
+            push(base + i * 0.5 + 0.125, [(shuffle[i] + 3) % 16]);
+          }
+        }
+        // Evans-style corners
+        push(base, [0, 3]);
+        push(base + 1, [12, 15]);
+        push(base + 2, [0, 15]);
+        push(base + 3, [3, 12]);
+        if (m % 4 === 0) push(base + 1.5, [5, 6, 9, 10]);
+      }
+    }
+
+    // Outro
+    const endBeat = notes.reduce((m, n) => Math.max(m, n.t / beat), 0) + 4;
+    push(endBeat, [5, 6, 9, 10]);
+    push(endBeat + 1, [0, 3, 12, 15]);
+    push(endBeat + 2, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
+
+    notes.sort((a, b) => a.t - b.t);
+    return notes;
+  }
+
+  const SONGS = [
+    {
+      id: "imsosohappy",
+      title: "I'm so Happy",
+      artist: "Ryu☆",
+      difficulty: "EXTREME",
+      level: 10,
+      bpm: 183,
+      color: "#f472b6",
+    },
+    {
+      id: "albida",
+      title: "Albida",
+      artist: "dj TAKA",
+      difficulty: "EXTREME",
+      level: 10,
+      bpm: 155,
+      color: "#38bdf8",
+    },
+    {
+      id: "flower",
+      title: "Flower",
+      artist: "DJ YOSHITAKA",
+      difficulty: "EXTREME",
+      level: 9,
+      bpm: 173,
+      color: "#c084fc",
+    },
+    {
+      id: "evans",
+      title: "Evans",
+      artist: "DJ YOSHITAKA",
+      difficulty: "EXTREME",
+      level: 10,
+      bpm: 180,
+      color: "#fbbf24",
+    },
+  ].map((s) => ({ ...s, chart: null }));
+
+  // Lazy chart build
+  function chartFor(song) {
+    if (!song.chart) song.chart = buildChart(song);
+    return song.chart;
+  }
+
   function mount(root, { onScore }) {
+    let songIndex = 0;
+
     root.innerHTML = `
       <div class="jubeat-wrap">
+        <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="EXTREME charts"></div>
         <div class="game-hud">
           <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
           <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
-          <div><span class="hud-label">BPM</span><strong id="jb-bpm">100</strong></div>
+          <div><span class="hud-label">EXC</span><strong id="jb-exc">0</strong></div>
           <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
         </div>
+        <div class="jb-meta mono" id="jb-meta"></div>
         <div class="jb-stage">
-          <div class="jb-grid" id="jb-grid" role="grid" aria-label="Pulse Grid 4 by 4"></div>
+          <div class="jb-grid" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
           <div class="jb-judge" id="jb-judge" hidden aria-live="polite"></div>
+          <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
         </div>
-        <p class="game-hint" id="jb-hint">Tap panels as they light up — hit on the beat. Speed never caps.</p>
+        <p class="game-hint" id="jb-hint">EXTREME charts only · EXCELLENT / GREAT / GOOD / MISS · miss is OK, finish the song</p>
         <div class="game-actions">
-          <button type="button" class="btn primary" id="jb-start">Start / Restart</button>
+          <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
       </div>
     `;
 
     const grid = root.querySelector("#jb-grid");
+    const songsEl = root.querySelector("#jb-songs");
     const scoreEl = root.querySelector("#jb-score");
     const comboEl = root.querySelector("#jb-combo");
-    const bpmEl = root.querySelector("#jb-bpm");
+    const excEl = root.querySelector("#jb-exc");
     const missEl = root.querySelector("#jb-miss");
+    const metaEl = root.querySelector("#jb-meta");
     const hintEl = root.querySelector("#jb-hint");
     const judgeEl = root.querySelector("#jb-judge");
+    const progEl = root.querySelector("#jb-progress");
     const startBtn = root.querySelector("#jb-start");
 
     /** @type {HTMLButtonElement[]} */
@@ -63,15 +235,57 @@
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
-    let misses = 0;
-    let beat = 0;
-    let bpm = 100;
-    let spawnTimer = null;
-    let tickTimer = null;
+    let counts = { excellent: 0, great: 0, good: 0, miss: 0 };
+    let chart = [];
+    let chartIndex = 0;
+    let t0 = 0;
+    let raf = 0;
     let submitted = false;
-    /** active notes: cellIndex -> { born, windowMs, el } */
-    let notes = new Map();
     let judgeTimer = null;
+    /** active: key "t-panel" -> { t, panel, born } */
+    let active = new Map();
+    let approachMs = 520;
+    let audioCtx = null;
+
+    function song() {
+      return SONGS[songIndex];
+    }
+
+    function paintSongs() {
+      songsEl.innerHTML = SONGS.map(
+        (s, i) => `
+        <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${running ? "disabled" : ""} style="--sc:${s.color}">
+          <strong>${escapeHtml(s.title)}</strong>
+          <small>EXTREME ${s.level} · ${s.bpm} BPM</small>
+        </button>`
+      ).join("");
+      songsEl.querySelectorAll("[data-s]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (running) return;
+          songIndex = Number(btn.dataset.s);
+          paintSongs();
+          paintMeta();
+          global.ArcadeSFX?.click?.();
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function paintMeta() {
+      const s = song();
+      metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
+        <span class="jb-diff">EXTREME ${s.level}</span>
+        <span>${s.artist}</span>
+        <span>${s.bpm} BPM</span>`;
+      grid.style.setProperty("--jb-accent", s.color);
+    }
 
     function setJudge(text, cls) {
       judgeEl.hidden = false;
@@ -80,81 +294,73 @@
       clearTimeout(judgeTimer);
       judgeTimer = setTimeout(() => {
         judgeEl.hidden = true;
-      }, 420);
+      }, 380);
     }
 
-    function clearNotes() {
-      notes.forEach((n, i) => {
-        cells[i]?.classList.remove("is-armed", "is-hit", "is-miss", "is-approach");
-      });
-      notes.clear();
+    function clearPanels() {
+      cells.forEach((c) => c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach"));
+      active.clear();
     }
 
-    function stopLoops() {
-      if (spawnTimer) clearTimeout(spawnTimer);
-      if (tickTimer) clearInterval(tickTimer);
-      spawnTimer = null;
-      tickTimer = null;
+    function blip(freq, dur = 0.06) {
+      try {
+        if (!audioCtx) {
+          const C = window.AudioContext || window.webkitAudioContext;
+          if (!C) return;
+          audioCtx = new C();
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = "square";
+        o.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start(t);
+        o.stop(t + dur + 0.02);
+      } catch {
+        /* ignore */
+      }
     }
 
-    function endRun() {
-      if (submitted) return;
-      submitted = true;
-      running = false;
-      stopLoops();
-      clearNotes();
-      startBtn.disabled = false;
-      startBtn.textContent = "Play again";
-      hintEl.textContent = `Run over · ${score} pts · max combo ${bestCombo}`;
-      onScore?.({
-        score,
-        meta: { bestCombo, misses, bpmPeak: bpm },
-      });
+    function nowMs() {
+      return performance.now() - t0;
     }
 
-    function beatMs() {
-      return Math.max(280, Math.round(60000 / bpm));
-    }
-
-    function scheduleSpawn() {
-      if (!running) return;
-      const delay = beatMs() * (0.85 + Math.random() * 0.35);
-      spawnTimer = setTimeout(() => {
-        spawnNote();
-        // occasional double / triple patterns
-        if (Math.random() < Math.min(0.55, 0.12 + beat * 0.008)) spawnNote();
-        if (Math.random() < Math.min(0.35, 0.04 + beat * 0.005)) spawnNote();
-        scheduleSpawn();
-      }, delay);
-    }
-
-    function spawnNote() {
-      if (!running) return;
-      const free = [];
-      for (let i = 0; i < CELLS; i++) if (!notes.has(i)) free.push(i);
-      if (!free.length) return;
-      const i = free[Math.floor(Math.random() * free.length)];
-      const windowMs = Math.max(280, JUDGE.good + 40 - Math.min(80, beat * 0.4));
-      notes.set(i, { born: performance.now(), windowMs });
-      const el = cells[i];
-      el.classList.remove("is-hit", "is-miss");
+    function spawnNote(panel, hitTime) {
+      const key = `${hitTime}-${panel}`;
+      if (active.has(key)) return;
+      active.set(key, { t: hitTime, panel, key });
+      const el = cells[panel];
       el.classList.add("is-approach", "is-armed");
-      // miss if not hit in time
-      const missT = setTimeout(() => {
-        if (!notes.has(i)) return;
-        notes.delete(i);
+    }
+
+    function despawn(key, panel, missed) {
+      active.delete(key);
+      const still = [...active.values()].some((n) => n.panel === panel);
+      const el = cells[panel];
+      if (!still) {
         el.classList.remove("is-approach", "is-armed");
-        el.classList.add("is-miss");
-        setTimeout(() => el.classList.remove("is-miss"), 200);
-        combo = 0;
-        comboEl.textContent = "0";
-        misses += 1;
-        missEl.textContent = String(misses);
-        setJudge("MISS", "miss");
-        global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
-        if (misses >= 8) endRun();
-      }, windowMs + 30);
-      notes.get(i).missT = missT;
+        if (missed) {
+          el.classList.add("is-miss");
+          setTimeout(() => el.classList.remove("is-miss"), 160);
+        }
+      }
+    }
+
+    function registerMiss(n) {
+      counts.miss += 1;
+      missEl.textContent = String(counts.miss);
+      combo = 0;
+      comboEl.textContent = "0";
+      setJudge("MISS", "miss");
+      despawn(n.key, n.panel, true);
+      global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
+      blip(120, 0.05);
     }
 
     function onPanel(i) {
@@ -163,88 +369,160 @@
         start();
         return;
       }
-      const note = notes.get(i);
-      const el = cells[i];
-      if (!note) {
-        // empty panel tap — tiny combo break if mid-run with active notes
-        if (notes.size) {
-          combo = 0;
-          comboEl.textContent = "0";
-          el.classList.add("is-miss");
-          setTimeout(() => el.classList.remove("is-miss"), 150);
-          global.ArcadeSFX?.tick?.();
+      const t = nowMs();
+      // nearest active note on this panel still in good window
+      let best = null;
+      let bestErr = Infinity;
+      for (const n of active.values()) {
+        if (n.panel !== i) continue;
+        const err = Math.abs(t - n.t);
+        if (err < bestErr) {
+          bestErr = err;
+          best = n;
         }
+      }
+      if (!best || bestErr > WIN.good) {
+        // empty hit — soft feedback only, no miss counter (jubeat empty tap)
+        cells[i].classList.add("is-miss");
+        setTimeout(() => cells[i].classList.remove("is-miss"), 120);
+        global.ArcadeSFX?.tick?.();
         return;
       }
-      clearTimeout(note.missT);
-      notes.delete(i);
-      const age = performance.now() - note.born;
-      const ideal = note.windowMs * 0.72;
-      const err = Math.abs(age - ideal);
-      let pts = 0;
+
       let label = "GOOD";
       let cls = "good";
-      if (err <= JUDGE.perfect) {
-        pts = 320 + Math.min(180, combo * 4);
-        label = "PERFECT";
-        cls = "perfect";
+      let pts = 100;
+      if (bestErr <= WIN.excellent) {
+        label = "EXCELLENT";
+        cls = "excellent";
+        pts = 1000 + Math.min(200, combo * 3);
+        counts.excellent += 1;
+        blip(880 + (i % 4) * 40, 0.05);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
-      } else if (err <= JUDGE.great) {
-        pts = 200 + Math.min(100, combo * 2);
+      } else if (bestErr <= WIN.great) {
         label = "GREAT";
         cls = "great";
+        pts = 700 + Math.min(120, combo * 2);
+        counts.great += 1;
+        blip(660, 0.05);
         global.ArcadeSFX?.click?.();
       } else {
-        pts = 90;
         label = "GOOD";
         cls = "good";
+        pts = 300;
+        counts.good += 1;
+        blip(440, 0.05);
         global.ArcadeSFX?.tick?.();
       }
+
       combo += 1;
       if (combo > bestCombo) bestCombo = combo;
       score += pts;
       scoreEl.textContent = String(score);
       comboEl.textContent = String(combo);
+      excEl.textContent = String(counts.excellent);
       setJudge(label, cls);
-      el.classList.remove("is-approach", "is-armed");
-      el.classList.add("is-hit");
-      setTimeout(() => el.classList.remove("is-hit"), 180);
+      despawn(best.key, best.panel, false);
+      cells[i].classList.add("is-hit");
+      setTimeout(() => cells[i].classList.remove("is-hit"), 140);
+    }
 
-      // speed never caps — climb forever
-      beat += 1;
-      if (beat % 4 === 0) {
-        bpm = Math.min(280, bpm + 2 + Math.floor(beat / 40));
-        bpmEl.textContent = String(bpm);
+    function finish() {
+      if (submitted) return;
+      submitted = true;
+      running = false;
+      cancelAnimationFrame(raf);
+      // Remaining active → miss
+      for (const n of [...active.values()]) registerMiss(n);
+      clearPanels();
+      startBtn.disabled = false;
+      startBtn.textContent = "Play again";
+      paintSongs();
+      const s = song();
+      const total = counts.excellent + counts.great + counts.good + counts.miss;
+      const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
+      hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
+      onScore?.({
+        score,
+        meta: {
+          song: s.id,
+          difficulty: "EXTREME",
+          excellent: counts.excellent,
+          great: counts.great,
+          good: counts.good,
+          miss: counts.miss,
+          bestCombo,
+        },
+      });
+    }
+
+    function frame() {
+      if (!running) return;
+      const t = nowMs();
+      const s = song();
+      const chart = chartFor(s);
+      const duration = chart.length ? chart[chart.length - 1].t + 800 : 1000;
+
+      // spawn approaching notes
+      while (chartIndex < chart.length && chart[chartIndex].t <= t + approachMs) {
+        const n = chart[chartIndex++];
+        n.panels.forEach((p) => spawnNote(p, n.t));
       }
+
+      // auto-miss notes past good window
+      for (const n of [...active.values()]) {
+        if (t - n.t > WIN.good) registerMiss(n);
+      }
+
+      // approach animation intensity via CSS var
+      for (const n of active.values()) {
+        const el = cells[n.panel];
+        const left = n.t - t;
+        const p = 1 - Math.max(0, Math.min(1, left / approachMs));
+        el.style.setProperty("--jb-p", String(p));
+      }
+
+      if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
+
+      if (chartIndex >= chart.length && active.size === 0 && t > duration) {
+        finish();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
     }
 
     function start() {
-      stopLoops();
-      clearNotes();
+      cancelAnimationFrame(raf);
+      clearPanels();
+      const s = song();
+      chart = chartFor(s);
+      chartIndex = 0;
       running = true;
       submitted = false;
       score = 0;
       combo = 0;
       bestCombo = 0;
-      misses = 0;
-      beat = 0;
-      bpm = 100;
+      counts = { excellent: 0, great: 0, good: 0, miss: 0 };
+      approachMs = Math.max(420, Math.round(60000 / s.bpm) * 1.6);
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
+      excEl.textContent = "0";
       missEl.textContent = "0";
-      bpmEl.textContent = "100";
-      startBtn.textContent = "Running…";
+      if (progEl) progEl.style.width = "0%";
       startBtn.disabled = true;
-      hintEl.textContent = "Hit the glow on the beat · miss 8 and it's over";
+      startBtn.textContent = "Playing…";
+      paintSongs();
+      hintEl.textContent = `${s.title} · EXTREME ${s.level} · EXCELLENT / GREAT / GOOD / MISS · finish the chart`;
+      t0 = performance.now() + 600; // short count-in
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-      scheduleSpawn();
-      spawnNote();
-      spawnNote();
+      blip(523, 0.08);
+      setTimeout(() => blip(659, 0.08), 200);
+      setTimeout(() => blip(784, 0.1), 400);
+      raf = requestAnimationFrame(frame);
     }
 
     startBtn.addEventListener("click", start);
 
-    // number keys 1–9 / qwer map loosely to first 9 + top row
     function onKey(e) {
       if (!running && (e.key === " " || e.key === "Enter")) {
         e.preventDefault();
@@ -253,10 +531,22 @@
       }
       if (!running) return;
       const map = {
-        "1": 0, "2": 1, "3": 2, "4": 3,
-        q: 4, w: 5, e: 6, r: 7,
-        a: 8, s: 9, d: 10, f: 11,
-        z: 12, x: 13, c: 14, v: 15,
+        "1": 0,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        q: 4,
+        w: 5,
+        e: 6,
+        r: 7,
+        a: 8,
+        s: 9,
+        d: 10,
+        f: 11,
+        z: 12,
+        x: 13,
+        c: 14,
+        v: 15,
       };
       const k = e.key.toLowerCase();
       if (map[k] != null) {
@@ -266,13 +556,21 @@
     }
     window.addEventListener("keydown", onKey);
 
+    paintSongs();
+    paintMeta();
+
     return {
       destroy() {
         running = false;
-        stopLoops();
-        clearNotes();
+        cancelAnimationFrame(raf);
         clearTimeout(judgeTimer);
+        clearPanels();
         window.removeEventListener("keydown", onKey);
+        try {
+          audioCtx?.close?.();
+        } catch {
+          /* ignore */
+        }
         root.innerHTML = "";
       },
     };

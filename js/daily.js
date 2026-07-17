@@ -48,7 +48,7 @@
       memory: 80 + (h % 120),
       tapper: 80 + (h % 140),
       tictactoe: 1, // win once
-      jubeat: 2500 + (h % 4000),
+      jubeat: 8000 + (h % 12000),
       breaker: 200 + (h % 500),
     };
     return {
