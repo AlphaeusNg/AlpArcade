@@ -23,13 +23,16 @@ Footer shows `vYYYY.MM.DD.N · AlpArcade` from `js/version.js`.
 
 ### Enable global scoreboard (Firebase free tier)
 
+Infra lives under **`firebase/`** (rules, indexes, setup). Runtime keys stay in `js/firebase-config.js`.
+
 1. Create a Firebase project at https://console.firebase.google.com
-2. **Firestore** → create database · publish `firestore.rules`
-3. **Firestore indexes** — composite on `scores`: `game` ASC + `rankScore` DESC (see `firestore.indexes.json`, or click the console link on first filtered query)
+2. **Firestore** → create database · publish [`firebase/firestore.rules`](./firebase/firestore.rules)
+3. **Indexes** — deploy [`firebase/firestore.indexes.json`](./firebase/firestore.indexes.json) (or console link on first filtered query)
 4. **Authentication** → Sign-in method → enable **Google**
-5. Authorized domains: `alphaeusng.github.io`, `localhost`
+5. Authorized domains: `alphaeusng.github.io`, `localhost`, `127.0.0.1`
 6. Edit `js/firebase-config.js`: `enabled: true` + web config keys
-7. Commit & push
+7. From repo root: `npx firebase-tools deploy --only firestore:rules,firestore:indexes`  
+   See [`firebase/README.md`](./firebase/README.md).
 
 Players never must sign up to play. After a run they can **Save with Google**, pick a username once, and post.
 

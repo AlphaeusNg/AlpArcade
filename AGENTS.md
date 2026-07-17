@@ -34,14 +34,18 @@ js/
   audio.js          # SFX / mute
   scores.js         # Local scores, XP, export/import
   cloud-scores.js   # Firebase global boards
-  firebase-config.js
+  firebase-config.js  # runtime web keys (loaded by index.html)
   achievements.js
-  daily.js          # Daily challenge keyed to SGT (Asia/Singapore)
-  version.js        # SITE_VERSION — bump every deploy
+  daily.js            # Daily challenge keyed to SGT (Asia/Singapore)
+  version.js          # SITE_VERSION — bump every deploy
   games/*.js
+firebase/               # rules, indexes, deploy docs (not served as app logic)
+  README.md
+  firestore.rules
+  firestore.indexes.json
+firebase.json  .firebaserc  # CLI entry at repo root
 assets/
 manifest.webmanifest
-firestore.rules  firestore.indexes.json  FIRESTORE_SETUP.md
 ```
 
 ## Music
@@ -58,9 +62,11 @@ firestore.rules  firestore.indexes.json  FIRESTORE_SETUP.md
 ## Cloud scores (optional)
 
 - Free play never requires an account.
-- Posting to global board: **Google sign-in only** (see `FIRESTORE_SETUP.md`).
-- Config: `js/firebase-config.js` (`enabled` + web keys).
-- One best per user per game; indexes in `firestore.indexes.json`.
+- Posting / sync: **Google sign-in**. While signed in, hide Sign-in CTA; auto-sync
+  personal bests (`scores`) + full progress (`progress/{uid}`: XP, high scores, achievements).
+- Guests still get an opt-in “save with Google” modal on strong personal bests.
+- Config: `js/firebase-config.js`. Indexes: `firebase/firestore.indexes.json`.
+- After rule changes that add `progress`, re-publish `firebase/firestore.rules`.
 
 ## Commands
 

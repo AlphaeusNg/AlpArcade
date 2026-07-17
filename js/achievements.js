@@ -55,11 +55,46 @@
     if (!def) return null;
     state.unlocked[id] = Date.now();
     save(state);
+    // Mirror to Firebase when signed in (best-effort)
+    try {
+      if (global.ArcadeCloud?.getState?.()?.signedIn) {
+        global.ArcadeCloud.syncAccountProgress?.({ reason: "achievement" });
+      }
+    } catch {
+      /* ignore */
+    }
     return def;
   }
 
   function isUnlocked(id) {
     return !!load().unlocked[id];
+  }
+
+  /** { [id]: timestamp } for cloud sync */
+  function getUnlockedMap() {
+    return { ...load().unlocked };
+  }
+
+  /**
+   * Union cloud unlocks into local (keep earliest unlock time).
+   * @returns {string[]} newly applied ids
+   */
+  function mergeUnlocked(cloudMap) {
+    if (!cloudMap || typeof cloudMap !== "object") return [];
+    const state = load();
+    const added = [];
+    for (const [id, at] of Object.entries(cloudMap)) {
+      if (!DEFS.some((d) => d.id === id)) continue;
+      const ts = Number(at) || Date.now();
+      if (!state.unlocked[id]) {
+        state.unlocked[id] = ts;
+        added.push(id);
+      } else if (ts > 0 && ts < state.unlocked[id]) {
+        state.unlocked[id] = ts;
+      }
+    }
+    if (added.length) save(state);
+    return added;
   }
 
   function list() {
@@ -128,6 +163,8 @@
     count,
     unlock,
     isUnlocked,
+    getUnlockedMap,
+    mergeUnlocked,
     evaluateAfterRun,
   };
 })(window);

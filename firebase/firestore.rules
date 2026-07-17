@@ -1,10 +1,15 @@
 rules_version = '2';
+// AlpArcade scoreboard rules.
+// Deploy from repo root: npx firebase-tools deploy --only firestore:rules
+// If vault editor shares this Firebase project, deploy COMBINED rules from:
+//   alphaeusng.github.io/firebase/firestore.rules
+//
+// CRITICAL: path wildcards (e.g. scoreId) MUST be passed into functions.
+// Using scoreId inside a top-level function without an argument evaluates false
+// → permanent permission-denied even when auth is fine.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Any signed-in Firebase Auth user (app only offers Google in the UI).
-    // Do NOT require sign_in_provider == 'google.com' — that claim is brittle
-    // across popup / redirect / token refresh and caused false permission-denied.
     function signedIn() {
       return request.auth != null && request.auth.uid is string;
     }
@@ -13,16 +18,14 @@ service cloud.firestore {
       return g in ['tictactoe', 'shooter', 'snake', 'reaction', 'memory', 'tapper'];
     }
 
-    // scores/{uid}_{gameId} — one personal best per user per cabinet
-    function validScoreWrite() {
+    // scoreId is the path wildcard — always pass it in from the match block.
+    function validScoreWrite(scoreId) {
       let d = request.resource.data;
       return signedIn()
-        && d.keys().hasAll(['game', 'playerName', 'score', 'rankScore', 'userId'])
         && d.userId is string
         && d.userId == request.auth.uid
         && d.game is string
         && validGame(d.game)
-        // Doc id must be exactly {uid}_{game}
         && scoreId == request.auth.uid + '_' + d.game
         && d.playerName is string
         && d.playerName.size() >= 1
@@ -36,9 +39,9 @@ service cloud.firestore {
     match /scores/{scoreId} {
       allow read: if true;
 
-      allow create: if validScoreWrite();
+      allow create: if validScoreWrite(scoreId);
 
-      allow update: if validScoreWrite()
+      allow update: if validScoreWrite(scoreId)
         && resource.data.userId == request.auth.uid;
 
       allow delete: if false;
@@ -52,6 +55,17 @@ service cloud.firestore {
         && request.resource.data.username is string
         && request.resource.data.username.size() >= 1
         && request.resource.data.username.size() <= 16;
+
+      allow delete: if false;
+    }
+
+    // Full account progress (high scores, achievements, XP) — owner only
+    match /progress/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.userId == request.auth.uid;
 
       allow delete: if false;
     }

@@ -161,7 +161,7 @@
 
     save(state);
 
-    // Cloud save is opt-in after a run (Google sign-in) — never auto-post.
+    // Cloud save: guests opt-in via UI; signed-in users sync from app.js.
 
     return { isHighScore, xpGained, state };
   }
@@ -200,6 +200,80 @@
   function resetAll() {
     localStorage.removeItem(STORAGE_KEY);
     return defaultState();
+  }
+
+  /**
+   * Merge cloud high scores into local (keep better best per game).
+   * Also takes max of xp / gamesPlayed when provided.
+   */
+  function mergeHighScores(remoteHighScores, meta = {}) {
+    const state = load();
+    const remote = remoteHighScores && typeof remoteHighScores === "object" ? remoteHighScores : {};
+    let changed = false;
+
+    for (const gameId of Object.keys(GAMES)) {
+      const g = GAMES[gameId];
+      const localHs = state.highScores[gameId] || { ...defaultState().highScores[gameId] };
+      const remoteHs = remote[gameId];
+      if (!remoteHs || typeof remoteHs !== "object") continue;
+
+      const localBest = localHs.best;
+      const remoteBest = remoteHs.best;
+
+      if (gameId === "tictactoe") {
+        const lw = Number(localHs.wins) || 0;
+        const rw = Number(remoteHs.wins) || 0;
+        if (rw > lw) {
+          localHs.wins = rw;
+          localHs.best = rw;
+          changed = true;
+        }
+        if ((Number(remoteHs.losses) || 0) > (Number(localHs.losses) || 0)) {
+          localHs.losses = Number(remoteHs.losses) || 0;
+          changed = true;
+        }
+        if ((Number(remoteHs.draws) || 0) > (Number(localHs.draws) || 0)) {
+          localHs.draws = Number(remoteHs.draws) || 0;
+          changed = true;
+        }
+      } else if (g.higherIsBetter) {
+        if (remoteBest != null && Number(remoteBest) > Number(localBest ?? 0)) {
+          localHs.best = Number(remoteBest);
+          changed = true;
+        }
+      } else {
+        // lower is better
+        if (
+          remoteBest != null &&
+          Number.isFinite(Number(remoteBest)) &&
+          (localBest == null || Number(remoteBest) < Number(localBest))
+        ) {
+          localHs.best = Number(remoteBest);
+          changed = true;
+        }
+      }
+      state.highScores[gameId] = localHs;
+    }
+
+    if (Number.isFinite(Number(meta.xp)) && Number(meta.xp) > state.xp) {
+      state.xp = Math.floor(Number(meta.xp));
+      changed = true;
+    }
+    if (Number.isFinite(Number(meta.gamesPlayed)) && Number(meta.gamesPlayed) > state.gamesPlayed) {
+      state.gamesPlayed = Math.floor(Number(meta.gamesPlayed));
+      changed = true;
+    }
+    if (
+      typeof meta.playerName === "string" &&
+      meta.playerName.trim() &&
+      (state.playerName === "Player" || !state.playerName)
+    ) {
+      state.playerName = meta.playerName.trim().slice(0, 16);
+      changed = true;
+    }
+
+    if (changed) save(state);
+    return load();
   }
 
   /** UTF-8 safe base64 (avoids deprecated escape/unescape). */
@@ -257,6 +331,7 @@
     GAMES,
     getState,
     setPlayerName,
+    mergeHighScores,
     submitScore,
     formatScore,
     getLevel,

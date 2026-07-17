@@ -344,11 +344,20 @@
 
     if (authLabel) {
       authLabel.textContent = s.signedIn
-        ? `${s.displayName || s.email} · cloud scores unlocked`
-        : "Play free · Google only to post scores";
+        ? `Signed in as ${s.displayName || s.email} · scores & badges syncing`
+        : "Play free · Google to sync scores & achievements";
     }
-    if (signInBtn) signInBtn.hidden = !s.configured || s.signedIn;
-    if (signOutBtn) signOutBtn.hidden = !s.signedIn;
+    // When signed in, never show "Sign in with Google"
+    if (signInBtn) {
+      signInBtn.hidden = !s.configured || !!s.signedIn;
+      signInBtn.setAttribute("aria-hidden", signInBtn.hidden ? "true" : "false");
+    }
+    if (signOutBtn) {
+      signOutBtn.hidden = !s.signedIn;
+      signOutBtn.setAttribute("aria-hidden", signOutBtn.hidden ? "true" : "false");
+    }
+    const authRow = $("#auth-row");
+    if (authRow) authRow.classList.toggle("is-signed-in", !!s.signedIn);
 
     // Filter chips
     $$("#lb-filters [data-lb-game]").forEach((chip) => {
@@ -465,7 +474,15 @@
     const goBtn = $("#btn-cloud-save-go");
     const s = cloudState();
     if (goBtn) {
-      goBtn.textContent = s.signedIn && s.hasUsername ? "Post to global board" : "Continue with Google";
+      if (s.signedIn && s.hasUsername) goBtn.textContent = "Post to global board";
+      else if (s.signedIn) goBtn.textContent = "Continue";
+      else goBtn.textContent = "Continue with Google";
+    }
+    const hint = document.querySelector("#cloud-save-modal .cloud-modal-hint");
+    if (hint) {
+      hint.textContent = s.signedIn
+        ? "Your account syncs scores and achievements automatically."
+        : "Optional. Keep playing with zero account. Global board needs a quick Google sign-in.";
     }
 
     modal.hidden = false;
@@ -670,9 +687,39 @@
     const g = ArcadeScores.GAMES[gameId];
     if (!g) return;
     if (g.higherIsBetter && Number(score) <= 0 && gameId !== "tictactoe") return;
-    // Reduce modal spam: auto-prompt only on personal bests (or TTT wins).
-    // Players can always use "Post bests" from the lobby scoreboard.
-    // Reaction fires often — only prompt for strong times (still a PB).
+
+    const s = cloudState();
+
+    // Signed-in: always sync progress + bests to Firebase (no Google CTA)
+    if (s.signedIn) {
+      setTimeout(() => {
+        window.ArcadeCloud
+          .saveRunToCloud?.(gameId, score, meta || {}, { isHighScore: !!isHighScore })
+          .then((result) => {
+            if (result?.ok === false && result.reason === "username-required") {
+              openCloudSaveModal({ gameId, score, isHighScore, meta, setupOnly: false });
+              return;
+            }
+            if (result?.ok) {
+              const cloudAch = window.ArcadeAchievements?.unlock?.("cloud-post");
+              if (cloudAch) notifyAchievements([cloudAch]);
+              if (isHighScore || (gameId === "tictactoe" && meta?.result === "win")) {
+                showToast(result.message || "☁️ Saved to your account");
+              }
+              updateCloudChrome();
+              renderGlobalHall();
+              paintAchievements();
+              refreshHud();
+            } else if (result?.message && result.reason !== "auth-required") {
+              console.warn("[Arcade] cloud save after run", result.message);
+            }
+          })
+          .catch((err) => console.warn("[Arcade] cloud save after run", err));
+      }, 400);
+      return;
+    }
+
+    // Guest: optional modal only on personal bests (or TTT wins).
     if (gameId === "reaction" && !(isHighScore && Number(score) > 0 && Number(score) <= 260)) {
       return;
     }
@@ -681,7 +728,6 @@
       (gameId === "tictactoe" && meta?.result === "win");
     if (!meaningful) return;
     setTimeout(() => {
-      // Don't stack over an already-open modal
       if ($("#cloud-save-modal") && !$("#cloud-save-modal").hidden) return;
       openCloudSaveModal({ gameId, score, isHighScore, meta });
     }, 700);
@@ -991,9 +1037,11 @@
     try {
       await window.ArcadeCloud.init();
       await window.ArcadeCloud.signInWithGoogle();
+      showToast("Syncing scores & achievements…");
+      const sync = await window.ArcadeCloud.syncAccountProgress?.({ reason: "signin" });
       const s = cloudState();
       if (!s.hasUsername) {
-        pendingSave = null;
+        pendingSave = { setupOnly: true };
         openCloudSaveModal({
           gameId: "snake",
           score: 0,
@@ -1009,13 +1057,17 @@
           input.value = window.ArcadeCloud.suggestUsername() || "";
           input.focus();
         }
-        // Prevent posting score 0 on username-only setup
-        pendingSave = { setupOnly: true };
       } else {
-        showToast(`Signed in as ${s.displayName}`);
+        showToast(
+          sync?.ok
+            ? `Signed in as ${s.displayName} · progress synced`
+            : `Signed in as ${s.displayName}`
+        );
       }
       updateCloudChrome();
       refreshHud();
+      paintAchievements();
+      renderGlobalHall();
     } catch (err) {
       showToast(err.message || "Sign-in failed");
     }

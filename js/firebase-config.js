@@ -1,13 +1,15 @@
 /**
- * Firebase config for AlpArcade global scoreboard.
+ * Firebase config for AlpArcade global scoreboard (runtime, loaded by index.html).
+ *
+ * Infra (rules, indexes, deploy): ../firebase/README.md
+ * CLI from repo root: npx firebase-tools deploy --only firestore:rules
  *
  * Setup (free Spark tier):
- * 1. https://console.firebase.google.com → project alparcade (or yours)
- * 2. Authentication → Sign-in method → enable **Google** (Anonymous optional/unused)
- * 3. Authorized domains → alphaeusng.github.io + localhost
- * 4. Firestore → publish firestore.rules from this repo
- * 5. Create composite index: scores · game ASC + rankScore DESC
- *    (or open the link Firestore prints in the browser console on first per-game query)
+ * 1. https://console.firebase.google.com → project alparcade-cb87c (or yours)
+ * 2. Authentication → Sign-in method → enable **Google**
+ * 3. Authorized domains → alphaeusng.github.io + localhost + 127.0.0.1
+ * 4. Publish rules from firebase/firestore.rules
+ * 5. Indexes: firebase/firestore.indexes.json (or console link on first query)
  * 6. Set enabled: true below
  *
  * Writes require Google sign-in. Play stays fully local until the player

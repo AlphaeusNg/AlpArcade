@@ -1053,6 +1053,10 @@ body.salmon-mode .fun-fact-text {
   color: #fca5a5;
 }
 
+.auth-row.is-signed-in #btn-google-signin {
+  display: none !important;
+}
+
 .auth-row {
   display: flex;
   flex-wrap: wrap;

@@ -1,12 +1,14 @@
 /**
- * Cloud scoreboard — Google Auth only, one best per user per game.
- * Play offline freely; save to cloud only when the player opts in after a run.
+ * Cloud scoreboard + signed-in progress sync.
+ * - Guests: local only; optional Google to post.
+ * - Signed in: hide Google sign-in; auto-sync scores + achievements to Firestore.
  */
 (function (global) {
   "use strict";
 
   const SCORES = "scores";
   const PLAYERS = "players";
+  const PROGRESS = "progress";
   const GLOBAL_LIMIT = 25;
   const GAME_IDS = ["tictactoe", "shooter", "snake", "reaction", "memory", "tapper"];
 
@@ -101,20 +103,19 @@
     }
     if (/permission-denied|PERMISSION_DENIED|Missing or insufficient/i.test(code + msg)) {
       return (
-        "Firestore permission-denied. Re-publish firestore.rules from the repo, " +
-        "confirm project alparcade-cb87c, and disable App Check enforcement if enabled. " +
-        "Code: " +
-        (code || "permission-denied")
+        "Firestore permission-denied. Publish the FIXED rules from firebase/firestore.rules " +
+        "(validScoreWrite must take scoreId as an argument). Confirm project alparcade-cb87c; " +
+        "turn App Check enforcement OFF if enabled. See firebase/README.md."
       );
     }
     if (/failed-precondition|requires an index/i.test(code + msg)) {
-      return "Firestore index needed for per-game boards — open the console link to create it.";
+      return "Firestore index needed for per-game boards — deploy firebase/firestore.indexes.json or open the console link.";
     }
     if (/offline|network|Failed to fetch|unavailable/i.test(code + msg)) {
       return "Network error reaching Firebase.";
     }
     if (/api-key|invalid-api-key|API_KEY/i.test(code + msg)) {
-      return "Invalid Firebase API key in firebase-config.js.";
+      return "Invalid Firebase API key in js/firebase-config.js.";
     }
     return (code ? code + ": " : "") + (msg.length > 120 ? msg.slice(0, 120) + "…" : msg);
   }
@@ -189,6 +190,12 @@
               console.warn("[ArcadeCloud] profile load", err);
               profile = null;
             }
+            // Full local ↔ cloud merge when session becomes signed-in
+            try {
+              await syncAccountProgress({ reason: "auth" });
+            } catch (err) {
+              console.warn("[ArcadeCloud] auth sync failed", err);
+            }
           } else {
             profile = null;
           }
@@ -204,6 +211,14 @@
         ready = true;
         setStatus("online");
         subscribeLeaderboard(leaderboardGame);
+
+        if (user) {
+          try {
+            await syncAccountProgress({ reason: "boot" });
+          } catch (err) {
+            console.warn("[ArcadeCloud] boot sync failed", err);
+          }
+        }
         return true;
       } catch (err) {
         console.warn("[ArcadeCloud] init failed", err);
@@ -514,6 +529,213 @@
     return out;
   }
 
+  function collectLocalProgressPayload() {
+    const scores = global.ArcadeScores?.getState?.() || {};
+    const unlocked = global.ArcadeAchievements?.getUnlockedMap?.() || {};
+    return {
+      username: profile?.username || scores.playerName || "Player",
+      playerName: scores.playerName || profile?.username || "Player",
+      xp: Number(scores.xp) || 0,
+      gamesPlayed: Number(scores.gamesPlayed) || 0,
+      highScores: scores.highScores || {},
+      achievements: unlocked,
+      clientAt: Date.now(),
+    };
+  }
+
+  /**
+   * Merge cloud progress into local storage (best-of scores, union achievements).
+   */
+  function applyCloudProgressLocally(cloud) {
+    if (!cloud || typeof cloud !== "object") return { merged: false };
+
+    if (cloud.highScores && global.ArcadeScores?.mergeHighScores) {
+      global.ArcadeScores.mergeHighScores(cloud.highScores, {
+        xp: cloud.xp,
+        gamesPlayed: cloud.gamesPlayed,
+        playerName: cloud.playerName || cloud.username,
+      });
+    }
+    if (cloud.achievements && global.ArcadeAchievements?.mergeUnlocked) {
+      global.ArcadeAchievements.mergeUnlocked(cloud.achievements);
+    }
+    return { merged: true };
+  }
+
+  async function fetchProgress(uid) {
+    if (!db || !uid) return null;
+    const snap = await db.collection(PROGRESS).doc(uid).get();
+    if (!snap.exists) return null;
+    return snap.data() || null;
+  }
+
+  async function writeProgress(payload) {
+    const live = auth?.currentUser;
+    if (!live?.uid || !db) throw new Error("Sign in first");
+    const uid = live.uid;
+    const name = sanitizeUsername(payload.username || payload.playerName || profile?.username || "Player");
+    const body = {
+      username: name,
+      playerName: name,
+      xp: Math.max(0, Math.floor(Number(payload.xp) || 0)),
+      gamesPlayed: Math.max(0, Math.floor(Number(payload.gamesPlayed) || 0)),
+      highScores: payload.highScores || {},
+      achievements:
+        payload.achievements && typeof payload.achievements === "object" ? payload.achievements : {},
+      clientAt: Date.now(),
+      userId: uid,
+    };
+    await live.getIdToken(true);
+    await db.collection(PROGRESS).doc(uid).set(body, { merge: true });
+
+    // Keep players/{uid} username in sync for leaderboard display
+    if (name && (!profile?.username || profile.username !== name)) {
+      try {
+        await db.collection(PLAYERS).doc(uid).set(
+          { username: name, email: live.email || "", updatedAt: Date.now() },
+          { merge: true }
+        );
+        profile = { username: name, email: live.email || null };
+      } catch {
+        /* non-fatal */
+      }
+    }
+    return body;
+  }
+
+  /**
+   * Push every local personal best to the public scores collection.
+   */
+  async function pushAllBestsToScores() {
+    const state = global.ArcadeScores?.getState?.();
+    if (!state?.highScores) return { pushed: 0 };
+    let pushed = 0;
+    for (const gameId of GAME_IDS) {
+      const best = state.highScores[gameId]?.best;
+      if (best == null) continue;
+      const g = global.ArcadeScores?.GAMES?.[gameId];
+      if (g?.higherIsBetter && Number(best) <= 0 && gameId !== "tictactoe") continue;
+      if (!g?.higherIsBetter && !Number.isFinite(Number(best))) continue;
+      const result = await submitCloudScore(gameId, Number(best), { sync: true }, {
+        force: true,
+        isHighScore: true,
+        quiet: true,
+      });
+      if (result?.ok && result.improved !== false) pushed += 1;
+      if (result?.reason === "permission-denied" || result?.reason === "auth-required") {
+        return { pushed, stopped: true, message: result.message };
+      }
+    }
+    return { pushed };
+  }
+
+  /**
+   * Full account sync: pull cloud → merge local → write progress + public bests.
+   * Safe to call often; designed for signed-in sessions only.
+   */
+  let syncLock = null;
+  async function syncAccountProgress(opts = {}) {
+    if (syncLock) return syncLock;
+    syncLock = (async () => {
+      const live = auth?.currentUser;
+      if (!live?.uid || !db) return { ok: false, reason: "auth-required" };
+
+      user = live;
+      if (!profile?.username) {
+        try {
+          profile = await loadProfile(live.uid);
+        } catch {
+          /* ignore */
+        }
+      }
+      // Auto-provision username from local/Google so sync can proceed
+      if (!profile?.username) {
+        try {
+          await setUsername(suggestUsername());
+        } catch (err) {
+          return { ok: false, reason: "username-required", message: friendlyError(err) };
+        }
+      }
+
+      try {
+        await live.getIdToken(true);
+        const remote = await fetchProgress(live.uid);
+        if (remote) applyCloudProgressLocally(remote);
+
+        const payload = collectLocalProgressPayload();
+        await writeProgress(payload);
+        const bests = await pushAllBestsToScores();
+        if (status !== "online") setStatus("online");
+        notify();
+        return {
+          ok: true,
+          reason: opts.reason || "sync",
+          bestsPushed: bests.pushed || 0,
+          message: bests.stopped ? bests.message : "Progress synced",
+        };
+      } catch (err) {
+        const message = friendlyError(err);
+        console.warn("[ArcadeCloud] syncAccountProgress", message);
+        setStatus("error", message);
+        return { ok: false, reason: "sync-error", message };
+      }
+    })();
+
+    try {
+      return await syncLock;
+    } finally {
+      syncLock = null;
+    }
+  }
+
+  /**
+   * After a run while signed in: update public best if needed + full progress doc.
+   */
+  async function saveRunToCloud(gameId, score, meta = {}, opts = {}) {
+    const live = auth?.currentUser;
+    if (!live?.uid) return { ok: false, reason: "auth-required" };
+    user = live;
+
+    if (!profile?.username) {
+      try {
+        profile = await loadProfile(live.uid);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!profile?.username) {
+      try {
+        await setUsername(suggestUsername());
+      } catch {
+        return { ok: false, reason: "username-required", message: "Pick a username first" };
+      }
+    }
+
+    const scoreResult = await submitCloudScore(gameId, score, meta, {
+      force: !!opts.force,
+      isHighScore: !!opts.isHighScore,
+      quiet: true,
+    });
+
+    try {
+      const payload = collectLocalProgressPayload();
+      await writeProgress(payload);
+    } catch (err) {
+      return {
+        ok: false,
+        reason: "progress-error",
+        message: friendlyError(err),
+        scoreResult,
+      };
+    }
+
+    return {
+      ok: scoreResult?.ok !== false,
+      scoreResult,
+      message: scoreResult?.message || "Saved to your account",
+    };
+  }
+
   async function loadLeaderboard(gameId = null, limit = GLOBAL_LIMIT) {
     if (!ready || !db) {
       await init();
@@ -599,6 +821,8 @@
     setUsername,
     suggestUsername,
     submitCloudScore,
+    saveRunToCloud,
+    syncAccountProgress,
     loadLeaderboard,
     setLeaderboardGame,
     getLeaderboard,
