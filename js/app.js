@@ -151,16 +151,43 @@
     }, 2400);
   }
 
+  /** Hard gate: level-locked cabinets never open for under-leveled players. */
+  function cabinetIsLocked(id) {
+    // Prefer achievements module (level is source of truth)
+    if (window.ArcadeAchievements?.isGameUnlocked) {
+      return !window.ArcadeAchievements.isGameUnlocked(id);
+    }
+    // Fail closed if module missing: known gates by level
+    const FALLBACK = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
+    const need = FALLBACK[id];
+    if (need == null) return false;
+    const xp = ArcadeScores.getState()?.xp || 0;
+    const level = ArcadeScores.getLevel?.(xp)?.level || 1;
+    return level < need;
+  }
+
+  function cabinetLockMessage(id) {
+    const req = window.ArcadeAchievements?.unlockRequirement?.(id);
+    if (req?.message) return req.message;
+    const FALLBACK = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
+    const need = FALLBACK[id];
+    if (need == null) return "Cabinet locked";
+    const xp = ArcadeScores.getState()?.xp || 0;
+    const level = ArcadeScores.getLevel?.(xp)?.level || 1;
+    return `Reach Lv ${need} to unlock (you are Lv ${level})`;
+  }
+
   function paintCabinetBests() {
     const state = ArcadeScores.getState();
     $$("[data-game]").forEach((card) => {
       const id = card.dataset.game;
       const g = ArcadeScores.GAMES[id];
       if (!g) return;
-      const locked = window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(id);
+      const locked = cabinetIsLocked(id);
       const req = window.ArcadeAchievements?.unlockRequirement?.(id);
       card.classList.toggle("is-locked", !!locked);
       card.setAttribute("aria-disabled", locked ? "true" : "false");
+      if (locked) card.setAttribute("tabindex", "0");
       let lockEl = card.querySelector(".cab-lock");
       if (locked) {
         if (!lockEl) {
@@ -180,7 +207,7 @@
         card.querySelector(".cab-body")?.appendChild(bestEl);
       }
       if (locked) {
-        bestEl.textContent = req?.message || "Locked";
+        bestEl.textContent = req?.message || cabinetLockMessage(id) || "Locked";
         return;
       }
       const hs = state.highScores[id];
@@ -825,9 +852,8 @@
       </button>
     `;
     $("#btn-daily-play")?.addEventListener("click", () => {
-      if (window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(ch.game)) {
-        const req = window.ArcadeAchievements.unlockRequirement?.(ch.game);
-        showToast(req?.message || "Cabinet locked — play free cabinets for XP first");
+      if (cabinetIsLocked(ch.game)) {
+        showToast(cabinetLockMessage(ch.game) || "Cabinet locked — play free cabinets for XP first");
         return;
       }
       openGame(ch.game);
@@ -837,9 +863,10 @@
   // ----- Navigation -----
   async function openGame(id) {
     if (!GAME_SCRIPTS[id] || opening) return;
-    if (window.ArcadeAchievements && !window.ArcadeAchievements.isGameUnlocked?.(id)) {
-      const req = window.ArcadeAchievements.unlockRequirement?.(id);
-      showToast(req?.message || "Cabinet locked");
+    // Always re-check level (never trust UI-only locks)
+    if (cabinetIsLocked(id)) {
+      showToast(cabinetLockMessage(id) || "Cabinet locked");
+      paintCabinetBests();
       return;
     }
     // Re-activating the same game via hash is a no-op once mounted.
@@ -973,16 +1000,29 @@
   // ----- Bind UI -----
   $$("[data-game]").forEach((card) => {
     const id = card.dataset.game;
-    // Prefetch the game bundle on first hover/focus so open feels instant.
+    // Prefetch only if unlocked (don’t warm locked bundles)
     const prefetch = () => {
+      if (cabinetIsLocked(id)) return;
       if (GAME_SCRIPTS[id]) loadScript(GAME_SCRIPTS[id]).catch(() => {});
     };
     card.addEventListener("pointerenter", prefetch, { once: true });
     card.addEventListener("focus", prefetch, { once: true });
-    card.addEventListener("click", () => openGame(id));
+    card.addEventListener("click", (e) => {
+      if (cabinetIsLocked(id)) {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast(cabinetLockMessage(id) || "Cabinet locked");
+        return;
+      }
+      openGame(id);
+    });
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
+        if (cabinetIsLocked(id)) {
+          showToast(cabinetLockMessage(id) || "Cabinet locked");
+          return;
+        }
         openGame(id);
       }
     });

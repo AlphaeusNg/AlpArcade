@@ -675,9 +675,10 @@ body.salmon-mode .fun-fact-text {
 }
 
 .cabinet.is-locked {
-  opacity: 0.72;
+  opacity: 0.62;
   border-style: dashed;
   cursor: not-allowed;
+  filter: grayscale(0.35);
 }
 
 .cabinet.is-locked:hover,
@@ -686,6 +687,8 @@ body.salmon-mode .fun-fact-text {
   border-color: var(--border);
   box-shadow: none;
 }
+
+/* Still clickable so we can toast the requirement — visual lock only */
 
 .cabinet .cab-lock {
   position: absolute;

@@ -154,26 +154,38 @@
 
   function playerLevel() {
     const xp = global.ArcadeScores?.getState?.()?.xp || 0;
-    return global.ArcadeScores?.getLevel?.(xp)?.level || 1;
+    const lv = global.ArcadeScores?.getLevel?.(xp)?.level;
+    return Number.isFinite(lv) && lv >= 1 ? lv : 1;
   }
 
-  /** Whether a cabinet may be opened (locked premium games). */
+  /**
+   * Whether a cabinet may be opened.
+   * Player level is the source of truth for gated cabinets — having a
+   * level-* achievement badge alone must NOT unlock the game (cloud
+   * merge / stale data previously bypassed the level gate).
+   */
   function isGameUnlocked(gameId) {
     const gate = UNLOCKS[gameId];
     if (!gate) return true;
-    if (gate.requireAchievement && isUnlocked(gate.requireAchievement)) return true;
-    if (gate.requireLevel && playerLevel() >= gate.requireLevel) return true;
-    return false;
+    if (gate.requireLevel != null && gate.requireLevel > 0) {
+      return playerLevel() >= gate.requireLevel;
+    }
+    if (gate.requireAchievement) {
+      return isUnlocked(gate.requireAchievement);
+    }
+    return true;
   }
 
   function unlockRequirement(gameId) {
     const gate = UNLOCKS[gameId];
     if (!gate) return null;
     if (isGameUnlocked(gameId)) return null;
+    const level = playerLevel();
     return {
       ...gate,
+      currentLevel: level,
       message: gate.requireLevel
-        ? `Reach Lv ${gate.requireLevel} to unlock`
+        ? `Reach Lv ${gate.requireLevel} to unlock (you are Lv ${level})`
         : "Achievement required",
     };
   }
