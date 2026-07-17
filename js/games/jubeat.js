@@ -322,6 +322,7 @@
     let ytVideoId = "";
     let useVideoClock = false;
     let destroyed = false;
+    let clockStarted = false;
 
     function song() {
       return SONGS[songIndex];
@@ -693,6 +694,8 @@
     }
 
     function beginChartClock() {
+      if (clockStarted || !running || destroyed) return;
+      clockStarted = true;
       t0 = performance.now();
       useVideoClock = !!(ytPlayer && song().youtubeId);
       raf = requestAnimationFrame(frame);
@@ -706,6 +709,7 @@
       chart = chartFor(s);
       chartIndex = 0;
       running = true;
+      clockStarted = false;
       submitted = false;
       score = 0;
       combo = 0;
@@ -739,7 +743,6 @@
       });
       // Fallback clock if BGM is slow/blocked
       setTimeout(() => {
-        if (!running || destroyed || raf) return;
         beginChartClock();
       }, 2200);
     }
