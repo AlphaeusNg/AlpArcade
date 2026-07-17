@@ -34,20 +34,17 @@
       <span class="music-dock-tab-icon" aria-hidden="true">♪</span>
       <span class="music-dock-tab-text" id="music-dock-tab-text">Music</span>
     </button>
-    <div class="music-dock-panel" id="music-dock-panel" role="dialog" aria-label="Music player" aria-modal="false">
-      <div class="music-dock-head" id="music-dock-drag" title="Drag to float · drop on left edge to dock">
-        <span class="music-dock-grip" aria-hidden="true">⋮⋮</span>
+    <div class="music-dock-panel" id="music-dock-panel" role="dialog" aria-label="Music stations" aria-modal="false">
+      <div class="music-dock-head">
         <div class="music-dock-head-copy">
           <p class="eyebrow">Background</p>
           <h2 class="section-title bg-music-title">Music</h2>
         </div>
         <div class="music-dock-actions">
-          <button type="button" class="music-dock-min" id="music-dock-min" title="Minimize to side tab (keeps playing)" aria-label="Minimize to side tab">–</button>
-          <button type="button" class="music-dock-close" id="music-dock-close" title="Stop music and close" aria-label="Stop music and close">×</button>
+          <button type="button" class="music-dock-close" id="music-dock-close" title="Close station list" aria-label="Close station list">×</button>
         </div>
       </div>
-      <p class="bg-music-hint mono">Drag free · drop left to dock · – tab · × stops audio</p>
-      <div class="music-dock-snap-hint mono" aria-hidden="true">↩ Dock left</div>
+      <p class="bg-music-hint mono">Pick a station · drag the small player free · – mini tab · × stops</p>
       <div class="bg-music-picks" role="group" aria-label="Playlists">
         <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
           <strong>Lofi Beats</strong>
@@ -62,7 +59,10 @@
         <p id="bg-music-empty" class="bg-music-empty">Starting music…</p>
         <div class="music-player-shell" id="music-player-shell" hidden>
           <div class="music-player-bar">
+            <span class="music-player-grip" id="music-player-grip" aria-hidden="true" hidden title="Drag player">⋮⋮</span>
             <span class="music-player-label mono" id="music-player-label">Playing…</span>
+            <button type="button" class="music-player-min" id="music-player-min" hidden title="Minimize to side tab" aria-label="Minimize to side tab">–</button>
+            <button type="button" class="music-player-close" id="music-player-close" hidden title="Stop music" aria-label="Stop music">×</button>
           </div>
           <div class="music-player-frame-wrap">
             <iframe

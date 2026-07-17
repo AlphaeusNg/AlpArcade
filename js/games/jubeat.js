@@ -1,25 +1,15 @@
 /**
- * Pulse Grid — jubeat-style 4×4 charts with real song BGM (YouTube).
- * Songs: I'm so Happy · Albida · Flower · Evans (EXTREME only).
- * Judges: EXCELLENT · GREAT · GOOD · MISS on each panel.
- * Too many misses (MAX_MISSES) fails the chart.
+ * Pulse Grid — jubeat-style 4×4 with classic Shutter marker.
+ * Charts approximate official EXTREME note density / song structure:
+ *   I'm so Happy · Albida · Flower · Evans
+ * Judges on each panel · misses do not end the run.
  */
 (function (global) {
   "use strict";
 
-  const COLS = 4;
   const CELLS = 16;
-  /** Miss this many and the chart dies (classic jubeat pressure). */
-  const MAX_MISSES = 8;
+  const WIN = { excellent: 45, great: 90, good: 140 };
 
-  // Timing windows vs note time (ms) — jubeat-like ladder
-  const WIN = {
-    excellent: 45,
-    great: 90,
-    good: 140,
-  };
-
-  /** Brown jubeat panel faces + short flash clips (relative to site root). */
   const PANEL_ART = {
     idle: "assets/jubeat/panel-idle.jpg",
     excellent: "assets/jubeat/panel-excellent.jpg",
@@ -54,204 +44,247 @@
         const s = document.createElement("script");
         s.src = "https://www.youtube.com/iframe_api";
         s.async = true;
-        s.onerror = () => reject(new Error("YouTube API failed to load"));
+        s.onerror = () => reject(new Error("YouTube API failed"));
         document.head.appendChild(s);
       }
-      // Already present (race)
       if (global.YT && global.YT.Player) resolve();
     });
     return ytApiPromise;
   }
 
-  /**
-   * Chart helpers: build EXTREME streams on a 4×4 pad.
-   * Panel map:  0  1  2  3
-   *             4  5  6  7
-   *             8  9 10 11
-   *            12 13 14 15
-   */
   function note(t, panels) {
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
   }
 
+  /**
+   * Chart helpers — panel map:
+   *  0  1  2  3
+   *  4  5  6  7
+   *  8  9 10 11
+   * 12 13 14 15
+   */
   function buildChart(song) {
     const bpm = song.bpm;
     const beat = 60000 / bpm;
-    // Target full chart length (~2.5–3.5 min) — never short “8 miss” runs
-    const durationSec = song.durationSec || 180;
+    const durationSec = song.durationSec || 100;
     const totalBeats = Math.ceil((durationSec * bpm) / 60);
-    // One “measure” = 4 beats
-    const totalMeasures = Math.max(32, Math.ceil(totalBeats / 4));
-    const bodyStart = 4;
-    const bodyEnd = totalMeasures - 4; // leave room for outro
-
     const notes = [];
     const push = (beatIndex, panels) => {
-      if (beatIndex < 0 || beatIndex > totalBeats + 16) return;
+      if (beatIndex < 0 || beatIndex > totalBeats + 4) return;
       notes.push(note(Math.round(beatIndex * beat), panels));
     };
 
-    // Intro — 4 measures
-    for (let b = 0; b < bodyStart * 4; b++) {
-      push(b, b % 4 === 0 ? [5, 6, 9, 10] : [b % 16]);
-    }
+    // Shared streams used by real EXT charts
+    const clock = [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4];
+    const clockR = [...clock].reverse();
+    const diag = [0, 5, 10, 15];
+    const diagR = [3, 6, 9, 12];
+    const cross = [1, 2, 4, 7, 8, 11, 13, 14];
+    const center = [5, 6, 9, 10];
+    const corners = [0, 3, 12, 15];
+    const shuffle = [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12];
+    const snake = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12];
+    const spiral = [5, 6, 10, 9, 1, 2, 7, 11, 14, 13, 8, 4, 0, 3, 15, 12];
 
     if (song.id === "imsosohappy") {
-      // Dense happy-hardcore style: 16ths + corner chords + center cross
-      for (let m = bodyStart; m < bodyEnd; m++) {
+      // EXT ~806 notes · 1:40 · 183 BPM — dense 16ths, happy chords, center×corners
+      // Intro (measures 0–7): sparse quarters → 8ths
+      for (let b = 0; b < 16; b++) {
+        push(b, b % 4 === 0 ? corners : [b % 16]);
+      }
+      for (let b = 16; b < 32; b++) {
+        push(b, [clock[b % clock.length]]);
+        if (b % 2 === 0) push(b + 0.5, [clockR[b % clockR.length]]);
+      }
+      // Body A — 16th streams + corner chords (classic Happy EXT)
+      for (let m = 8; m < 28; m++) {
         const base = m * 4;
-        const streams = [
-          [0, 1, 2, 3, 7, 11, 15, 14, 13, 12, 8, 4],
-          [0, 5, 10, 15, 14, 9, 4, 1, 6, 11, 7, 2],
-          [3, 2, 1, 0, 4, 8, 12, 13, 14, 15, 11, 7],
-          [12, 8, 4, 0, 1, 2, 3, 7, 11, 15, 10, 5],
-        ];
-        const stream = streams[m % streams.length];
-        stream.forEach((p, i) => push(base + i * 0.25, p));
-        push(base, [0, 3, 12, 15]);
-        push(base + 2, [5, 6, 9, 10]);
-        if (m % 2 === 0) push(base + 1.5, [1, 2, 13, 14]);
-        if (m % 3 === 0) {
-          push(base + 0.5, [4, 7]);
-          push(base + 2.5, [8, 11]);
+        const path = m % 2 === 0 ? clock : clockR;
+        for (let i = 0; i < 16; i++) push(base + i * 0.25, [path[i % path.length]]);
+        push(base, corners);
+        push(base + 2, center);
+        if (m % 2 === 0) {
+          push(base + 1, [1, 2, 13, 14]);
+          push(base + 3, [4, 7, 8, 11]);
         }
-        // Late chart denser doubles
-        if (m > bodyStart + 20) {
-          for (let i = 0; i < 8; i++) {
-            push(base + i * 0.5 + 0.125, [(stream[i % stream.length] + 2) % 16]);
-          }
+        if (m % 3 === 0) {
+          for (let i = 0; i < 8; i++) push(base + i * 0.5 + 0.125, [snake[(i + m) % 16]]);
         }
       }
-    } else if (song.id === "albida") {
-      for (let m = bodyStart; m < bodyEnd; m++) {
+      // Chorus — multi-panel chords on downbeats + 16ths
+      for (let m = 28; m < 42; m++) {
         const base = m * 4;
+        push(base, corners);
+        push(base + 1, center);
+        push(base + 2, corners);
+        push(base + 3, center);
+        for (let i = 0; i < 16; i++) {
+          push(base + i * 0.25, [spiral[(i + m * 3) % spiral.length]]);
+        }
+        if (m % 2 === 1) {
+          push(base + 0.5, diag);
+          push(base + 1.5, diagR);
+          push(base + 2.5, diag);
+          push(base + 3.5, diagR);
+        }
+      }
+      // Finale — denser doubles
+      for (let m = 42; m < 50; m++) {
+        const base = m * 4;
+        for (let i = 0; i < 16; i++) {
+          push(base + i * 0.25, [shuffle[i]]);
+          push(base + i * 0.25 + 0.125, [(shuffle[i] + 8) % 16]);
+        }
+        push(base, corners);
+        push(base + 2, center);
+      }
+      // Outro hit
+      push(totalBeats - 2, corners);
+      push(totalBeats - 1, center);
+      push(totalBeats, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
+    } else if (song.id === "albida") {
+      // EXT · BPM 185 · baroque columns + diagonal crosses (~2 min)
+      for (let b = 0; b < 12; b++) push(b, [diag[b % 4]]);
+      for (let m = 3; m < Math.floor(totalBeats / 4) - 2; m++) {
+        const base = m * 4;
+        // Column rolls (Albida signature verticals)
         for (let i = 0; i < 8; i++) {
           const col = (m + i) % 4;
-          push(
-            base + i * 0.5,
-            [col, col + 4, col + 8, col + 12].filter((_, k) => k === i % 4 || k === (i + 1) % 4)
+          const pair = [col, col + 4, col + 8, col + 12].filter(
+            (_, k) => k === i % 4 || k === (i + 2) % 4
           );
+          push(base + i * 0.5, pair);
         }
-        push(base, [0, 5, 10, 15]);
-        push(base + 1, [3, 6, 9, 12]);
-        push(base + 2, [0, 3, 12, 15]);
-        push(base + 3, [5, 6, 9, 10]);
+        push(base, diag);
+        push(base + 1, diagR);
+        push(base + 2, corners);
+        push(base + 3, center);
+        // Renaissance ornaments
         for (let s = 0; s < 4; s++) {
           push(base + 0.25 + s, [(m * 3 + s * 5) % 16]);
           push(base + 0.75 + s, [(m * 7 + s * 3) % 16]);
         }
-        if (m > bodyStart + 16) {
+        if (m > 10) {
           for (let i = 0; i < 16; i++) push(base + i * 0.25, [(m * 5 + i * 3) % 16]);
         }
+        if (m % 4 === 0) {
+          push(base + 1.5, [0, 5, 10, 15, 3, 6, 9, 12]);
+        }
       }
+      push(totalBeats - 1, corners);
+      push(totalBeats, center);
     } else if (song.id === "flower") {
-      for (let m = bodyStart; m < bodyEnd; m++) {
+      // EXT · BPM 173 · circular / petal streams (trance)
+      const ring = [1, 2, 7, 11, 14, 13, 8, 4];
+      const petals = [0, 3, 12, 15, 5, 6, 9, 10];
+      for (let b = 0; b < 12; b++) {
+        push(b, b % 2 === 0 ? center : [ring[b % ring.length]]);
+      }
+      for (let m = 3; m < Math.floor(totalBeats / 4) - 2; m++) {
         const base = m * 4;
-        const ring = [1, 2, 7, 11, 14, 13, 8, 4];
-        ring.forEach((p, i) => push(base + i * 0.5, p));
-        push(base, [5, 6, 9, 10]);
-        push(base + 2, [0, 3, 12, 15]);
+        ring.forEach((p, i) => push(base + i * 0.5, [p]));
+        push(base, center);
+        push(base + 2, corners);
         for (let i = 0; i < 8; i++) {
           const a = (m + i) % 16;
-          const b = (a + 5) % 16;
-          push(base + i * 0.5 + 0.25, [a, b]);
+          push(base + i * 0.5 + 0.25, [a, (a + 5) % 16]);
         }
         if (m % 2 === 1) {
+          petals.forEach((p, i) => push(base + i * 0.5, [p]));
           push(base + 1, [1, 4, 7, 13]);
           push(base + 3, [2, 8, 11, 14]);
         }
-        if (m > bodyStart + 18) {
+        if (m > 12) {
           ring.forEach((p, i) => push(base + i * 0.25, [(p + 2) % 16]));
+          for (let i = 0; i < 8; i++) push(base + i * 0.5 + 0.125, [spiral[i % spiral.length]]);
         }
+        if (m % 4 === 0) push(base + 1.5, [0, 3, 5, 6, 9, 10, 12, 15]);
       }
+      push(totalBeats - 2, ring);
+      push(totalBeats - 1, center);
+      push(totalBeats, corners);
     } else {
-      // Evans — classic dense shuffle / hard 16ths
-      for (let m = bodyStart; m < bodyEnd; m++) {
+      // Evans EXT · BPM 180 · shuffle 16ths, classic hard denseness
+      for (let b = 0; b < 8; b++) push(b, [shuffle[b]]);
+      for (let m = 2; m < Math.floor(totalBeats / 4) - 2; m++) {
         const base = m * 4;
-        const shuffle = [0, 5, 2, 7, 8, 13, 10, 15, 3, 6, 1, 4, 11, 14, 9, 12];
-        shuffle.forEach((p, i) => push(base + i * 0.25, p));
-        if (m > bodyStart + 8) {
+        // Main shuffle stream
+        shuffle.forEach((p, i) => push(base + i * 0.25, [p]));
+        // Off-beat counters (Evans density)
+        if (m > 4) {
           for (let i = 0; i < 8; i++) {
             push(base + i * 0.5 + 0.125, [(shuffle[i] + 3) % 16]);
           }
         }
-        if (m > bodyStart + 24) {
+        if (m > 12) {
           for (let i = 0; i < 16; i++) {
             push(base + i * 0.25 + 0.125, [(shuffle[i] + 7) % 16]);
           }
         }
+        // Anchor chords
         push(base, [0, 3]);
         push(base + 1, [12, 15]);
         push(base + 2, [0, 15]);
         push(base + 3, [3, 12]);
-        if (m % 4 === 0) push(base + 1.5, [5, 6, 9, 10]);
+        if (m % 4 === 0) push(base + 1.5, center);
+        if (m % 2 === 0) {
+          push(base + 0.5, [5, 10]);
+          push(base + 2.5, [6, 9]);
+        }
       }
+      push(totalBeats - 2, [0, 3, 12, 15]);
+      push(totalBeats - 1, center);
+      push(totalBeats, shuffle);
     }
-
-    // Outro — last ~4 measures
-    const endBeat = bodyEnd * 4;
-    for (let b = 0; b < 12; b++) {
-      push(endBeat + b * 0.5, b % 2 === 0 ? [5, 6, 9, 10] : [0, 3, 12, 15]);
-    }
-    push(endBeat + 6, [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15]);
-    push(endBeat + 8, [5, 6, 9, 10]);
 
     notes.sort((a, b) => a.t - b.t || a.panels[0] - b.panels[0]);
     return notes;
   }
 
-  /**
-   * youtubeId — public OST / game audio uploads used as BGM (not redistributed).
-   * audioOffsetMs — subtract from video time if the track has leading silence.
-   */
   const SONGS = [
     {
       id: "imsosohappy",
       title: "I'm so Happy",
       artist: "Ryu☆",
-      difficulty: "EXTREME",
       level: 10,
       bpm: 183,
-      durationSec: 195,
+      durationSec: 100, // official ~1:40
       color: "#f472b6",
       youtubeId: "9TFe1oHsb-s",
-      audioOffsetMs: 0,
+      notesHint: "EXT ~806",
     },
     {
       id: "albida",
       title: "Albida",
       artist: "DJ YOSHITAKA",
-      difficulty: "EXTREME",
       level: 10,
-      bpm: 155,
-      durationSec: 200,
+      bpm: 185,
+      durationSec: 118,
       color: "#38bdf8",
       youtubeId: "H-tHnjxkkNg",
-      audioOffsetMs: 0,
+      notesHint: "EXT",
     },
     {
       id: "flower",
       title: "Flower",
       artist: "DJ YOSHITAKA",
-      difficulty: "EXTREME",
       level: 9,
       bpm: 173,
-      durationSec: 185,
+      durationSec: 125,
       color: "#c084fc",
       youtubeId: "3K6OnRqo4og",
-      audioOffsetMs: 0,
+      notesHint: "EXT",
     },
     {
       id: "evans",
       title: "Evans",
       artist: "DJ YOSHITAKA",
-      difficulty: "EXTREME",
       level: 10,
       bpm: 180,
-      durationSec: 210,
+      durationSec: 122,
       color: "#fbbf24",
       youtubeId: "6FRGiRCbfr8",
-      audioOffsetMs: 0,
+      notesHint: "EXT ~718",
     },
   ].map((s) => ({ ...s, chart: null }));
 
@@ -270,7 +303,7 @@
           <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
           <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
           <div><span class="hud-label">EXC</span><strong id="jb-exc">0</strong></div>
-          <div><span class="hud-label">Miss</span><strong id="jb-miss">0/${MAX_MISSES}</strong></div>
+          <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
         </div>
         <div class="jb-meta mono" id="jb-meta"></div>
         <div class="jb-stage">
@@ -280,9 +313,9 @@
         </div>
         <div class="jb-music" id="jb-music">
           <div id="jb-yt" class="jb-yt" aria-label="Song BGM"></div>
-          <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track via YouTube · unmute if needed</p>
+          <p class="jb-music-note mono" id="jb-music-note">Each chart plays its track · unmute if needed</p>
         </div>
-        <p class="game-hint" id="jb-hint">Shutter marker · hit when TOUCH meets · ${MAX_MISSES} misses = fail</p>
+        <p class="game-hint" id="jb-hint">Shutter marker · hit when blades close + TOUCH · miss never fails the chart</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="jb-start">Start chart</button>
         </div>
@@ -303,22 +336,24 @@
     const musicNoteEl = root.querySelector("#jb-music-note");
     const ytHost = root.querySelector("#jb-yt");
 
-    /** @type {HTMLButtonElement[]} */
     const cells = [];
-    /** @type {HTMLVideoElement[]} */
     const cellVids = [];
-    /** @type {ReturnType<typeof setTimeout>[]} */
     const cellJudgeTimers = Array(CELLS).fill(null);
+
     for (let i = 0; i < CELLS; i++) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "jb-cell";
       btn.dataset.i = String(i);
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
-      // Shutter marker (classic jubeat): blades close from all sides; TOUCH near full close
+      // Classic shutter: 4 edge doors + 6 iris blades + TOUCH
       btn.innerHTML = `
         <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
         <span class="jb-shutter" aria-hidden="true">
+          <span class="jb-door jb-door-n"></span>
+          <span class="jb-door jb-door-s"></span>
+          <span class="jb-door jb-door-e"></span>
+          <span class="jb-door jb-door-w"></span>
           <span class="jb-iris">
             <span class="jb-blade" style="--i:0"></span>
             <span class="jb-blade" style="--i:1"></span>
@@ -327,11 +362,7 @@
             <span class="jb-blade" style="--i:4"></span>
             <span class="jb-blade" style="--i:5"></span>
           </span>
-          <span class="jb-edge-n"></span>
-          <span class="jb-edge-s"></span>
-          <span class="jb-edge-e"></span>
-          <span class="jb-edge-w"></span>
-          <span class="jb-touch">TOUCH</span>
+          <span class="jb-touch"><span class="jb-touch-a">TOUCH</span><span class="jb-touch-b">TOUCH</span></span>
         </span>
         <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       btn.addEventListener("pointerdown", (e) => {
@@ -341,14 +372,6 @@
       grid.appendChild(btn);
       cells.push(btn);
       cellVids.push(btn.querySelector(".jb-cell-vid"));
-    }
-
-    // Warm first frame of flash clips after a gesture (Start)
-    function warmPanelMedia() {
-      Object.values(PANEL_ART).forEach((src) => {
-        const img = new Image();
-        img.src = src;
-      });
     }
 
     let running = false;
@@ -361,12 +384,9 @@
     let t0 = 0;
     let raf = 0;
     let submitted = false;
-    let failedRun = false;
-    /** active: key "t-panel" -> { t, panel, key } */
     let active = new Map();
     let approachMs = 520;
     let audioCtx = null;
-    /** @type {YT.Player | null} */
     let ytPlayer = null;
     let ytVideoId = "";
     let useVideoClock = false;
@@ -377,12 +397,20 @@
       return SONGS[songIndex];
     }
 
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
     function paintSongs() {
       songsEl.innerHTML = SONGS.map(
         (s, i) => `
         <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${running ? "disabled" : ""} style="--sc:${s.color}">
           <strong>${escapeHtml(s.title)}</strong>
-          <small>EXTREME ${s.level} · ${s.bpm} BPM · ♪</small>
+          <small>EXT ${s.level} · ${s.bpm} BPM · ${s.notesHint || ""}</small>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
@@ -397,57 +425,45 @@
       });
     }
 
-    function escapeHtml(s) {
-      return String(s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-
     function paintMeta() {
       const s = song();
       metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
         <span class="jb-diff">EXTREME ${s.level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
-        <span class="jb-bgm">♪ BGM</span>`;
+        <span class="jb-bgm">♪ BGM · Shutter</span>`;
       grid.style.setProperty("--jb-accent", s.color);
     }
 
-    /** Flash panel art + optional short video + judge label on that square. */
     function setCellJudge(panel, text, cls) {
       const el = cells[panel];
       if (!el) return;
       const j = el.querySelector(".jb-cell-judge");
       const vid = cellVids[panel];
-      const key = cls === "excellent" || cls === "great" || cls === "good" || cls === "miss" ? cls : "miss";
+      const key =
+        cls === "excellent" || cls === "great" || cls === "good" || cls === "miss" ? cls : "miss";
 
       JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
       el.classList.add(`is-judge-${key}`);
+      el.classList.remove("is-approach", "is-armed");
 
       if (j) {
         j.hidden = false;
         j.textContent = text;
         j.className = "jb-cell-judge " + (cls || "");
       }
-
-      // Short flash video when available (falls back to still face)
       if (vid && PANEL_VID[key]) {
         try {
           vid.pause();
-          if (vid.getAttribute("src") !== PANEL_VID[key]) {
-            vid.src = PANEL_VID[key];
-          }
+          if (vid.getAttribute("src") !== PANEL_VID[key]) vid.src = PANEL_VID[key];
           vid.currentTime = 0;
           vid.classList.add("is-playing");
           const p = vid.play();
-          if (p && typeof p.catch === "function") p.catch(() => {});
+          if (p?.catch) p.catch(() => {});
         } catch {
-          /* still image still shows */
+          /* still image */
         }
       }
-
       if (cellJudgeTimers[panel]) clearTimeout(cellJudgeTimers[panel]);
       cellJudgeTimers[panel] = setTimeout(() => {
         JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
@@ -468,14 +484,10 @@
       if (srJudgeEl) srJudgeEl.textContent = text;
     }
 
-    function paintMissHud() {
-      missEl.textContent = `${counts.miss}/${MAX_MISSES}`;
-      missEl.classList.toggle("is-danger", counts.miss >= MAX_MISSES - 2);
-    }
-
     function clearPanels() {
       cells.forEach((c, i) => {
         c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach", ...JUDGE_CLASSES);
+        c.style.removeProperty("--jb-p");
         const j = c.querySelector(".jb-cell-judge");
         if (j) {
           j.hidden = true;
@@ -502,9 +514,7 @@
     function stopBgm() {
       useVideoClock = false;
       try {
-        if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
-          ytPlayer.pauseVideo();
-        }
+        ytPlayer?.pauseVideo?.();
       } catch {
         /* ignore */
       }
@@ -514,15 +524,9 @@
       return loadYouTubeApi()
         .then(
           () =>
-            new Promise((resolve, reject) => {
-              if (destroyed) {
-                reject(new Error("destroyed"));
-                return;
-              }
-              if (ytPlayer && ytVideoId === videoId) {
-                resolve(ytPlayer);
-                return;
-              }
+            new Promise((resolve) => {
+              if (destroyed) return resolve(null);
+              if (ytPlayer && ytVideoId === videoId) return resolve(ytPlayer);
               if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
                 ytVideoId = videoId;
                 try {
@@ -530,13 +534,10 @@
                 } catch {
                   ytPlayer.loadVideoById(videoId);
                 }
-                resolve(ytPlayer);
-                return;
+                return resolve(ytPlayer);
               }
-              // Fresh player
               if (ytHost) ytHost.innerHTML = "";
               ytVideoId = videoId;
-              // eslint-disable-next-line no-undef
               ytPlayer = new global.YT.Player(ytHost, {
                 height: "152",
                 width: "100%",
@@ -553,27 +554,14 @@
                 },
                 events: {
                   onReady: (e) => resolve(e.target),
-                  onError: () => {
-                    if (musicNoteEl) {
-                      musicNoteEl.textContent =
-                        "BGM unavailable (blocked or region) · chart still playable";
-                    }
-                    resolve(ytPlayer);
-                  },
+                  onError: () => resolve(ytPlayer),
                 },
               });
             })
         )
-        .catch((err) => {
-          if (musicNoteEl) {
-            musicNoteEl.textContent = "BGM failed to load · chart still playable without audio";
-          }
-          console.warn("[jubeat] YouTube", err);
-          return null;
-        });
+        .catch(() => null);
     }
 
-    /** Quiet cue when selecting a song (does not autoplay until Start). */
     function cuePreview(s) {
       if (!s?.youtubeId) return;
       ensureYtPlayer(s.youtubeId).then((p) => {
@@ -583,9 +571,7 @@
           /* ignore */
         }
       });
-      if (musicNoteEl) {
-        musicNoteEl.textContent = `♪ ${s.title} · ${s.artist} · Start chart to play BGM`;
-      }
+      if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} · ${s.artist}`;
     }
 
     function playBgm(s) {
@@ -593,24 +579,19 @@
       return ensureYtPlayer(s.youtubeId).then((p) => {
         if (!p || destroyed) return false;
         try {
-          if (typeof p.loadVideoById === "function") {
-            p.loadVideoById({ videoId: s.youtubeId, startSeconds: 0 });
-          }
+          p.loadVideoById?.({ videoId: s.youtubeId, startSeconds: 0 });
           p.unMute?.();
           p.setVolume?.(100);
           p.playVideo?.();
-          if (musicNoteEl) {
-            musicNoteEl.textContent = `Now playing · ${s.title} · ${s.artist}`;
-          }
+          if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
           return true;
-        } catch (err) {
-          console.warn("[jubeat] play", err);
+        } catch {
           return false;
         }
       });
     }
 
-    function blip(freq, dur = 0.06, gain = 0.035) {
+    function blip(freq, dur = 0.05, gain = 0.03) {
       try {
         if (!audioCtx) {
           const C = window.AudioContext || window.webkitAudioContext;
@@ -638,12 +619,9 @@
     function nowMs() {
       const s = song();
       const offset = s.audioOffsetMs || 0;
-      // Prefer YouTube clock when playing for better song sync
-      if (useVideoClock && ytPlayer && typeof ytPlayer.getCurrentTime === "function") {
+      if (useVideoClock && ytPlayer?.getCurrentTime) {
         try {
-          const state = ytPlayer.getPlayerState?.();
-          // 1 = PLAYING
-          if (state === 1) {
+          if (ytPlayer.getPlayerState?.() === 1) {
             return Math.max(0, ytPlayer.getCurrentTime() * 1000 - offset);
           }
         } catch {
@@ -657,8 +635,7 @@
       const key = `${hitTime}-${panel}`;
       if (active.has(key)) return;
       active.set(key, { t: hitTime, panel, key });
-      const el = cells[panel];
-      el.classList.add("is-approach", "is-armed");
+      cells[panel].classList.add("is-approach", "is-armed");
     }
 
     function despawn(key, panel, missed) {
@@ -677,26 +654,14 @@
     function registerMiss(n) {
       if (!running || submitted) return;
       counts.miss += 1;
-      paintMissHud();
+      missEl.textContent = String(counts.miss);
       combo = 0;
       comboEl.textContent = "0";
       setCellJudge(n.panel, "MISS", "miss");
       despawn(n.key, n.panel, true);
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
       blip(120, 0.05, 0.025);
-      if (counts.miss >= MAX_MISSES) {
-        failChart();
-      }
-    }
-
-    function failChart() {
-      if (submitted) return;
-      failedRun = true;
-      // Stop first so leftover notes don't chain more misses
-      running = false;
-      cancelAnimationFrame(raf);
-      active.clear();
-      finish({ failed: true });
+      // Misses never fail the chart
     }
 
     function onPanel(i) {
@@ -717,7 +682,6 @@
         }
       }
       if (!best || bestErr > WIN.good) {
-        // Empty tap — flash only, does not count as chart miss
         cells[i].classList.add("is-miss");
         setTimeout(() => cells[i].classList.remove("is-miss"), 120);
         global.ArcadeSFX?.tick?.();
@@ -742,9 +706,6 @@
         blip(660, 0.04, 0.028);
         global.ArcadeSFX?.click?.();
       } else {
-        label = "GOOD";
-        cls = "good";
-        pts = 300;
         counts.good += 1;
         blip(440, 0.04, 0.025);
         global.ArcadeSFX?.tick?.();
@@ -762,14 +723,12 @@
       setTimeout(() => cells[i].classList.remove("is-hit"), 140);
     }
 
-    function finish({ failed = false } = {}) {
+    function finish() {
       if (submitted) return;
       submitted = true;
       running = false;
-      failedRun = failed;
       cancelAnimationFrame(raf);
       stopBgm();
-      // Natural clear: drop leftover notes without counting (or fail-chaining)
       active.clear();
       clearPanels();
       startBtn.disabled = false;
@@ -778,19 +737,8 @@
       const s = song();
       const total = counts.excellent + counts.great + counts.good + counts.miss;
       const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
-      if (failed) {
-        hintEl.textContent = `FAILED · ${counts.miss}/${MAX_MISSES} misses · ${score} pts · EXC ${counts.excellent} · max combo ${bestCombo}`;
-        if (musicNoteEl) {
-          musicNoteEl.textContent = `♪ ${s.title} failed · try again`;
-        }
-        if (srJudgeEl) srJudgeEl.textContent = "FAILED";
-        global.ArcadeSFX?.foul?.();
-      } else {
-        hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
-        if (musicNoteEl) {
-          musicNoteEl.textContent = `♪ ${s.title} finished · Start again or pick another chart`;
-        }
-      }
+      hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
+      if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
       onScore?.({
         score,
         meta: {
@@ -801,8 +749,7 @@
           good: counts.good,
           miss: counts.miss,
           bestCombo,
-          failed,
-          cleared: !failed,
+          cleared: true,
         },
       });
     }
@@ -825,16 +772,16 @@
       }
 
       for (const n of active.values()) {
-        const el = cells[n.panel];
         const left = n.t - t;
+        // p = 0 at spawn, 1 at hit time (shutter fully closed)
         const p = 1 - Math.max(0, Math.min(1, left / approachMs));
-        el.style.setProperty("--jb-p", String(p));
+        cells[n.panel].style.setProperty("--jb-p", String(p));
       }
 
       if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
 
       if (chartIndex >= chart.length && active.size === 0 && t > duration) {
-        finish({ failed: false });
+        finish();
         return;
       }
       raf = requestAnimationFrame(frame);
@@ -848,6 +795,13 @@
       raf = requestAnimationFrame(frame);
     }
 
+    function warmPanelMedia() {
+      Object.values(PANEL_ART).forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    }
+
     function start() {
       cancelAnimationFrame(raf);
       clearPanels();
@@ -858,25 +812,23 @@
       running = true;
       clockStarted = false;
       submitted = false;
-      failedRun = false;
       score = 0;
       combo = 0;
       bestCombo = 0;
       counts = { excellent: 0, great: 0, good: 0, miss: 0 };
-      approachMs = Math.max(420, Math.round(60000 / s.bpm) * 1.6);
+      approachMs = Math.max(480, Math.round((60000 / s.bpm) * 1.75));
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
       excEl.textContent = "0";
-      paintMissHud();
+      missEl.textContent = "0";
       if (progEl) progEl.style.width = "0%";
       startBtn.disabled = true;
       startBtn.textContent = "Playing…";
       paintSongs();
       warmPanelMedia();
-      const mins = Math.round((s.durationSec || 180) / 6) / 10;
-      hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · ♪ BGM · ${MAX_MISSES} misses = fail`;
+      const mins = Math.round((s.durationSec || 100) / 6) / 10;
+      hintEl.textContent = `${s.title} · EXT ${s.level} · ~${mins} min · Shutter · ${chart.length} notes · miss OK`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-      // Short count-in while BGM loads / starts
       blip(523, 0.08, 0.04);
       setTimeout(() => blip(659, 0.08, 0.04), 200);
       setTimeout(() => blip(784, 0.1, 0.04), 400);
@@ -884,16 +836,9 @@
       const startAt = performance.now() + 650;
       playBgm(s).then(() => {
         if (!running || destroyed) return;
-        const wait = Math.max(0, startAt - performance.now());
-        setTimeout(() => {
-          if (!running || destroyed) return;
-          beginChartClock();
-        }, wait);
+        setTimeout(() => beginChartClock(), Math.max(0, startAt - performance.now()));
       });
-      // Fallback clock if BGM is slow/blocked
-      setTimeout(() => {
-        beginChartClock();
-      }, 2200);
+      setTimeout(() => beginChartClock(), 2200);
     }
 
     startBtn.addEventListener("click", start);
@@ -933,7 +878,6 @@
 
     paintSongs();
     paintMeta();
-    // Warm YouTube API + cue first song
     cuePreview(song());
 
     return {
@@ -945,7 +889,7 @@
         stopBgm();
         window.removeEventListener("keydown", onKey);
         try {
-          if (ytPlayer && typeof ytPlayer.destroy === "function") ytPlayer.destroy();
+          ytPlayer?.destroy?.();
         } catch {
           /* ignore */
         }
