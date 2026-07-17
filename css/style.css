@@ -937,14 +937,11 @@ body.salmon-mode .fun-fact-text {
   color: var(--dim);
 }
 
-/* Inline home in Music section; floats when section leaves view */
+/* Slot reserves space; real shell is fixed-positioned over it (never reparented) */
 .music-player-slot {
+  position: relative;
   margin-top: 0.75rem;
-  min-height: 2rem;
-}
-
-.music-player-slot.is-player-docked {
-  min-height: 0;
+  min-height: 11.5rem;
 }
 
 .bg-music-empty {
@@ -957,48 +954,100 @@ body.salmon-mode .fun-fact-text {
   background: rgba(0, 0, 0, 0.22);
 }
 
+.music-popup-host {
+  /* shell is position:fixed itself; host is just a non-layout mount */
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
 .music-player-shell {
+  pointer-events: auto;
   border-radius: 12px;
   border: 1px solid rgba(45, 212, 191, 0.28);
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(8, 12, 18, 0.96);
   overflow: hidden;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
 }
 
 .music-player-shell[hidden] {
   display: none !important;
 }
 
-.music-popup-host {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 70;
-  width: min(340px, calc(100vw - 1.5rem));
-  pointer-events: none;
+.music-player-shell.is-home {
+  box-shadow: none;
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(0, 0, 0, 0.35);
 }
 
-.music-popup-host .music-player-shell {
-  pointer-events: auto;
-  width: 100%;
+.music-player-shell.is-popup {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  border-color: rgba(45, 212, 191, 0.4);
+  border-color: rgba(45, 212, 191, 0.45);
   background: rgba(8, 12, 18, 0.96);
-  backdrop-filter: blur(12px);
-}
-
-.music-player-shell.is-popup.is-dragged {
-  position: fixed;
-  z-index: 71;
-  width: min(340px, calc(100vw - 1.5rem));
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  border-color: rgba(45, 212, 191, 0.4);
-  background: rgba(8, 12, 18, 0.96);
-  backdrop-filter: blur(12px);
 }
 
 .music-player-shell.is-dragging {
   opacity: 0.95;
   cursor: grabbing;
+}
+
+/* Mirror soundboard when player is floating / mini — stays in Music section */
+.music-slot-mirror {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px dashed rgba(45, 212, 191, 0.35);
+  background: rgba(45, 212, 191, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.music-slot-mirror[hidden] {
+  display: none !important;
+}
+
+.music-slot-mirror:hover {
+  border-color: rgba(45, 212, 191, 0.55);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.music-slot-mirror-icon {
+  color: var(--teal);
+  font-size: 1.1rem;
+}
+
+.music-slot-mirror-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.music-slot-mirror-title {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.music-slot-mirror-sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-slot-mirror-hint {
+  font-size: 0.65rem;
+  color: var(--teal);
+  flex-shrink: 0;
 }
 
 .music-player-bar {
@@ -1022,7 +1071,7 @@ body.salmon-mode .fun-fact-text {
   flex-shrink: 0;
 }
 
-.music-player-shell:not(.is-popup) .music-player-grip {
+.music-player-shell.is-home .music-player-grip {
   display: none;
 }
 
