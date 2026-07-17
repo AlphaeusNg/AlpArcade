@@ -879,11 +879,12 @@ body.salmon-mode .fun-fact-text {
   z-index: auto;
 }
 
-/* Always one left-edge tab — stays at left:0 so it never gets stuck off-panel */
+/* Single left tab — closed at left edge; open rides the panel’s right border */
 .music-dock-tab {
+  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
   pointer-events: auto !important;
   position: fixed !important;
-  left: 0 !important;
+  left: 0;
   top: 50% !important;
   z-index: 120 !important;
   transform: translateY(-50%);
@@ -906,12 +907,19 @@ body.salmon-mode .fun-fact-text {
   cursor: pointer;
   box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
-  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    left 0.22s ease,
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
+/* Slide tab to the open station panel’s outer edge */
 .music-dock.is-dock .music-dock-tab,
 .music-dock.is-open .music-dock-tab,
 .music-dock-tab.is-active-tab {
+  left: var(--music-panel-w);
   color: var(--teal);
   border-color: rgba(45, 212, 191, 0.65);
   background: rgba(8, 14, 20, 0.98);
@@ -960,12 +968,13 @@ body.salmon-mode .fun-fact-text {
 
 /* Station list panel */
 .music-dock-panel {
+  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
   pointer-events: none;
   position: fixed;
   left: 0;
   top: 4.25rem;
   bottom: 1rem;
-  width: min(22rem, calc(100vw - 2.5rem));
+  width: var(--music-panel-w);
   max-height: calc(100vh - 5.25rem);
   z-index: 110;
   display: flex;
@@ -2762,10 +2771,15 @@ body.salmon-mode .fun-fact-text {
     padding: 0.8rem 0.4rem;
   }
 
+  .music-dock-tab,
+  .music-dock-panel {
+    --music-panel-w: min(20rem, calc(100vw - 2.25rem));
+  }
+
   .music-dock-panel {
     top: 3.5rem;
     bottom: 0.65rem;
-    width: min(20rem, calc(100vw - 2.25rem));
+    width: var(--music-panel-w);
     max-height: calc(100vh - 4.15rem);
     padding: 0.8rem 0.85rem 0.95rem;
   }

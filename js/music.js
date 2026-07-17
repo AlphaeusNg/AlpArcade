@@ -304,10 +304,7 @@
     if (t) {
       t.setAttribute("aria-expanded", dockOpen ? "true" : "false");
       t.classList.toggle("is-active-tab", dockOpen);
-      // Keep tab free of inline styles that could pin it off-screen
-      t.style.left = "";
-      t.style.top = "";
-      t.style.transform = "";
+      // Don’t pin left via inline styles — CSS slides tab with the panel border
       t.style.pointerEvents = "auto";
       t.style.zIndex = "120";
     }
