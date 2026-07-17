@@ -2062,60 +2062,129 @@ body.salmon-mode .fun-fact-text {
   --jb-accent: #fbbf24;
 }
 
+/* Classic brown jubeat panel faces (assets/jubeat/) */
 .jb-cell {
+  --jb-panel-idle: url("../assets/jubeat/panel-idle.jpg");
+  --jb-panel-excellent: url("../assets/jubeat/panel-excellent.jpg");
+  --jb-panel-great: url("../assets/jubeat/panel-great.jpg");
+  --jb-panel-good: url("../assets/jubeat/panel-good.jpg");
+  --jb-panel-miss: url("../assets/jubeat/panel-miss.jpg");
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(80, 50, 30, 0.55);
+  border-radius: 12px;
+  background-color: #2a1c12;
+  background-image: var(--jb-panel-idle);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   cursor: pointer;
   padding: 0;
   touch-action: manipulation;
   overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 160, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background-image 0.05s linear, box-shadow 0.12s ease, transform 0.08s ease;
 }
 
-.jb-cell .jb-core {
+/* Flash video layer (hit / miss) */
+.jb-cell-vid {
   position: absolute;
-  inset: 22%;
-  border-radius: 10px;
-  background: rgba(45, 212, 191, 0.08);
-  transition: background 0.08s, transform 0.08s;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.08s ease;
 }
 
+.jb-cell-vid.is-playing {
+  opacity: 1;
+}
+
+/* Approach ring over brown panel */
 .jb-cell .jb-ring {
   position: absolute;
-  inset: 8%;
-  border-radius: 12px;
-  border: 2px solid transparent;
+  inset: 12%;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
   opacity: 0;
-  transform: scale(calc(1.15 - 0.2 * var(--jb-p, 0)));
-  transition: border-color 0.05s, opacity 0.05s;
+  z-index: 2;
+  transform: scale(calc(1.2 - 0.28 * var(--jb-p, 0)));
+  box-shadow: none;
+  transition: border-color 0.05s, opacity 0.05s, box-shadow 0.05s;
+  pointer-events: none;
 }
 
 .jb-cell.is-approach .jb-ring {
-  opacity: calc(0.35 + 0.65 * var(--jb-p, 0));
-  border-color: color-mix(in srgb, var(--jb-accent) 90%, white);
+  opacity: calc(0.4 + 0.6 * var(--jb-p, 0));
+  border-color: rgba(255, 248, 230, calc(0.35 + 0.55 * var(--jb-p, 0)));
+  box-shadow:
+    0 0 10px rgba(255, 240, 200, calc(0.15 + 0.35 * var(--jb-p, 0))),
+    inset 0 0 12px rgba(255, 240, 200, calc(0.08 + 0.2 * var(--jb-p, 0)));
+}
+
+/* Core unused for texture panels — keep for layout/hit scale */
+.jb-cell .jb-core {
+  position: absolute;
+  inset: 28%;
+  border-radius: 50%;
+  background: transparent;
+  z-index: 2;
+  pointer-events: none;
+  transition: transform 0.08s;
 }
 
 .jb-cell.is-armed .jb-core {
-  background: color-mix(in srgb, var(--jb-accent) 40%, transparent);
+  background: transparent;
+}
+
+.jb-cell.is-hit {
+  transform: scale(0.97);
 }
 
 .jb-cell.is-hit .jb-core {
-  background: color-mix(in srgb, var(--jb-accent) 80%, #2dd4bf);
-  transform: scale(0.9);
+  transform: scale(0.96);
 }
 
-.jb-cell.is-miss .jb-core {
-  background: rgba(251, 113, 133, 0.55);
+/* Judge face swaps (still frames) */
+.jb-cell.is-judge-excellent {
+  background-image: var(--jb-panel-excellent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 18px rgba(255, 255, 255, 0.35);
 }
 
-/* Per-panel judge (EXCELLENT / GREAT / GOOD / MISS) */
+.jb-cell.is-judge-great {
+  background-image: var(--jb-panel-great);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.45),
+    0 0 16px rgba(251, 191, 36, 0.4);
+}
+
+.jb-cell.is-judge-good {
+  background-image: var(--jb-panel-good);
+  box-shadow:
+    inset 0 0 0 1px rgba(56, 189, 248, 0.4),
+    0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.jb-cell.is-judge-miss {
+  background-image: var(--jb-panel-miss);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 113, 133, 0.45),
+    0 0 14px rgba(251, 113, 133, 0.35);
+}
+
+/* Per-panel judge text on top of panel art */
 .jb-cell-judge {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  z-index: 5;
+  z-index: 6;
   margin: 0;
   padding: 0.12rem;
   font-weight: 800;
@@ -2125,7 +2194,7 @@ body.salmon-mode .fun-fact-text {
   text-align: center;
   text-transform: uppercase;
   pointer-events: none;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.5);
   animation: jb-judge-pop 0.42s ease-out both;
 }
 
@@ -2134,20 +2203,20 @@ body.salmon-mode .fun-fact-text {
 }
 
 .jb-cell-judge.excellent {
-  color: #fbbf24;
+  color: #ffffff;
   font-size: clamp(0.38rem, 2.1vw, 0.58rem);
 }
 
 .jb-cell-judge.great {
-  color: #2dd4bf;
+  color: #fde68a;
 }
 
 .jb-cell-judge.good {
-  color: #93c5fd;
+  color: #bae6fd;
 }
 
 .jb-cell-judge.miss {
-  color: #fb7185;
+  color: #fecdd3;
 }
 
 @keyframes jb-judge-pop {

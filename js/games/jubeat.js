@@ -19,6 +19,22 @@
     good: 140,
   };
 
+  /** Brown jubeat panel faces + short flash clips (relative to site root). */
+  const PANEL_ART = {
+    idle: "assets/jubeat/panel-idle.jpg",
+    excellent: "assets/jubeat/panel-excellent.jpg",
+    great: "assets/jubeat/panel-great.jpg",
+    good: "assets/jubeat/panel-good.jpg",
+    miss: "assets/jubeat/panel-miss.jpg",
+  };
+  const PANEL_VID = {
+    excellent: "assets/jubeat/panel-excellent.mp4",
+    great: "assets/jubeat/panel-great.mp4",
+    good: "assets/jubeat/panel-good.mp4",
+    miss: "assets/jubeat/panel-miss.mp4",
+  };
+  const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
+
   let ytApiPromise = null;
 
   function loadYouTubeApi() {
@@ -289,6 +305,8 @@
 
     /** @type {HTMLButtonElement[]} */
     const cells = [];
+    /** @type {HTMLVideoElement[]} */
+    const cellVids = [];
     /** @type {ReturnType<typeof setTimeout>[]} */
     const cellJudgeTimers = Array(CELLS).fill(null);
     for (let i = 0; i < CELLS; i++) {
@@ -297,13 +315,26 @@
       btn.className = "jb-cell";
       btn.dataset.i = String(i);
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
-      btn.innerHTML = `<span class="jb-ring" aria-hidden="true"></span><span class="jb-core" aria-hidden="true"></span><span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
+      btn.innerHTML = `
+        <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
+        <span class="jb-ring" aria-hidden="true"></span>
+        <span class="jb-core" aria-hidden="true"></span>
+        <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       btn.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         onPanel(i);
       });
       grid.appendChild(btn);
       cells.push(btn);
+      cellVids.push(btn.querySelector(".jb-cell-vid"));
+    }
+
+    // Warm first frame of flash clips after a gesture (Start)
+    function warmPanelMedia() {
+      Object.values(PANEL_ART).forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
     }
 
     let running = false;
@@ -370,21 +401,56 @@
       grid.style.setProperty("--jb-accent", s.color);
     }
 
-    /** Show judge text on the individual panel that was hit / missed. */
+    /** Flash panel art + optional short video + judge label on that square. */
     function setCellJudge(panel, text, cls) {
       const el = cells[panel];
       if (!el) return;
       const j = el.querySelector(".jb-cell-judge");
-      if (!j) return;
-      j.hidden = false;
-      j.textContent = text;
-      j.className = "jb-cell-judge " + (cls || "");
+      const vid = cellVids[panel];
+      const key = cls === "excellent" || cls === "great" || cls === "good" || cls === "miss" ? cls : "miss";
+
+      JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
+      el.classList.add(`is-judge-${key}`);
+
+      if (j) {
+        j.hidden = false;
+        j.textContent = text;
+        j.className = "jb-cell-judge " + (cls || "");
+      }
+
+      // Short flash video when available (falls back to still face)
+      if (vid && PANEL_VID[key]) {
+        try {
+          vid.pause();
+          if (vid.getAttribute("src") !== PANEL_VID[key]) {
+            vid.src = PANEL_VID[key];
+          }
+          vid.currentTime = 0;
+          vid.classList.add("is-playing");
+          const p = vid.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch {
+          /* still image still shows */
+        }
+      }
+
       if (cellJudgeTimers[panel]) clearTimeout(cellJudgeTimers[panel]);
       cellJudgeTimers[panel] = setTimeout(() => {
-        j.hidden = true;
-        j.textContent = "";
-        j.className = "jb-cell-judge";
-      }, 480);
+        JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
+        if (j) {
+          j.hidden = true;
+          j.textContent = "";
+          j.className = "jb-cell-judge";
+        }
+        if (vid) {
+          try {
+            vid.pause();
+            vid.classList.remove("is-playing");
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 520);
       if (srJudgeEl) srJudgeEl.textContent = text;
     }
 
@@ -394,13 +460,22 @@
     }
 
     function clearPanels() {
-      cells.forEach((c) => {
-        c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach");
+      cells.forEach((c, i) => {
+        c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach", ...JUDGE_CLASSES);
         const j = c.querySelector(".jb-cell-judge");
         if (j) {
           j.hidden = true;
           j.textContent = "";
           j.className = "jb-cell-judge";
+        }
+        const vid = cellVids[i];
+        if (vid) {
+          try {
+            vid.pause();
+            vid.classList.remove("is-playing");
+          } catch {
+            /* ignore */
+          }
         }
       });
       cellJudgeTimers.forEach((t, i) => {
@@ -783,6 +858,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Playing…";
       paintSongs();
+      warmPanelMedia();
       const mins = Math.round((s.durationSec || 180) / 6) / 10;
       hintEl.textContent = `${s.title} · EXTREME ${s.level} · ~${mins} min · ♪ BGM · ${MAX_MISSES} misses = fail`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
