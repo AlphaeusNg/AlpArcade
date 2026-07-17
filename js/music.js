@@ -21,6 +21,7 @@
   let gestureHooked = false;
   let preferInline = false;
   let docked = false;
+  let minimized = false;
   let drag = null;
   let popupPos = null;
 
@@ -38,6 +39,12 @@
   }
   function closeBtn() {
     return $("#music-player-close");
+  }
+  function minBtn() {
+    return $("#music-player-min");
+  }
+  function miniTab() {
+    return $("#music-mini-tab");
   }
 
   function withAutoplay(url) {
@@ -87,16 +94,57 @@
     s.classList.add("is-dragged");
   }
 
+  function setChromeVisible(isFloating) {
+    const c = closeBtn();
+    const m = minBtn();
+    if (c) c.hidden = !isFloating;
+    if (m) m.hidden = !isFloating;
+  }
+
+  function ensureMiniTab() {
+    let tab = miniTab();
+    if (tab) return tab;
+    tab = document.createElement("button");
+    tab.type = "button";
+    tab.id = "music-mini-tab";
+    tab.className = "music-mini-tab";
+    tab.hidden = true;
+    tab.setAttribute("aria-label", "Expand music player");
+    tab.innerHTML = `<span class="music-mini-tab-icon" aria-hidden="true">♪</span><span class="music-mini-tab-label mono" id="music-mini-tab-label">Music</span>`;
+    document.body.appendChild(tab);
+    tab.addEventListener("click", () => expandFromTab());
+    return tab;
+  }
+
+  function updateMiniTabLabel() {
+    const lab = $("#music-mini-tab-label");
+    const title = $("#music-player-label")?.textContent || "Music";
+    if (lab) lab.textContent = title.length > 18 ? title.slice(0, 16) + "…" : title;
+  }
+
+  function hideMiniTab() {
+    const tab = miniTab();
+    if (tab) tab.hidden = true;
+  }
+
+  function showMiniTab() {
+    const tab = ensureMiniTab();
+    updateMiniTabLabel();
+    tab.hidden = false;
+  }
+
   function mountInline() {
     const s = shell();
     const sl = slot();
     if (!s || !sl) return;
+    minimized = false;
+    hideMiniTab();
     if (s.parentElement !== sl) sl.appendChild(s);
-    s.classList.remove("is-popup", "is-docked");
+    s.classList.remove("is-popup", "is-docked", "is-minimized");
+    s.hidden = !playing;
     clearPopupPos(s);
     docked = false;
-    const btn = closeBtn();
-    if (btn) btn.hidden = true;
+    setChromeVisible(false);
     sl.classList.remove("is-player-docked");
   }
 
@@ -107,11 +155,51 @@
     if (s.parentElement !== host) host.appendChild(s);
     s.classList.add("is-popup", "is-docked");
     docked = true;
-    const btn = closeBtn();
-    if (btn) btn.hidden = false;
+    setChromeVisible(true);
     slot()?.classList.add("is-player-docked");
     if (popupPos) applyPopupPos(s);
     else clearPopupPos(s);
+    if (minimized) {
+      s.classList.add("is-minimized");
+      s.hidden = true;
+      showMiniTab();
+    } else {
+      s.classList.remove("is-minimized");
+      s.hidden = false;
+      hideMiniTab();
+    }
+  }
+
+  function minimizePopup() {
+    if (!playing) return;
+    if (!docked) {
+      preferInline = false;
+      minimized = false;
+      mountPopup();
+    }
+    minimized = true;
+    const s = shell();
+    if (s) {
+      s.hidden = true;
+      s.classList.add("is-minimized");
+    }
+    showMiniTab();
+  }
+
+  function expandFromTab() {
+    minimized = false;
+    preferInline = false;
+    hideMiniTab();
+    const s = shell();
+    if (s) {
+      s.classList.remove("is-minimized");
+      s.hidden = false;
+    }
+    if (!docked) mountPopup();
+    else {
+      setChromeVisible(true);
+      if (popupPos) applyPopupPos(s);
+    }
   }
 
   function slotVisible() {
@@ -134,27 +222,31 @@
 
     if (visible) {
       preferInline = false;
-      if (docked) mountInline();
+      if (docked || minimized) mountInline();
       return;
     }
 
     if (preferInline && !lobbyHidden) {
-      if (docked) mountInline();
+      if (docked || minimized) mountInline();
       return;
     }
 
-    // In a game (lobby hidden) always popup so music stays reachable
+    // In a game (lobby hidden) or scrolled past Music → popup (or mini tab)
     if (!docked) mountPopup();
+    else if (minimized) {
+      if (s) {
+        s.hidden = true;
+        s.classList.add("is-minimized");
+      }
+      showMiniTab();
+    }
   }
 
   function closePopupToMusic() {
+    // Return player to Music box without scrolling the page
     preferInline = true;
     popupPos = null;
     mountInline();
-    const lobby = $("#lobby");
-    if (lobby && !lobby.hidden) {
-      $("#bg-music")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
   }
 
   function bindDrag() {
@@ -164,7 +256,7 @@
     bar.dataset.dragBound = "1";
 
     bar.addEventListener("pointerdown", (e) => {
-      if (!docked) return;
+      if (!docked || minimized) return;
       if (e.target.closest("button, a, iframe")) return;
       e.preventDefault();
       const rect = s.getBoundingClientRect();
@@ -235,6 +327,7 @@
       lab.textContent =
         label || (id === "lofi" ? "Lofi Beats" : id === "dgray" ? "D.Gray-Man" : "Playing…");
     }
+    updateMiniTabLabel();
 
     try {
       localStorage.setItem(
@@ -244,7 +337,7 @@
     } catch {
       /* ignore */
     }
-    if (!docked) mountInline();
+    if (!docked && !minimized) mountInline();
     updateDockState();
   }
 
@@ -291,9 +384,21 @@
     nudgeAutoplayOnGesture();
   }
 
-  function boot() {
+  function ensureBarControls() {
     const bar = shell()?.querySelector(".music-player-bar");
-    if (bar && !closeBtn()) {
+    if (!bar) return;
+    if (!minBtn()) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "music-player-min";
+      btn.className = "music-player-min";
+      btn.title = "Minimize to tab";
+      btn.setAttribute("aria-label", "Minimize music player to a tab");
+      btn.hidden = true;
+      btn.textContent = "–";
+      bar.appendChild(btn);
+    }
+    if (!closeBtn()) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.id = "music-player-close";
@@ -304,7 +409,10 @@
       btn.textContent = "×";
       bar.appendChild(btn);
     }
+  }
 
+  function boot() {
+    ensureBarControls();
     mountInline();
     autoStart();
 
@@ -319,6 +427,12 @@
       e.stopPropagation();
       closePopupToMusic();
     });
+    minBtn()?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      minimizePopup();
+    });
+    ensureMiniTab();
     bindDrag();
     window.addEventListener("scroll", updateDockState, { passive: true });
     window.addEventListener("resize", updateDockState);
