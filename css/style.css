@@ -2249,6 +2249,15 @@ body.salmon-mode .fun-fact-text {
   opacity: 1;
 }
 
+/* No CSS transitions on marker geometry — progress is JS-timed (--jb-p) */
+.jb-door,
+.jb-blade,
+.jb-touch,
+.jb-touch-a,
+.jb-touch-b {
+  transition: none !important;
+}
+
 /* Four opaque shutter doors */
 .jb-door {
   position: absolute;
@@ -2421,6 +2430,13 @@ body.salmon-mode .fun-fact-text {
     0 0 14px rgba(251, 113, 133, 0.35);
 }
 
+/* Empty-tap flash — must clear instantly (JS removes after ~90ms) */
+.jb-cell.is-miss:not([class*="is-judge-"]) {
+  box-shadow:
+    inset 0 0 0 2px rgba(251, 113, 133, 0.65),
+    0 0 10px rgba(251, 113, 133, 0.25);
+}
+
 /* Per-panel judge text on top of panel art */
 .jb-cell-judge {
   position: absolute;
@@ -2438,7 +2454,7 @@ body.salmon-mode .fun-fact-text {
   text-transform: uppercase;
   pointer-events: none;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.5);
-  animation: jb-judge-pop 0.42s ease-out both;
+  animation: jb-judge-pop 0.26s ease-out both;
 }
 
 .jb-cell-judge[hidden] {
@@ -2460,24 +2476,21 @@ body.salmon-mode .fun-fact-text {
 
 .jb-cell-judge.miss {
   color: #fecdd3;
+  animation-duration: 0.18s;
 }
 
 @keyframes jb-judge-pop {
   0% {
     opacity: 0;
-    transform: scale(0.7);
+    transform: scale(0.75);
   }
-  18% {
+  25% {
     opacity: 1;
-    transform: scale(1.08);
-  }
-  70% {
-    opacity: 1;
-    transform: scale(1);
+    transform: scale(1.06);
   }
   100% {
     opacity: 0;
-    transform: scale(1.05) translateY(-4px);
+    transform: scale(1);
   }
 }
 

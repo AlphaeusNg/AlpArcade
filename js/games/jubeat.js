@@ -9,6 +9,12 @@
 
   const CELLS = 16;
   const WIN = { excellent: 45, great: 90, good: 140 };
+  /** Fixed shutter load time (ms) — same for every note and every song. */
+  const APPROACH_MS = 1000;
+  /** Judge flash duration (ms). Miss is short so the panel frees up fast. */
+  const JUDGE_MS = { excellent: 280, great: 260, good: 240, miss: 180 };
+  /** Empty tap flash (wrong panel / early) */
+  const EMPTY_TAP_MS = 90;
 
   const PANEL_ART = {
     idle: "assets/jubeat/panel-idle.jpg",
@@ -17,11 +23,11 @@
     good: "assets/jubeat/panel-good.jpg",
     miss: "assets/jubeat/panel-miss.jpg",
   };
+  // Videos are 2s — only use for EXC/GREAT/GOOD flashes; miss uses still + short flash
   const PANEL_VID = {
     excellent: "assets/jubeat/panel-excellent.mp4",
     great: "assets/jubeat/panel-great.mp4",
     good: "assets/jubeat/panel-good.mp4",
-    miss: "assets/jubeat/panel-miss.mp4",
   };
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
 
@@ -394,6 +400,9 @@
     const cells = [];
     const cellVids = [];
     const cellJudgeTimers = Array(CELLS).fill(null);
+    /** Panel is locked while a judge flash is showing (perf timestamp end). */
+    const judgeUntil = Array(CELLS).fill(0);
+    const emptyTapTimers = Array(CELLS).fill(null);
 
     for (let i = 0; i < CELLS; i++) {
       const btn = document.createElement("button");
@@ -440,7 +449,7 @@
     let raf = 0;
     let submitted = false;
     let active = new Map();
-    let approachMs = 520;
+    const approachMs = APPROACH_MS;
     let audioCtx = null;
     let ytPlayer = null;
     let ytVideoId = "";
@@ -494,6 +503,38 @@
       grid.style.setProperty("--jb-accent", s.color);
     }
 
+    function stopCellVid(panel) {
+      const vid = cellVids[panel];
+      if (!vid) return;
+      try {
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load?.();
+        vid.classList.remove("is-playing");
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function clearJudgeVisual(panel) {
+      const el = cells[panel];
+      if (!el) return;
+      JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
+      el.classList.remove("is-miss", "is-hit");
+      const j = el.querySelector(".jb-cell-judge");
+      if (j) {
+        j.hidden = true;
+        j.textContent = "";
+        j.className = "jb-cell-judge";
+      }
+      stopCellVid(panel);
+      judgeUntil[panel] = 0;
+      if (cellJudgeTimers[panel]) {
+        clearTimeout(cellJudgeTimers[panel]);
+        cellJudgeTimers[panel] = null;
+      }
+    }
+
     function setCellJudge(panel, text, cls) {
       const el = cells[panel];
       if (!el) return;
@@ -501,71 +542,100 @@
       const vid = cellVids[panel];
       const key =
         cls === "excellent" || cls === "great" || cls === "good" || cls === "miss" ? cls : "miss";
+      const holdMs = JUDGE_MS[key] ?? JUDGE_MS.good;
 
+      // Restart judge cleanly (no stacked timers / lingering miss art)
+      if (cellJudgeTimers[panel]) clearTimeout(cellJudgeTimers[panel]);
+      stopCellVid(panel);
       JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
+      el.classList.remove("is-miss", "is-hit");
+
       el.classList.add(`is-judge-${key}`);
+      // Hide shutter during judge; frame() re-arms after judgeUntil
       el.classList.remove("is-approach", "is-armed");
+      el.style.setProperty("--jb-p", "0");
+      judgeUntil[panel] = performance.now() + holdMs;
 
       if (j) {
         j.hidden = false;
         j.textContent = text;
+        // Restart CSS pop animation
+        j.className = "jb-cell-judge";
+        void j.offsetWidth;
         j.className = "jb-cell-judge " + (cls || "");
       }
-      if (vid && PANEL_VID[key]) {
+      // Miss: still frame only (videos are 2s and read as “stuck”)
+      if (vid && PANEL_VID[key] && key !== "miss") {
         try {
-          vid.pause();
           if (vid.getAttribute("src") !== PANEL_VID[key]) vid.src = PANEL_VID[key];
           vid.currentTime = 0;
           vid.classList.add("is-playing");
           const p = vid.play();
           if (p?.catch) p.catch(() => {});
         } catch {
-          /* still image */
+          /* still image via CSS */
         }
       }
-      if (cellJudgeTimers[panel]) clearTimeout(cellJudgeTimers[panel]);
       cellJudgeTimers[panel] = setTimeout(() => {
-        JUDGE_CLASSES.forEach((c) => el.classList.remove(c));
-        if (j) {
-          j.hidden = true;
-          j.textContent = "";
-          j.className = "jb-cell-judge";
-        }
-        if (vid) {
-          try {
-            vid.pause();
-            vid.classList.remove("is-playing");
-          } catch {
-            /* ignore */
-          }
-        }
-      }, 520);
+        clearJudgeVisual(panel);
+        // Immediately restore shutter for any note still waiting on this panel
+        syncPanelMarker(panel, nowMs());
+      }, holdMs);
       if (srJudgeEl) srJudgeEl.textContent = text;
+    }
+
+    /**
+     * Drive shutter from absolute chart time so every note loads in exactly APPROACH_MS.
+     * Only the soonest active note on a panel owns the marker.
+     */
+    function syncPanelMarker(panel, t) {
+      const el = cells[panel];
+      if (!el) return;
+      if (performance.now() < judgeUntil[panel]) return;
+
+      let soonest = null;
+      for (const n of active.values()) {
+        if (n.panel !== panel) continue;
+        if (!soonest || n.t < soonest.t) soonest = n;
+      }
+
+      if (!soonest) {
+        el.classList.remove("is-approach", "is-armed");
+        el.style.setProperty("--jb-p", "0");
+        return;
+      }
+
+      // Linear 0→1 over a fixed window ending at hit time
+      const start = soonest.t - approachMs;
+      const p = Math.max(0, Math.min(1, (t - start) / approachMs));
+      el.classList.add("is-approach", "is-armed");
+      el.style.setProperty("--jb-p", p.toFixed(4));
+    }
+
+    function syncAllMarkers(t) {
+      for (let i = 0; i < CELLS; i++) syncPanelMarker(i, t);
     }
 
     function clearPanels() {
       cells.forEach((c, i) => {
         c.classList.remove("is-armed", "is-hit", "is-miss", "is-approach", ...JUDGE_CLASSES);
-        c.style.removeProperty("--jb-p");
+        c.style.setProperty("--jb-p", "0");
         const j = c.querySelector(".jb-cell-judge");
         if (j) {
           j.hidden = true;
           j.textContent = "";
           j.className = "jb-cell-judge";
         }
-        const vid = cellVids[i];
-        if (vid) {
-          try {
-            vid.pause();
-            vid.classList.remove("is-playing");
-          } catch {
-            /* ignore */
-          }
-        }
+        stopCellVid(i);
+        judgeUntil[i] = 0;
       });
       cellJudgeTimers.forEach((t, i) => {
         if (t) clearTimeout(t);
         cellJudgeTimers[i] = null;
+      });
+      emptyTapTimers.forEach((t, i) => {
+        if (t) clearTimeout(t);
+        emptyTapTimers[i] = null;
       });
       active.clear();
     }
@@ -724,33 +794,32 @@
       const key = `${hitTime}-${panel}`;
       if (active.has(key)) return;
       active.set(key, { t: hitTime, panel, key });
-      cells[panel].classList.add("is-approach", "is-armed");
-    }
-
-    function despawn(key, panel, missed) {
-      active.delete(key);
-      const still = [...active.values()].some((n) => n.panel === panel);
-      const el = cells[panel];
-      if (!still) {
-        el.classList.remove("is-approach", "is-armed");
-        if (missed) {
-          el.classList.add("is-miss");
-          setTimeout(() => el.classList.remove("is-miss"), 160);
-        }
-      }
+      // Marker progress is applied every frame via syncPanelMarker
     }
 
     function registerMiss(n) {
       if (!running || submitted) return;
+      if (!active.has(n.key)) return;
       counts.miss += 1;
       missEl.textContent = String(counts.miss);
       combo = 0;
       comboEl.textContent = "0";
+      active.delete(n.key);
       setCellJudge(n.panel, "MISS", "miss");
-      despawn(n.key, n.panel, true);
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
       blip(120, 0.05, 0.025);
       // Misses never fail the chart
+    }
+
+    function flashEmptyTap(i) {
+      const el = cells[i];
+      if (!el || performance.now() < judgeUntil[i]) return;
+      el.classList.add("is-miss");
+      if (emptyTapTimers[i]) clearTimeout(emptyTapTimers[i]);
+      emptyTapTimers[i] = setTimeout(() => {
+        el.classList.remove("is-miss");
+        emptyTapTimers[i] = null;
+      }, EMPTY_TAP_MS);
     }
 
     function onPanel(i) {
@@ -771,8 +840,7 @@
         }
       }
       if (!best || bestErr > WIN.good) {
-        cells[i].classList.add("is-miss");
-        setTimeout(() => cells[i].classList.remove("is-miss"), 120);
+        flashEmptyTap(i);
         global.ArcadeSFX?.tick?.();
         return;
       }
@@ -806,10 +874,8 @@
       scoreEl.textContent = String(score);
       comboEl.textContent = String(combo);
       excEl.textContent = String(counts.excellent);
+      active.delete(best.key);
       setCellJudge(i, label, cls);
-      despawn(best.key, best.panel, false);
-      cells[i].classList.add("is-hit");
-      setTimeout(() => cells[i].classList.remove("is-hit"), 140);
     }
 
     function finish() {
@@ -850,6 +916,7 @@
       const chart = chartFor(s);
       const duration = chart.length ? chart[chart.length - 1].t + 800 : 1000;
 
+      // Spawn exactly approachMs before hit so every marker gets a full load
       while (chartIndex < chart.length && chart[chartIndex].t <= t + approachMs) {
         const n = chart[chartIndex++];
         n.panels.forEach((p) => spawnNote(p, n.t));
@@ -860,12 +927,8 @@
         if (t - n.t > WIN.good) registerMiss(n);
       }
 
-      for (const n of active.values()) {
-        const left = n.t - t;
-        // p = 0 at spawn, 1 at hit time (shutter fully closed)
-        const p = 1 - Math.max(0, Math.min(1, left / approachMs));
-        cells[n.panel].style.setProperty("--jb-p", String(p));
-      }
+      // One consistent progress owner per panel (soonest note)
+      syncAllMarkers(t);
 
       if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
 
@@ -943,8 +1006,6 @@
       combo = 0;
       bestCombo = 0;
       counts = { excellent: 0, great: 0, good: 0, miss: 0 };
-      // Approach ≈ 2 beats so the shutter reads the pulse
-      approachMs = Math.max(520, Math.round((60000 / s.bpm) * 2));
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
       excEl.textContent = "0";
