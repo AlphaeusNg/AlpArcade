@@ -2483,13 +2483,12 @@ body.salmon-mode .fun-fact-text {
 }
 
 .jb-audio {
-  display: block;
-  width: 100%;
-  max-width: 28rem;
-  height: 2.5rem;
-  margin: 0 auto;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.45);
+  /* Hidden transport — chart drives playback; no native controls */
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .jb-music {

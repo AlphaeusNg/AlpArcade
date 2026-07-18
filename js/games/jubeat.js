@@ -585,7 +585,7 @@
 
     function duckLobbyMusic(on) {
       try {
-        if (on) global.ArcadeMusic?.pause?.();
+        if (on) global.ArcadeMusic?.pause?.({ lock: true });
         else global.ArcadeMusic?.resume?.();
       } catch {
         /* ignore */
@@ -645,16 +645,21 @@
       if (audioSrc === src && audioEl.readyState >= 2) return Promise.resolve(true);
       const gen = ++loadGen;
       return new Promise((resolve) => {
-        const onReady = () => {
-          if (gen !== loadGen) return;
+        let settled = false;
+        const finish = (ok) => {
+          if (settled || gen !== loadGen) {
+            if (!settled && gen !== loadGen) {
+              settled = true;
+              resolve(false); // superseded load
+            }
+            return;
+          }
+          settled = true;
           cleanup();
-          resolve(true);
+          resolve(ok);
         };
-        const onErr = () => {
-          if (gen !== loadGen) return;
-          cleanup();
-          resolve(false);
-        };
+        const onReady = () => finish(true);
+        const onErr = () => finish(false);
         const cleanup = () => {
           audioEl.removeEventListener("canplaythrough", onReady);
           audioEl.removeEventListener("loadeddata", onReady);
@@ -667,16 +672,15 @@
         audioEl.src = src;
         audioEl.load();
         if (audioEl.readyState >= 2) {
-          cleanup();
-          resolve(true);
+          finish(true);
         }
-        // Don't hang forever on slow networks
+        // Always settle within 4s (fail closed if still empty)
         setTimeout(() => {
-          if (gen !== loadGen) return;
-          if (audioEl.readyState >= 1) {
-            cleanup();
-            resolve(true);
+          if (settled || gen !== loadGen) {
+            if (!settled) finish(false);
+            return;
           }
+          finish(audioEl.readyState >= 1);
         }, 4000);
       });
     }
@@ -695,13 +699,24 @@
     function playBgm(s) {
       if (!s?.audio || !audioEl) return Promise.resolve(false);
       return loadAudio(s.audio).then((ok) => {
-        if (!ok || destroyed) return false;
+        // Never start orphan audio if the chart already fell back to wall clock
+        if (!ok || destroyed || !running || clockStarted) return false;
         try {
           audioEl.currentTime = 0;
           audioEl.volume = 1;
           const p = audioEl.play();
           if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
-          if (p?.then) return p.then(() => true).catch(() => false);
+          if (p?.then) {
+            return p
+              .then(() => {
+                if (destroyed || !running || (clockStarted && !useAudioClock)) {
+                  stopBgm();
+                  return false;
+                }
+                return true;
+              })
+              .catch(() => false);
+          }
           return true;
         } catch {
           return false;
@@ -734,17 +749,25 @@
       }
     }
 
+    function songOffsetMs() {
+      return song().audioOffsetMs || 0;
+    }
+
+    /**
+     * Chart time origin = first audible beat (after audioOffsetMs).
+     * Hold at 0 during intro silence — never interpolate past 0 while still in intro.
+     */
     function sampleAudioMs() {
-      const s = song();
-      const offset = s.audioOffsetMs || 0;
+      const offset = songOffsetMs();
       if (!audioEl || !Number.isFinite(audioEl.currentTime)) return null;
       try {
         if (audioEl.ended) {
-          // Freeze at track end time (chart continues via perf extrapolation)
           return Math.max(0, (audioEl.duration || audioEl.currentTime) * 1000 - offset);
         }
         if (audioEl.paused) return clockAnchorAudioMs;
-        return Math.max(0, audioEl.currentTime * 1000 - offset);
+        const raw = audioEl.currentTime * 1000;
+        if (raw < offset) return 0; // intro hold
+        return raw - offset;
       } catch {
         return null;
       }
@@ -760,11 +783,28 @@
         if (audioEl.paused) {
           return clockAnchorAudioMs;
         }
+        // Intro silence: hard hold at 0 (no perf interpolation thrash)
+        try {
+          if (audioEl.currentTime * 1000 < songOffsetMs()) {
+            clockAnchorAudioMs = 0;
+            clockAnchorPerf = perf;
+            lastAudioSamplePerf = perf;
+            return 0;
+          }
+        } catch {
+          /* ignore */
+        }
         // Resample HTMLAudio ~10×/s; interpolate with performance.now between samples
         if (perf - lastAudioSamplePerf > 100) {
           const v = sampleAudioMs();
           if (v != null) {
-            clockAnchorAudioMs = v;
+            // Soft catch-up: never jump backward more than a small amount
+            if (v + 40 < clockAnchorAudioMs + (perf - clockAnchorPerf)) {
+              // buffer underrun recovery — re-anchor without large rewind
+              clockAnchorAudioMs = Math.max(v, clockAnchorAudioMs + (perf - clockAnchorPerf) - 80);
+            } else {
+              clockAnchorAudioMs = v;
+            }
             clockAnchorPerf = perf;
             lastAudioSamplePerf = perf;
           }

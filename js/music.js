@@ -220,7 +220,9 @@
 
   function play(id, embed, label, { forceReload = false } = {}) {
     if (!embed) return;
-    // Explicit station pick clears duck state
+    // Game owns BGM (e.g. jubeat) — ignore station picks until unlock
+    if (duckLocked) return;
+    // Explicit station pick clears soft duck state
     if (ducked) {
       ducked = false;
       duckedEmbed = "";
@@ -409,17 +411,25 @@
 
   // Games (e.g. jubeat) duck lobby Spotify so chart BGM is audible
   let ducked = false;
+  let duckLocked = false; // true while a game owns BGM (e.g. jubeat chart)
   let duckedEmbed = "";
   let duckedId = "";
   let duckedLabel = "";
 
   window.ArcadeMusic = {
-    pause() {
-      if (ducked) return;
+    pause({ lock = false } = {}) {
+      if (ducked) {
+        if (lock) duckLocked = true;
+        return;
+      }
       const embed = lastEmbed || currentEmbed;
-      if (!embed || !playing) return;
+      if (!embed && !playing) {
+        if (lock) duckLocked = true;
+        return;
+      }
       ducked = true;
-      duckedEmbed = embed;
+      if (lock) duckLocked = true;
+      duckedEmbed = embed || lastEmbed || "";
       duckedId = currentId;
       duckedLabel = currentLabel;
       const f = frame();
@@ -430,12 +440,13 @@
           /* ignore */
         }
       }
-      // Keep shell visible as "paused for game" — do not persist stopped
+      // Do not persist stopped — game will resume
       playing = false;
       currentEmbed = "";
       updateLabels();
     },
     resume() {
+      duckLocked = false;
       if (!ducked) return;
       ducked = false;
       const embed = duckedEmbed;
@@ -447,6 +458,7 @@
     stop: stopMusic,
     isPlaying: () => playing,
     isDucked: () => ducked,
+    isLocked: () => duckLocked,
   };
 
   if (document.readyState === "loading") {
