@@ -979,7 +979,8 @@
     }
 
     /**
-     * Single start path: wait until audio is actually playing, then lock clock.
+     * Single start path: wait until audio is past the intro offset (first
+     * audible beat), then lock the chart clock so note 0 approaches cleanly.
      * If play never happens, fall back to local clock (and stop orphan audio).
      */
     function waitForPlaybackThenStart(deadlineMs) {
@@ -987,18 +988,25 @@
       const poll = () => {
         if (!running || destroyed || clockStarted) return;
         try {
-          if (audioEl && !audioEl.paused && !audioEl.ended && audioEl.currentTime >= 0) {
-            beginChartClock(true);
-            return;
+          if (audioEl && !audioEl.paused && !audioEl.ended) {
+            const offsetSec = songOffsetMs() / 1000;
+            // Start chart once we're at/past intro silence (or immediately if none)
+            if (audioEl.currentTime + 0.02 >= offsetSec) {
+              beginChartClock(true);
+              return;
+            }
+            // Audio is playing through intro — keep waiting
+            if (performance.now() < deadline) {
+              setTimeout(poll, 30);
+              return;
+            }
           }
         } catch {
           /* ignore */
         }
         if (performance.now() >= deadline) {
-          // Don't leave audio running against a wall-clock chart
           try {
-            if (audioEl && audioEl.paused === false && !clockStarted) {
-              // Late audio arrived after we gave up — still bind if possible
+            if (audioEl && !audioEl.paused && !audioEl.ended && !clockStarted) {
               beginChartClock(true);
               return;
             }
