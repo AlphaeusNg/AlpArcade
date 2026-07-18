@@ -1,7 +1,7 @@
 {
   "name": "AlpArcade",
   "short_name": "AlpArcade",
-  "description": "Browser mini-games — free play with optional global scores",
+  "description": "Alp's favourite games -- may the best human win",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#05080f",

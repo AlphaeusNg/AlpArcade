@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlpArcade — mini games</title>
-  <meta name="description" content="AlpArcade: free browser mini-games — Tic-Tac-Toe, Space Shooter, Snake, Reaction Lab, Memory Match, Target Tap. Built with Grok 4.5." />
+  <meta name="description" content="Alp's favourite games -- may the best human win" />
   <meta name="theme-color" content="#05080f" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -12,12 +12,12 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="canonical" href="https://alphaeusng.github.io/AlpArcade/" />
   <meta property="og:title" content="AlpArcade" />
-  <meta property="og:description" content="Favourite games to pass the time — built with Grok 4.5." />
+  <meta property="og:description" content="Alp's favourite games -- may the best human win" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://alphaeusng.github.io/AlpArcade/" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="AlpArcade" />
-  <meta name="twitter:description" content="Favourite games to pass the time — built with Grok 4.5." />
+  <meta name="twitter:description" content="Alp's favourite games -- may the best human win" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2305080f'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='monospace' font-size='28' font-weight='700' fill='%232dd4bf'%3EAA%3C/text%3E%3C/svg%3E" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -44,7 +44,7 @@
           <button type="button" class="music-dock-close" id="music-dock-close" title="Close station list" aria-label="Close station list">×</button>
         </div>
       </div>
-      <p class="bg-music-hint mono">Pick a station · drag the small player free · – mini tab · × stops</p>
+      <p class="bg-music-hint mono">Pick a station · player stays in this panel · × stops · closes without cutting audio</p>
       <div class="bg-music-picks" role="group" aria-label="Playlists">
         <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
           <strong>Lofi Beats</strong>
@@ -57,12 +57,10 @@
       </div>
       <div class="music-player-slot" id="music-player-slot">
         <p id="bg-music-empty" class="bg-music-empty">Starting music…</p>
-        <div class="music-player-shell" id="music-player-shell" hidden>
+        <div class="music-player-shell is-docked" id="music-player-shell" hidden>
           <div class="music-player-bar">
-            <span class="music-player-grip" id="music-player-grip" aria-hidden="true" hidden title="Drag player">⋮⋮</span>
             <span class="music-player-label mono" id="music-player-label">Playing…</span>
-            <button type="button" class="music-player-min" id="music-player-min" hidden title="Minimize to side tab" aria-label="Minimize to side tab">–</button>
-            <button type="button" class="music-player-close" id="music-player-close" hidden title="Stop music" aria-label="Stop music">×</button>
+            <button type="button" class="music-player-close" id="music-player-close" title="Stop music" aria-label="Stop music">×</button>
           </div>
           <div class="music-player-frame-wrap">
             <iframe

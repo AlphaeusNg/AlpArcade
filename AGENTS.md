@@ -54,8 +54,8 @@ manifest.webmanifest
 ## Music
 
 - Default autoplay: **Lofi Beats** (`data-playlist="lofi"`), or last station in `localStorage` key `alparcade-bg-music`.
-- **Left-edge dock** (`#bg-music`): vertical tab opens/closes the panel; open state in `alparcade-music-dock-open`.
-- Mini player shell is **viewport-fixed** (no scroll re-pin). Nav **Music** toggles the dock.
+- **Left-edge dock** (`#bg-music`): vertical tab opens/closes the panel; open state in `alparcade-music-ui-v5`.
+- Player shell stays **inside the dock slot only** (no free-float / drag). Closing the panel does not stop audio. Nav **Music** toggles the dock.
 
 ## Phone UX
 

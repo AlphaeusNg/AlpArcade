@@ -56,20 +56,23 @@
     btn.hidden = !lastRunShare;
   }
 
+  const SHARE_BLURB = "Alp's favourite games -- may the best human win";
+
   async function shareLastRun() {
     if (!lastRunShare) {
       showToast("Finish a run first");
       return;
     }
-    // Always copy the arcade link (no native share sheet)
+    // Always copy blurb + arcade link (no native share sheet)
     const link = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
+    const text = `${SHARE_BLURB}\n${link}`;
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(text);
       showToast("Link copied");
     } catch {
       try {
         const ta = document.createElement("textarea");
-        ta.value = link;
+        ta.value = text;
         ta.setAttribute("readonly", "");
         ta.style.position = "fixed";
         ta.style.left = "-9999px";
@@ -79,7 +82,7 @@
         document.body.removeChild(ta);
         showToast("Link copied");
       } catch {
-        prompt("Copy this link:", link);
+        prompt("Copy this:", text);
       }
     }
   }
