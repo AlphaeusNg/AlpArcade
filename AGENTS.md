@@ -21,7 +21,7 @@ Zero-build browser mini-games (“pass the time”) with local progress, optiona
 | `memory` | Memory Match |
 | `tapper` | Target Tap |
 | `breaker` | Circuit Breaker |
-| `jubeat` | Pulse Grid (rhythm · Lv 15) |
+| `jubeat` | Pulse Grid (rhythm · Lv 15 · local BGM) |
 
 Game modules: `js/games/<id>.js` — **lazy-loaded** when a cabinet opens (`js/app.js`).
 
