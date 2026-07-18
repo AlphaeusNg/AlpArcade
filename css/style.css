@@ -886,7 +886,7 @@ body.salmon-mode .fun-fact-text {
   position: fixed;
   left: 0;
   top: 50%;
-  z-index: 70; /* normal; float shell 100, mini-on-tab 110, dragging 200 */
+  z-index: 70;
   transform: translateY(-50%);
   display: inline-flex;
   flex-direction: row;
@@ -925,8 +925,7 @@ body.salmon-mode .fun-fact-text {
   box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
 }
 
-.music-dock.is-playing .music-dock-tab-icon,
-.music-dock-tab.is-player-mini .music-dock-tab-icon {
+.music-dock.is-playing .music-dock-tab-icon {
   animation: music-tab-pulse 1.6s ease-in-out infinite;
 }
 
@@ -1043,7 +1042,6 @@ body.salmon-mode .fun-fact-text {
   flex-shrink: 0;
 }
 
-.music-dock-min,
 .music-dock-close {
   flex-shrink: 0;
   width: 2rem;
@@ -1059,12 +1057,6 @@ body.salmon-mode .fun-fact-text {
   padding: 0;
 }
 
-.music-dock-min {
-  padding-bottom: 0.15rem;
-}
-
-.music-dock-min:hover,
-.music-dock-min:focus-visible,
 .music-dock-close:hover,
 .music-dock-close:focus-visible {
   border-color: rgba(45, 212, 191, 0.45);

@@ -101,19 +101,16 @@
       return this.queue[0] || null;
     }
 
-    /** Best note within judge window at time t (shared WIN windows). */
+    /**
+     * Judge only the head of the queue (soonest note) — same as the shutter.
+     * Closest-of-all would credit a later note and auto-miss the earlier one.
+     */
     bestInWindow(t) {
-      let best = null;
-      let bestErr = Infinity;
-      for (const n of this.queue) {
-        const err = Math.abs(t - n.t);
-        if (err < bestErr) {
-          bestErr = err;
-          best = n;
-        }
-      }
-      if (!best || bestErr > WIN.good) return null;
-      return { note: best, err: bestErr };
+      const head = this.queue[0];
+      if (!head) return null;
+      const err = Math.abs(t - head.t);
+      if (err > WIN.good) return null;
+      return { note: head, err };
     }
 
     /** Expire notes past good window → miss. */
@@ -128,13 +125,15 @@
     /**
      * Drive shutter from absolute chart time so every note loads in exactly
      * APPROACH_MS. Only the soonest note owns the marker.
+     * Keep driving progress under a judge flash so dense streams stay readable.
      */
     syncMarker(t) {
-      if (performance.now() < this.judgeUntil) return;
       const soonest = this.soonest();
       if (!soonest) {
-        this.el.classList.remove("is-approach", "is-armed");
-        this.el.style.setProperty("--jb-p", "0");
+        if (performance.now() >= this.judgeUntil) {
+          this.el.classList.remove("is-approach", "is-armed");
+          this.el.style.setProperty("--jb-p", "0");
+        }
         return;
       }
       const start = soonest.t - APPROACH_MS;
@@ -425,9 +424,10 @@
       artist: "Ryu☆",
       level: 9,
       bpm: 183,
-      // Matched to assets/jubeat/audio/*.mp3 (ffprobe)
-      durationSec: 248,
-      audioOffsetMs: 0,
+      // Chart length (s); audio file may be longer — chart stops when notes end
+      durationSec: 105,
+      // Intro silence trimmed so bar 0 ≈ first audible beat
+      audioOffsetMs: 580,
       color: "#f472b6",
       audio: AUDIO_BASE + "imsosohappy.mp3",
       notesHint: "beat chart",
@@ -439,7 +439,7 @@
       level: 9,
       bpm: 185,
       durationSec: 116,
-      audioOffsetMs: 0,
+      audioOffsetMs: 890,
       color: "#38bdf8",
       audio: AUDIO_BASE + "albida.mp3",
       notesHint: "columns",
@@ -451,7 +451,7 @@
       level: 8,
       bpm: 173,
       durationSec: 124,
-      audioOffsetMs: 0,
+      audioOffsetMs: 390,
       color: "#c084fc",
       audio: AUDIO_BASE + "flower.mp3",
       notesHint: "petals",
@@ -463,7 +463,7 @@
       level: 9,
       bpm: 180,
       durationSec: 109,
-      audioOffsetMs: 0,
+      audioOffsetMs: 530,
       color: "#fbbf24",
       audio: AUDIO_BASE + "evans.mp3",
       notesHint: "shuffle",
@@ -494,7 +494,7 @@
           <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
         </div>
         <div class="jb-music" id="jb-music">
-          <audio id="jb-audio" class="jb-audio" preload="metadata" controls playsinline></audio>
+          <audio id="jb-audio" class="jb-audio" preload="auto" playsinline></audio>
           <p class="jb-music-note mono" id="jb-music-note">Local BGM · hit when the shutter closes</p>
         </div>
         <p class="game-hint" id="jb-hint">Hit when the shutter closes on the beat · miss never fails the chart · 1–4 QWER ASDF ZXCV</p>
@@ -566,9 +566,30 @@
     let clockAnchorPerf = 0;
     let lastAudioSamplePerf = 0;
     let audioSrc = "";
+    let loadGen = 0;
+    let countInTimers = [];
+    let startFallbackTimer = null;
 
     function song() {
       return SONGS[songIndex];
+    }
+
+    function clearCountIn() {
+      countInTimers.forEach((id) => clearTimeout(id));
+      countInTimers = [];
+      if (startFallbackTimer) {
+        clearTimeout(startFallbackTimer);
+        startFallbackTimer = null;
+      }
+    }
+
+    function duckLobbyMusic(on) {
+      try {
+        if (on) global.ArcadeMusic?.pause?.();
+        else global.ArcadeMusic?.resume?.();
+      } catch {
+        /* ignore */
+      }
     }
 
     function escapeHtml(s) {
@@ -622,12 +643,15 @@
     function loadAudio(src) {
       if (!audioEl || !src) return Promise.resolve(false);
       if (audioSrc === src && audioEl.readyState >= 2) return Promise.resolve(true);
+      const gen = ++loadGen;
       return new Promise((resolve) => {
         const onReady = () => {
+          if (gen !== loadGen) return;
           cleanup();
           resolve(true);
         };
         const onErr = () => {
+          if (gen !== loadGen) return;
           cleanup();
           resolve(false);
         };
@@ -642,11 +666,18 @@
         audioSrc = src;
         audioEl.src = src;
         audioEl.load();
-        // Already buffered from a previous visit
         if (audioEl.readyState >= 2) {
           cleanup();
           resolve(true);
         }
+        // Don't hang forever on slow networks
+        setTimeout(() => {
+          if (gen !== loadGen) return;
+          if (audioEl.readyState >= 1) {
+            cleanup();
+            resolve(true);
+          }
+        }, 4000);
       });
     }
 
@@ -708,7 +739,11 @@
       const offset = s.audioOffsetMs || 0;
       if (!audioEl || !Number.isFinite(audioEl.currentTime)) return null;
       try {
-        if (audioEl.paused && !audioEl.ended) return clockAnchorAudioMs;
+        if (audioEl.ended) {
+          // Freeze at track end time (chart continues via perf extrapolation)
+          return Math.max(0, (audioEl.duration || audioEl.currentTime) * 1000 - offset);
+        }
+        if (audioEl.paused) return clockAnchorAudioMs;
         return Math.max(0, audioEl.currentTime * 1000 - offset);
       } catch {
         return null;
@@ -718,7 +753,11 @@
     function nowMs() {
       if (useAudioClock && audioEl) {
         const perf = performance.now();
-        if (audioEl.paused && !audioEl.ended) {
+        // Track ended: keep advancing with performance.now so late notes can miss/finish
+        if (audioEl.ended) {
+          return Math.max(0, clockAnchorAudioMs + (perf - clockAnchorPerf));
+        }
+        if (audioEl.paused) {
           return clockAnchorAudioMs;
         }
         // Resample HTMLAudio ~10×/s; interpolate with performance.now between samples
@@ -809,15 +848,19 @@
       submitted = true;
       running = false;
       cancelAnimationFrame(raf);
+      clearCountIn();
       stopBgm();
+      duckLobbyMusic(false);
       panels.forEach((p) => p.reset());
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
       paintSongs();
       const s = song();
       const total = counts.excellent + counts.great + counts.good + counts.miss;
+      const hit = counts.excellent + counts.great + counts.good;
       const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
-      hintEl.textContent = `${s.title} cleared · ${score} pts · EXC ${counts.excellent} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
+      const cleared = total > 0 && hit / total >= 0.7;
+      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · ${score} pts · EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
       onScore?.({
         score,
@@ -829,7 +872,7 @@
           good: counts.good,
           miss: counts.miss,
           bestCombo,
-          cleared: true,
+          cleared,
         },
       });
     }
@@ -878,6 +921,10 @@
     function beginChartClock(fromAudio) {
       if (clockStarted || !running || destroyed) return;
       clockStarted = true;
+      if (startFallbackTimer) {
+        clearTimeout(startFallbackTimer);
+        startFallbackTimer = null;
+      }
       const perf = performance.now();
       t0 = perf;
       useAudioClock = !!fromAudio;
@@ -891,12 +938,16 @@
       raf = requestAnimationFrame(frame);
     }
 
+    /**
+     * Single start path: wait until audio is actually playing, then lock clock.
+     * If play never happens, fall back to local clock (and stop orphan audio).
+     */
     function waitForPlaybackThenStart(deadlineMs) {
       const deadline = performance.now() + deadlineMs;
       const poll = () => {
         if (!running || destroyed || clockStarted) return;
         try {
-          if (audioEl && !audioEl.paused && audioEl.currentTime >= 0 && !audioEl.ended) {
+          if (audioEl && !audioEl.paused && !audioEl.ended && audioEl.currentTime >= 0) {
             beginChartClock(true);
             return;
           }
@@ -904,6 +955,17 @@
           /* ignore */
         }
         if (performance.now() >= deadline) {
+          // Don't leave audio running against a wall-clock chart
+          try {
+            if (audioEl && audioEl.paused === false && !clockStarted) {
+              // Late audio arrived after we gave up — still bind if possible
+              beginChartClock(true);
+              return;
+            }
+          } catch {
+            /* ignore */
+          }
+          stopBgm();
           beginChartClock(false);
           return;
         }
@@ -921,8 +983,10 @@
 
     function start() {
       cancelAnimationFrame(raf);
+      clearCountIn();
       panels.forEach((p) => p.reset());
       stopBgm();
+      duckLobbyMusic(true);
       const s = song();
       chart = chartFor(s);
       chartIndex = 0;
@@ -947,23 +1011,28 @@
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
       hintEl.textContent = `${s.title} · EXT ${s.level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-      const beatMs = 60000 / s.bpm;
-      blip(523, 0.07, 0.035);
-      setTimeout(() => blip(523, 0.07, 0.035), beatMs);
-      setTimeout(() => blip(659, 0.07, 0.035), beatMs * 2);
-      setTimeout(() => blip(784, 0.09, 0.04), beatMs * 3);
 
+      // Single path: load + play BGM, then lock chart to audio time.
+      // Absolute fallback only if nothing starts (no dual clocks).
       playBgm(s).then((ok) => {
         if (!running || destroyed || clockStarted) return;
         if (ok) {
-          waitForPlaybackThenStart(2500);
+          waitForPlaybackThenStart(5000);
         } else {
-          setTimeout(() => beginChartClock(false), Math.round(beatMs * 4));
+          const beatMs = 60000 / s.bpm;
+          countInTimers.push(
+            setTimeout(() => {
+              if (!clockStarted && running && !destroyed) beginChartClock(false);
+            }, Math.round(beatMs * 2))
+          );
         }
       });
-      setTimeout(() => {
-        if (running && !clockStarted && !destroyed) beginChartClock(false);
-      }, 3500);
+      startFallbackTimer = setTimeout(() => {
+        if (running && !clockStarted && !destroyed) {
+          stopBgm();
+          beginChartClock(false);
+        }
+      }, 6000);
     }
 
     startBtn.addEventListener("click", start);
@@ -1010,8 +1079,10 @@
         destroyed = true;
         running = false;
         cancelAnimationFrame(raf);
+        clearCountIn();
         panels.forEach((p) => p.destroy());
         stopBgm();
+        duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
         try {
           if (audioEl) {

@@ -220,6 +220,11 @@
 
   function play(id, embed, label, { forceReload = false } = {}) {
     if (!embed) return;
+    // Explicit station pick clears duck state
+    if (ducked) {
+      ducked = false;
+      duckedEmbed = "";
+    }
     ensureShellInSlot();
     ensureStopButton();
     const f = frame();
@@ -401,6 +406,48 @@
       }
     });
   }
+
+  // Games (e.g. jubeat) duck lobby Spotify so chart BGM is audible
+  let ducked = false;
+  let duckedEmbed = "";
+  let duckedId = "";
+  let duckedLabel = "";
+
+  window.ArcadeMusic = {
+    pause() {
+      if (ducked) return;
+      const embed = lastEmbed || currentEmbed;
+      if (!embed || !playing) return;
+      ducked = true;
+      duckedEmbed = embed;
+      duckedId = currentId;
+      duckedLabel = currentLabel;
+      const f = frame();
+      if (f) {
+        try {
+          f.src = "about:blank";
+        } catch {
+          /* ignore */
+        }
+      }
+      // Keep shell visible as "paused for game" — do not persist stopped
+      playing = false;
+      currentEmbed = "";
+      updateLabels();
+    },
+    resume() {
+      if (!ducked) return;
+      ducked = false;
+      const embed = duckedEmbed;
+      const id = duckedId;
+      const label = duckedLabel;
+      duckedEmbed = "";
+      if (embed) play(id || "resume", embed, label, { forceReload: true });
+    },
+    stop: stopMusic,
+    isPlaying: () => playing,
+    isDucked: () => ducked,
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
