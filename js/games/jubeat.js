@@ -11,7 +11,8 @@
   const CUSTOM_CHART_STORAGE_KEY = "alparcade-jubeat-custom-charts-v1";
   const CUSTOM_STEP_BEATS = [1, 0.5, 0.25];
   const CUSTOM_START_BEATS = 4;
-  const CUSTOM_MAX_STEPS = 128;
+  const CUSTOM_MAX_STEPS = 2048;
+  const CUSTOM_TIMELINE_BEATS = 4;
   const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.96, perfect: 1.04 };
   const MISS_AFTER_MS = 180;
   const SCORE_WEIGHT = { good: 0.4, great: 0.7, excellent: 1 };
@@ -748,6 +749,11 @@
     const level = Math.max(1, Math.min(10, Math.round(Number(value.level) || 1)));
     const requestedStepBeats = Number(value.stepBeats);
     const stepBeats = CUSTOM_STEP_BEATS.includes(requestedStepBeats) ? requestedStepBeats : 0.5;
+    const requestedStartBeat = Number(value.startBeat);
+    const startBeat =
+      value.startBeat == null
+        ? CUSTOM_START_BEATS
+        : Math.max(0, Math.min(32, Number.isFinite(requestedStartBeat) ? requestedStartBeat : 0));
     const rawSteps = Array.isArray(value.steps) ? value.steps.slice(0, CUSTOM_MAX_STEPS) : [];
     const steps = (rawSteps.length ? rawSteps : [[]]).map((step) => {
       const panels = Array.isArray(step) ? step : [];
@@ -759,7 +765,15 @@
     const id = String(value.id || fallbackId)
       .replace(/[^a-zA-Z0-9_-]/g, "")
       .slice(0, 48);
-    return { id: id || fallbackId, name, baseSongId: baseSong.id, level, stepBeats, steps };
+    return { id: id || fallbackId, name, baseSongId: baseSong.id, level, stepBeats, startBeat, steps };
+  }
+
+  function customStepIndexForTime(timeMs, bpm, stepBeats, startBeat = 0) {
+    const beatMs = 60000 / Number(bpm);
+    if (!Number.isFinite(timeMs) || !Number.isFinite(beatMs) || beatMs <= 0 || !CUSTOM_STEP_BEATS.includes(stepBeats)) {
+      return -1;
+    }
+    return Math.round((Math.max(0, timeMs) / beatMs - Math.max(0, Number(startBeat) || 0)) / stepBeats);
   }
 
   function buildCustomChart(value) {
@@ -769,7 +783,7 @@
     const beatMs = 60000 / baseSong.bpm;
     return definition.steps
       .map((panels, index) =>
-        panels.length ? note(Math.round((CUSTOM_START_BEATS + index * definition.stepBeats) * beatMs), panels) : null
+        panels.length ? note(Math.round((definition.startBeat + index * definition.stepBeats) * beatMs), panels) : null
       )
       .filter(Boolean);
   }
@@ -839,6 +853,13 @@
     let customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
     let editorDraft = null;
     let editorStep = 0;
+    let editorRecording = false;
+    let editorRecordRaf = 0;
+    let editorPreviewTimer = 0;
+    let editorRecordedHits = 0;
+    let editorRecordToken = 0;
+    let editorRecordAnchorAudioMs = 0;
+    let editorRecordAnchorPerf = 0;
 
     root.innerHTML = `
       <div class="jubeat-wrap">
@@ -885,10 +906,35 @@
                 </select>
               </label>
             </div>
-            <div class="jb-editor-sequence">
+            <section class="jb-editor-recorder" id="jb-editor-recorder" aria-label="Live pattern recorder">
+              <div class="jb-recorder-head">
+                <div>
+                  <span id="jb-recorder-state">BLANK RECORDING</span>
+                  <strong id="jb-recorder-time">0:00.0</strong>
+                </div>
+                <div>
+                  <span>CAPTURED</span>
+                  <strong id="jb-recorder-hits">0 HITS</strong>
+                </div>
+              </div>
+              <div class="jb-record-grid" id="jb-record-grid" role="grid" aria-label="Recording 4 by 4 grid">
+                ${Array.from(
+                  { length: CELLS },
+                  (_, index) =>
+                    `<button type="button" data-record-panel="${index}" aria-label="Record panel ${index + 1}"><span>${index + 1}</span></button>`
+                ).join("")}
+              </div>
+              <div class="jb-record-progress" aria-hidden="true"><div id="jb-record-progress-fill"></div></div>
+              <div class="jb-recorder-actions">
+                <button type="button" class="btn primary" id="jb-editor-record">Start recording</button>
+                <button type="button" class="btn primary jb-record-stop" id="jb-editor-stop" hidden>Stop &amp; clean up</button>
+                <button type="button" class="btn ghost small" id="jb-editor-manual">Open blank beat editor</button>
+              </div>
+            </section>
+            <div class="jb-editor-sequence" id="jb-editor-sequence" hidden>
               <div class="jb-editor-step-head">
                 <strong id="jb-editor-step-label">STEP 1 / 16</strong>
-                <span>Select multiple panels for a chord</span>
+                <span id="jb-editor-step-time">BEAT 0.00</span>
               </div>
               <div class="jb-editor-timeline" id="jb-editor-timeline" role="tablist" aria-label="Pattern steps"></div>
               <div class="jb-editor-grid" id="jb-editor-grid" role="grid" aria-label="Custom pattern 4 by 4 grid">
@@ -901,13 +947,19 @@
               <div class="jb-editor-step-actions">
                 <button type="button" class="btn ghost small" id="jb-editor-prev" aria-label="Previous step" title="Previous step">←</button>
                 <button type="button" class="btn ghost small" id="jb-editor-next" aria-label="Next step" title="Next step">→</button>
-                <button type="button" class="btn ghost small" id="jb-editor-add">Add step</button>
-                <button type="button" class="btn ghost small" id="jb-editor-remove">Remove step</button>
+                <label class="jb-editor-beat-jump">
+                  <span>BEAT</span>
+                  <input id="jb-editor-beat" type="number" min="0" step="0.5" value="0" inputmode="decimal" aria-label="Jump to beat">
+                </label>
+                <button type="button" class="btn ghost small" id="jb-editor-play-beat">Play beat</button>
+                <button type="button" class="btn ghost small" id="jb-editor-add">Extend chart</button>
+                <button type="button" class="btn ghost small" id="jb-editor-remove">Trim end</button>
                 <button type="button" class="btn ghost small" id="jb-editor-clear">Clear step</button>
               </div>
             </div>
             <p class="jb-editor-status" id="jb-editor-status" aria-live="polite"></p>
-            <div class="jb-editor-save-actions">
+            <div class="jb-editor-save-actions" id="jb-editor-save-actions" hidden>
+              <button type="button" class="btn ghost small" id="jb-editor-rerecord">Record again</button>
               <button type="button" class="btn ghost small" id="jb-editor-save">Save</button>
               <button type="button" class="btn primary" id="jb-editor-test">Save &amp; test</button>
             </div>
@@ -999,15 +1051,30 @@
     const editorSongEl = root.querySelector("#jb-editor-song");
     const editorLevelEl = root.querySelector("#jb-editor-level");
     const editorDivisionEl = root.querySelector("#jb-editor-division");
+    const editorRecorderEl = root.querySelector("#jb-editor-recorder");
+    const editorRecordGridEl = root.querySelector("#jb-record-grid");
+    const editorRecordBtn = root.querySelector("#jb-editor-record");
+    const editorStopBtn = root.querySelector("#jb-editor-stop");
+    const editorManualBtn = root.querySelector("#jb-editor-manual");
+    const editorRecorderStateEl = root.querySelector("#jb-recorder-state");
+    const editorRecorderTimeEl = root.querySelector("#jb-recorder-time");
+    const editorRecorderHitsEl = root.querySelector("#jb-recorder-hits");
+    const editorRecordProgressEl = root.querySelector("#jb-record-progress-fill");
+    const editorSequenceEl = root.querySelector("#jb-editor-sequence");
     const editorStepLabelEl = root.querySelector("#jb-editor-step-label");
+    const editorStepTimeEl = root.querySelector("#jb-editor-step-time");
     const editorTimelineEl = root.querySelector("#jb-editor-timeline");
     const editorGridEl = root.querySelector("#jb-editor-grid");
     const editorPrevBtn = root.querySelector("#jb-editor-prev");
     const editorNextBtn = root.querySelector("#jb-editor-next");
+    const editorBeatEl = root.querySelector("#jb-editor-beat");
+    const editorPlayBeatBtn = root.querySelector("#jb-editor-play-beat");
     const editorAddBtn = root.querySelector("#jb-editor-add");
     const editorRemoveBtn = root.querySelector("#jb-editor-remove");
     const editorClearBtn = root.querySelector("#jb-editor-clear");
     const editorStatusEl = root.querySelector("#jb-editor-status");
+    const editorSaveActionsEl = root.querySelector("#jb-editor-save-actions");
+    const editorRerecordBtn = root.querySelector("#jb-editor-rerecord");
     const editorSaveBtn = root.querySelector("#jb-editor-save");
     const editorTestBtn = root.querySelector("#jb-editor-test");
     const difficultyEl = root.querySelector("#jb-difficulty");
@@ -1144,21 +1211,84 @@
       practiceAccuracyEl.textContent = "--%";
     }
 
+    function editorBaseSong() {
+      return SONGS.find((item) => item.id === editorDraft?.baseSongId) || SONGS[0];
+    }
+
+    function stopEditorPreview() {
+      clearTimeout(editorPreviewTimer);
+      editorPreviewTimer = 0;
+      if (!editorRecording) {
+        try {
+          audioEl?.pause();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    function setEditorFieldsLocked(locked) {
+      editorSongEl.disabled = locked;
+      editorDivisionEl.disabled = locked;
+      editorRecordBtn.disabled = locked;
+      editorManualBtn.disabled = locked;
+    }
+
+    function showEditorRecorder() {
+      editorRecorderEl.hidden = false;
+      editorSequenceEl.hidden = true;
+      editorSaveActionsEl.hidden = true;
+      editorRecordBtn.hidden = false;
+      editorStopBtn.hidden = true;
+      editorManualBtn.hidden = false;
+      editorRecorderStateEl.textContent = "BLANK RECORDING";
+      editorRecorderTimeEl.textContent = "0:00.0";
+      editorRecorderHitsEl.textContent = "0 HITS";
+      editorRecordProgressEl.style.width = "0%";
+      editorRecordGridEl.classList.remove("is-recording");
+      setEditorFieldsLocked(false);
+    }
+
+    function showEditorCleanup() {
+      editorRecorderEl.hidden = true;
+      editorSequenceEl.hidden = false;
+      editorSaveActionsEl.hidden = false;
+      setEditorFieldsLocked(true);
+      paintEditor();
+    }
+
     function closeEditor() {
+      editorRecordToken += 1;
+      stopEditorRecording({ openCleanup: false });
+      stopEditorPreview();
       editorEl.hidden = true;
       editorDraft = null;
       editorStatusEl.textContent = "";
+      setEditorFieldsLocked(false);
     }
 
     function paintEditor() {
       if (!editorDraft) return;
+      if (!editorDraft.steps.length) editorDraft.steps = [[]];
       editorStep = Math.max(0, Math.min(editorDraft.steps.length - 1, editorStep));
+      const currentBeat = editorDraft.startBeat + editorStep * editorDraft.stepBeats;
+      const windowSize = Math.max(8, Math.round(CUSTOM_TIMELINE_BEATS / editorDraft.stepBeats));
+      const windowStart = Math.floor(editorStep / windowSize) * windowSize;
+      const windowEnd = Math.min(editorDraft.steps.length, windowStart + windowSize);
       editorStepLabelEl.textContent = `STEP ${editorStep + 1} / ${editorDraft.steps.length}`;
+      editorStepTimeEl.textContent = `BEAT ${currentBeat.toFixed(2)}`;
+      editorBeatEl.step = String(editorDraft.stepBeats);
+      editorBeatEl.max = String(
+        Math.max(editorDraft.startBeat, editorDraft.startBeat + (editorDraft.steps.length - 1) * editorDraft.stepBeats)
+      );
+      editorBeatEl.value = String(Number(currentBeat.toFixed(2)));
       editorTimelineEl.innerHTML = editorDraft.steps
-        .map(
-          (panels, index) =>
-            `<button type="button" role="tab" data-editor-step="${index}" aria-selected="${index === editorStep}" class="${index === editorStep ? "is-active" : ""}${panels.length ? " has-note" : ""}" title="Step ${index + 1}${panels.length ? ` · ${panels.length} hit${panels.length === 1 ? "" : "s"}` : " · rest"}">${index + 1}</button>`
-        )
+        .slice(windowStart, windowEnd)
+        .map((panels, offset) => {
+          const index = windowStart + offset;
+          const beat = editorDraft.startBeat + index * editorDraft.stepBeats;
+          return `<button type="button" role="tab" data-editor-step="${index}" aria-selected="${index === editorStep}" class="${index === editorStep ? "is-active" : ""}${panels.length ? " has-note" : ""}" title="Beat ${beat.toFixed(2)}${panels.length ? ` · ${panels.length} hit${panels.length === 1 ? "" : "s"}` : " · rest"}">${beat.toFixed(editorDraft.stepBeats < 1 ? 2 : 0)}</button>`;
+        })
         .join("");
       editorTimelineEl.querySelectorAll("[data-editor-step]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -1174,10 +1304,8 @@
       });
       editorPrevBtn.disabled = editorStep === 0;
       editorNextBtn.disabled = editorStep === editorDraft.steps.length - 1;
-      editorRemoveBtn.disabled = editorDraft.steps.length === 1;
-      requestAnimationFrame(() => {
-        editorTimelineEl.querySelector(".is-active")?.scrollIntoView?.({ block: "nearest", inline: "center" });
-      });
+      editorAddBtn.disabled = editorDraft.steps.length >= CUSTOM_MAX_STEPS;
+      editorRemoveBtn.disabled = editorDraft.steps.length === 1 || editorStep !== editorDraft.steps.length - 1;
     }
 
     function openEditor(definition) {
@@ -1194,21 +1322,25 @@
           baseSongId: baseSongId || SONGS[0].id,
           level: 5,
           stepBeats: 0.5,
-          steps: Array.from({ length: 16 }, () => []),
+          startBeat: 0,
+          steps: [[]],
         };
       editorDraft = {
         ...source,
         steps: source.steps.map((step) => [...step]),
       };
-      editorStep = 0;
-      editorTitleEl.textContent = definition ? "Edit tapping pattern" : "Create tapping pattern";
+      editorStep = editorDraft.steps.findIndex((step) => step.length);
+      if (editorStep < 0) editorStep = 0;
+      editorRecordedHits = editorDraft.steps.reduce((total, step) => total + step.length, 0);
+      editorTitleEl.textContent = definition ? "Clean up tapping pattern" : "Record tapping pattern";
       editorNameEl.value = editorDraft.name;
       editorSongEl.value = editorDraft.baseSongId;
       editorLevelEl.value = String(editorDraft.level);
       editorDivisionEl.value = String(editorDraft.stepBeats);
       editorStatusEl.textContent = "";
       editorEl.hidden = false;
-      paintEditor();
+      if (definition) showEditorCleanup();
+      else showEditorRecorder();
       editorNameEl.focus({ preventScroll: true });
     }
 
@@ -1218,6 +1350,199 @@
       editorDraft.baseSongId = editorSongEl.value;
       editorDraft.level = Number(editorLevelEl.value);
       editorDraft.stepBeats = Number(editorDivisionEl.value);
+    }
+
+    function formatRecorderTime(timeMs) {
+      const safeMs = Math.max(0, Number(timeMs) || 0);
+      const minutes = Math.floor(safeMs / 60000);
+      const seconds = Math.floor((safeMs % 60000) / 1000);
+      const tenths = Math.floor((safeMs % 1000) / 100);
+      return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+    }
+
+    function editorChartTimeMs(baseSong = editorBaseSong()) {
+      if (!audioEl || !Number.isFinite(audioEl.currentTime)) return 0;
+      const rawMs = Math.max(0, audioEl.currentTime * 1000 - (baseSong.audioOffsetMs || 0));
+      if (!editorRecording || audioEl.paused) return rawMs;
+      const perf = performance.now();
+      const expectedMs = editorRecordAnchorAudioMs + (perf - editorRecordAnchorPerf);
+      if (rawMs > editorRecordAnchorAudioMs + 10 || rawMs + 100 < expectedMs) {
+        editorRecordAnchorAudioMs = Math.max(rawMs, expectedMs - 80);
+        editorRecordAnchorPerf = perf;
+      }
+      return Math.max(rawMs, editorRecordAnchorAudioMs + (perf - editorRecordAnchorPerf));
+    }
+
+    function recordEditorPanel(panel, button) {
+      if (!editorRecording || !editorDraft) return;
+      const baseSong = editorBaseSong();
+      const index = customStepIndexForTime(
+        editorChartTimeMs(baseSong),
+        baseSong.bpm,
+        editorDraft.stepBeats,
+        editorDraft.startBeat
+      );
+      if (index < 0 || index >= CUSTOM_MAX_STEPS) {
+        editorStatusEl.textContent = "Recording reached the chart length limit.";
+        return;
+      }
+      while (editorDraft.steps.length <= index) editorDraft.steps.push([]);
+      const step = editorDraft.steps[index];
+      if (!step.includes(panel)) {
+        step.push(panel);
+        step.sort((a, b) => a - b);
+        editorRecordedHits += 1;
+        editorRecorderHitsEl.textContent = `${editorRecordedHits} HITS`;
+      }
+      const panelButton = button || editorRecordGridEl.querySelector(`[data-record-panel="${panel}"]`);
+      panelButton?.classList.add("is-hit");
+      setTimeout(() => panelButton?.classList.remove("is-hit"), 100);
+      global.ArcadeSFX?.click?.();
+    }
+
+    function animateEditorRecording() {
+      if (!editorRecording || !editorDraft) return;
+      const baseSong = editorBaseSong();
+      const timeMs = editorChartTimeMs(baseSong);
+      const durationMs = Math.max(
+        1,
+        Number.isFinite(audioEl?.duration)
+          ? audioEl.duration * 1000 - (baseSong.audioOffsetMs || 0)
+          : (baseSong.durationSec || 100) * 1000
+      );
+      editorRecorderTimeEl.textContent = formatRecorderTime(timeMs);
+      editorRecordProgressEl.style.width = `${Math.min(100, (timeMs / durationMs) * 100)}%`;
+      if (audioEl?.ended) {
+        stopEditorRecording();
+        return;
+      }
+      editorRecordRaf = requestAnimationFrame(animateEditorRecording);
+    }
+
+    function stopEditorRecording({ openCleanup = true } = {}) {
+      editorRecordToken += 1;
+      cancelAnimationFrame(editorRecordRaf);
+      editorRecordRaf = 0;
+      const wasRecording = editorRecording;
+      if (wasRecording && editorDraft) {
+        const baseSong = editorBaseSong();
+        const finalStep = customStepIndexForTime(
+          editorChartTimeMs(baseSong),
+          baseSong.bpm,
+          editorDraft.stepBeats,
+          editorDraft.startBeat
+        );
+        while (editorDraft.steps.length <= Math.min(CUSTOM_MAX_STEPS - 1, finalStep)) editorDraft.steps.push([]);
+      }
+      editorRecording = false;
+      try {
+        audioEl?.pause();
+      } catch {
+        /* ignore */
+      }
+      editorRecordGridEl?.classList.remove("is-recording");
+      editorRecordBtn.hidden = false;
+      editorStopBtn.hidden = true;
+      editorManualBtn.hidden = false;
+      setEditorFieldsLocked(false);
+      if (!openCleanup || !editorDraft) return;
+      if (!editorDraft.steps.some((step) => step.length)) {
+        if (wasRecording) editorStatusEl.textContent = "No panels were captured. Start recording and tap the grid with the music.";
+        showEditorRecorder();
+        return;
+      }
+      editorStep = editorDraft.steps.findIndex((step) => step.length);
+      editorStatusEl.textContent = "Recording captured. Move beat by beat to clean up the panels.";
+      showEditorCleanup();
+    }
+
+    function startEditorRecording() {
+      if (!editorDraft || editorRecording) return;
+      syncEditorFields();
+      stopEditorPreview();
+      stopBgm();
+      const baseSong = editorBaseSong();
+      const token = ++editorRecordToken;
+      editorDraft.startBeat = 0;
+      editorDraft.steps = [[]];
+      editorStep = 0;
+      editorRecordedHits = 0;
+      editorRecorderHitsEl.textContent = "0 HITS";
+      editorRecorderTimeEl.textContent = "0:00.0";
+      editorRecordProgressEl.style.width = "0%";
+      editorRecorderStateEl.textContent = "LOADING TRACK";
+      editorStatusEl.textContent = "";
+      setEditorFieldsLocked(true);
+      editorRecordBtn.disabled = true;
+      loadAudio(baseSong.audio).then(async (ready) => {
+        if (token !== editorRecordToken || !editorDraft || editorEl.hidden) return;
+        if (!ready) {
+          editorStatusEl.textContent = "The track could not load. Try recording again.";
+          showEditorRecorder();
+          return;
+        }
+        try {
+          audioEl.loop = false;
+          audioEl.volume = 1;
+          audioEl.currentTime = Math.max(0, (baseSong.audioOffsetMs || 0) / 1000);
+          await audioEl.play();
+          if (token !== editorRecordToken || !editorDraft || editorEl.hidden) {
+            audioEl.pause();
+            return;
+          }
+          editorRecording = true;
+          editorRecordAnchorAudioMs = Math.max(0, audioEl.currentTime * 1000 - (baseSong.audioOffsetMs || 0));
+          editorRecordAnchorPerf = performance.now();
+          editorRecorderStateEl.textContent = "RECORDING";
+          editorRecordBtn.hidden = true;
+          editorStopBtn.hidden = false;
+          editorManualBtn.hidden = true;
+          editorRecordGridEl.classList.add("is-recording");
+          duckLobbyMusic(true);
+          editorRecordRaf = requestAnimationFrame(animateEditorRecording);
+        } catch {
+          editorStatusEl.textContent = "Playback was blocked. Tap Start recording again.";
+          showEditorRecorder();
+        }
+      });
+    }
+
+    function openBlankBeatEditor() {
+      if (!editorDraft || editorRecording) return;
+      syncEditorFields();
+      editorDraft.startBeat = 0;
+      editorDraft.steps = Array.from({ length: 16 }, () => []);
+      editorStep = 0;
+      editorRecordedHits = 0;
+      editorStatusEl.textContent = "Blank grid opened. Add panels one beat step at a time.";
+      showEditorCleanup();
+    }
+
+    function playEditorBeat() {
+      if (!editorDraft || editorRecording) return;
+      stopEditorPreview();
+      const baseSong = editorBaseSong();
+      const beatMs = 60000 / baseSong.bpm;
+      const beat = editorDraft.startBeat + editorStep * editorDraft.stepBeats;
+      const previewStartBeat = Math.max(0, beat - 1);
+      loadAudio(baseSong.audio).then((ready) => {
+        if (!ready || !editorDraft || editorEl.hidden) return;
+        try {
+          audioEl.loop = false;
+          audioEl.volume = 0.7;
+          audioEl.currentTime = ((baseSong.audioOffsetMs || 0) + previewStartBeat * beatMs) / 1000;
+          audioEl.play()?.catch?.(() => {});
+          editorPreviewTimer = setTimeout(() => {
+            try {
+              audioEl.pause();
+            } catch {
+              /* ignore */
+            }
+          }, beatMs * 3);
+        } catch {
+          editorStatusEl.textContent = "Beat preview could not start.";
+        }
+      });
     }
 
     function saveEditor({ test = false } = {}) {
@@ -1621,7 +1946,7 @@
         }
         return Math.max(0, clockAnchorAudioMs + (perf - clockAnchorPerf));
       }
-      return Math.max(0, performance.now() - t0);
+      return performance.now() - t0;
     }
 
     function activeNoteCount() {
@@ -1905,7 +2230,7 @@
         panel.syncMarker(t, difficulty().approachMs);
       }
 
-      if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
+      if (progEl) progEl.style.width = `${Math.max(0, Math.min(100, (t / duration) * 100))}%`;
 
       if (chartIndex >= ch.length && activeNoteCount() === 0 && t > duration) {
         finish();
@@ -1925,19 +2250,24 @@
       raf = requestAnimationFrame(frame);
     }
 
-    function beginChartClock(fromAudio) {
+    function anchorChartToAudio() {
+      const perf = performance.now();
+      useAudioClock = true;
+      clockAnchorAudioMs = sampleAudioMs() || 0;
+      clockAnchorPerf = perf;
+      lastAudioSamplePerf = perf;
+    }
+
+    function beginChartClock(fromAudio, leadInMs = 0) {
       if (clockStarted || !running || destroyed) return;
       clockStarted = true;
       const perf = performance.now();
-      t0 = perf;
+      t0 = perf + Math.max(0, leadInMs);
       useAudioClock = !!fromAudio;
       clockAnchorAudioMs = 0;
       clockAnchorPerf = perf;
       lastAudioSamplePerf = perf;
-      if (useAudioClock) {
-        const v = sampleAudioMs();
-        if (v != null) clockAnchorAudioMs = v;
-      }
+      if (useAudioClock) anchorChartToAudio();
       raf = requestAnimationFrame(frame);
     }
 
@@ -1990,6 +2320,28 @@
     function launchChart(s, audioReady) {
       if (!running || destroyed || clockStarted) return;
       clearCountIn();
+      if (s.custom) {
+        const leadInMs = difficulty().approachMs;
+        beginChartClock(false, leadInMs);
+        if (!audioReady || !audioEl) return;
+        countInTimers.push(
+          setTimeout(() => {
+            if (!running || destroyed || submitted) return;
+            try {
+              audioEl.currentTime = songOffsetMs() / 1000;
+              audioEl.volume = 1;
+              audioEl.loop = false;
+              const playback = audioEl.play();
+              if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
+              if (playback?.then) playback.then(anchorChartToAudio).catch(() => {});
+              else anchorChartToAudio();
+            } catch {
+              /* The performance clock keeps the custom chart playable without audio. */
+            }
+          }, leadInMs)
+        );
+        return;
+      }
       if (!audioReady || !audioEl) {
         beginChartClock(false);
         return;
@@ -2102,10 +2454,28 @@
       paintMeta();
       cuePreview(song(), true);
     });
-    editorCloseBtn.addEventListener("click", closeEditor);
+    editorCloseBtn.addEventListener("click", () => {
+      closeEditor();
+      cuePreview(song(), true);
+    });
     editorSongEl.addEventListener("change", () => {
+      syncEditorFields();
       const baseSong = SONGS.find((item) => item.id === editorSongEl.value);
       if (baseSong) cuePreview(baseSong, true);
+    });
+    editorRecordBtn.addEventListener("click", startEditorRecording);
+    editorStopBtn.addEventListener("click", () => stopEditorRecording());
+    editorManualBtn.addEventListener("click", openBlankBeatEditor);
+    editorRerecordBtn.addEventListener("click", () => {
+      stopEditorPreview();
+      editorStatusEl.textContent = "Starting a new recording will replace the captured pattern.";
+      showEditorRecorder();
+    });
+    editorRecordGridEl.querySelectorAll("[data-record-panel]").forEach((button) => {
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        recordEditorPanel(Number(button.dataset.recordPanel), button);
+      });
     });
     editorGridEl.querySelectorAll("[data-editor-panel]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2128,16 +2498,24 @@
       editorStep = Math.min(editorDraft.steps.length - 1, editorStep + 1);
       paintEditor();
     });
+    editorBeatEl.addEventListener("change", () => {
+      if (!editorDraft) return;
+      const requestedBeat = Number(editorBeatEl.value);
+      const requestedStep = Math.round((requestedBeat - editorDraft.startBeat) / editorDraft.stepBeats);
+      editorStep = Math.max(0, Math.min(editorDraft.steps.length - 1, requestedStep));
+      paintEditor();
+    });
+    editorPlayBeatBtn.addEventListener("click", playEditorBeat);
     editorAddBtn.addEventListener("click", () => {
       if (!editorDraft || editorDraft.steps.length >= CUSTOM_MAX_STEPS) return;
-      editorDraft.steps.splice(editorStep + 1, 0, []);
-      editorStep += 1;
+      editorDraft.steps.push([]);
+      editorStep = editorDraft.steps.length - 1;
       paintEditor();
     });
     editorRemoveBtn.addEventListener("click", () => {
-      if (!editorDraft || editorDraft.steps.length <= 1) return;
-      editorDraft.steps.splice(editorStep, 1);
-      editorStep = Math.min(editorStep, editorDraft.steps.length - 1);
+      if (!editorDraft || editorDraft.steps.length <= 1 || editorStep !== editorDraft.steps.length - 1) return;
+      editorDraft.steps.pop();
+      editorStep = editorDraft.steps.length - 1;
       paintEditor();
     });
     editorClearBtn.addEventListener("click", () => {
@@ -2166,7 +2544,6 @@
 
     function onKey(e) {
       if (resultsOpen) return;
-      if (!running || !clockStarted) return;
       const map = {
         "1": 0,
         "2": 1,
@@ -2187,6 +2564,12 @@
       };
       const k = e.key.toLowerCase();
       if (map[k] != null) {
+        if (editorRecording) {
+          e.preventDefault();
+          recordEditorPanel(map[k]);
+          return;
+        }
+        if (!running || !clockStarted) return;
         e.preventDefault();
         onPanel(map[k]);
       }
@@ -2210,6 +2593,10 @@
         running = false;
         cancelAnimationFrame(raf);
         cancelAnimationFrame(practiceRaf);
+        cancelAnimationFrame(editorRecordRaf);
+        clearTimeout(editorPreviewTimer);
+        editorRecordToken += 1;
+        editorRecording = false;
         clearCountIn();
         clearResults();
         panels.forEach((p) => p.destroy());
@@ -2251,6 +2638,7 @@
     buildChart,
     CUSTOM_CHART_STORAGE_KEY,
     normalizeCustomChartDefinition,
+    customStepIndexForTime,
     buildCustomChart,
     customSongFromDefinition,
     loadCustomChartDefinitions,

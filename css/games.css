@@ -604,6 +604,11 @@
   width: 100%;
 }
 
+.jb-custom-actions [hidden],
+.jb-recorder-actions [hidden] {
+  display: none;
+}
+
 .jb-custom-actions .jb-custom-delete {
   color: #fb7185;
 }
@@ -680,6 +685,114 @@
   font: 0.72rem var(--mono);
 }
 
+.jb-editor-recorder {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+}
+
+.jb-editor-recorder[hidden],
+.jb-editor-sequence[hidden],
+.jb-editor-save-actions[hidden] {
+  display: none;
+}
+
+.jb-recorder-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(100%, 23rem);
+  margin: 0 auto;
+}
+
+.jb-recorder-head > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.jb-recorder-head > div:last-child {
+  text-align: right;
+}
+
+.jb-recorder-head span {
+  color: var(--muted);
+  font: 700 0.58rem var(--mono);
+}
+
+.jb-recorder-head strong {
+  color: var(--cyan);
+  font: 700 0.8rem var(--mono);
+}
+
+.jb-record-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+  width: min(100%, 23rem);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  background: #05090f;
+  touch-action: none;
+  user-select: none;
+}
+
+.jb-record-grid button {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  border: 1px solid #2a3a4e;
+  border-radius: 5px;
+  background: #101a26;
+  color: #7f95ae;
+  font: 0.67rem var(--mono);
+  cursor: default;
+  touch-action: none;
+}
+
+.jb-record-grid:not(.is-recording) button {
+  opacity: 0.55;
+}
+
+.jb-record-grid.is-recording button {
+  cursor: pointer;
+}
+
+.jb-record-grid button.is-hit {
+  border-color: #a5f3fc;
+  background: #0891b2;
+  color: #fff;
+  box-shadow: inset 0 0 0 3px rgba(103, 232, 249, 0.42);
+}
+
+.jb-record-progress {
+  width: min(100%, 23rem);
+  height: 0.25rem;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.jb-record-progress > div {
+  width: 0;
+  height: 100%;
+  background: var(--cyan);
+}
+
+.jb-recorder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.jb-record-stop {
+  background: #fb7185;
+  color: #070a10;
+}
+
 .jb-editor-sequence {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 12rem;
@@ -711,8 +824,8 @@
 
 .jb-editor-timeline button {
   position: relative;
-  flex: 0 0 2rem;
-  width: 2rem;
+  flex: 0 0 2.65rem;
+  width: 2.65rem;
   height: 2rem;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -776,6 +889,27 @@
   flex-wrap: wrap;
   grid-column: 1;
   gap: 0.35rem;
+}
+
+.jb-editor-beat-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 2.3rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font: 700 0.56rem var(--mono);
+}
+
+.jb-editor-beat-jump input {
+  width: 3.8rem;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 0.68rem var(--mono);
 }
 
 .jb-editor-step-actions button:disabled {

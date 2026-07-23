@@ -46,6 +46,7 @@ const customDefinition = {
 };
 const normalizedCustom = game.normalizeCustomChartDefinition(customDefinition);
 assert(normalizedCustom.level === 10, "Custom difficulty levels must be clamped to 10");
+assert(normalizedCustom.startBeat === 4, "Existing custom charts must retain their four-beat start");
 assert(
   game.normalizeCustomChartDefinition({ ...customDefinition, steps: [[], []] }) === null,
   "Empty custom charts must be rejected"
@@ -69,6 +70,30 @@ for (let streak = 1; streak <= customTracker.totalNotes; streak += 1) {
   customTracker.register("excellent", streak);
 }
 assert(customTracker.score() === 1000000, "Custom all-EXCELLENT score must be 1,000,000");
+
+const recordedDefinition = {
+  ...customDefinition,
+  id: "recorded-chart",
+  startBeat: 0,
+  level: 6,
+  stepBeats: 0.25,
+  steps: [[0], [], [5, 10]],
+};
+const recordedChart = game.buildCustomChart(recordedDefinition);
+assert(recordedChart[0].t === 0, "Recorded first-beat taps must remain aligned to chart time zero");
+assert(recordedChart[1].t === Math.round((60000 / 180) * 0.5), "Recorded taps must retain quantized beat timing");
+assert(game.customStepIndexForTime(0, 180, 0.25, 0) === 0, "Recording must capture the first beat");
+assert(game.customStepIndexForTime(170, 180, 0.25, 0) === 2, "Recording must snap taps to the nearest grid step");
+assert(game.customStepIndexForTime(170, 180, 0.3, 0) === -1, "Unsupported recording grids must be rejected");
+
+const longRecording = {
+  ...recordedDefinition,
+  steps: Array.from({ length: 1500 }, (_, index) => (index === 1499 ? [15] : [])),
+};
+assert(
+  game.normalizeCustomChartDefinition(longRecording).steps.length === 1500,
+  "Full-song quarter-beat recordings must not be truncated"
+);
 
 const stored = new Map();
 const storage = {
