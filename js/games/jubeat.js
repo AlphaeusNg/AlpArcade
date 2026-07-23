@@ -8,8 +8,20 @@
 
   const CELLS = 16;
   const WIN = { excellent: 45, great: 90, good: 140 };
-  /** Fixed shutter load time (ms) — same for every note and every song. */
-  const APPROACH_MS = 1000;
+  const DIFFICULTIES = {
+    easy: {
+      label: "EASY",
+      shortLabel: "Easy practice",
+      windows: { excellent: 80, great: 150, good: 230 },
+      approachMs: 1400,
+    },
+    extreme: {
+      label: "EXTREME",
+      shortLabel: "Extreme",
+      windows: WIN,
+      approachMs: 1000,
+    },
+  };
   /** Judge flash duration (ms). Miss is short so the panel frees up fast. */
   const JUDGE_MS = { excellent: 280, great: 260, good: 240, miss: 180 };
   /** Empty tap flash (wrong panel / early) */
@@ -105,17 +117,17 @@
      * Judge only the head of the queue (soonest note) — same as the shutter.
      * Closest-of-all would credit a later note and auto-miss the earlier one.
      */
-    bestInWindow(t) {
+    bestInWindow(t, goodWindow) {
       const head = this.queue[0];
       if (!head) return null;
       const err = Math.abs(t - head.t);
-      if (err > WIN.good) return null;
+      if (err > goodWindow) return null;
       return { note: head, err };
     }
 
     /** Expire notes past good window → miss. */
-    expireMisses(t, onMiss) {
-      const late = this.queue.filter((n) => t - n.t > WIN.good);
+    expireMisses(t, goodWindow, onMiss) {
+      const late = this.queue.filter((n) => t - n.t > goodWindow);
       for (const n of late) {
         this.removeNote(n.key);
         onMiss(n);
@@ -124,10 +136,10 @@
 
     /**
      * Drive shutter from absolute chart time so every note loads in exactly
-     * APPROACH_MS. Only the soonest note owns the marker.
+     * its configured approach duration. Only the soonest note owns the marker.
      * Keep driving progress under a judge flash so dense streams stay readable.
      */
-    syncMarker(t) {
+    syncMarker(t, approachMs = DIFFICULTIES.extreme.approachMs) {
       const soonest = this.soonest();
       if (!soonest) {
         if (performance.now() >= this.judgeUntil) {
@@ -136,8 +148,8 @@
         }
         return;
       }
-      const start = soonest.t - APPROACH_MS;
-      const p = Math.max(0, Math.min(1, (t - start) / APPROACH_MS));
+      const start = soonest.t - approachMs;
+      const p = Math.max(0, Math.min(1, (t - start) / approachMs));
       this.el.classList.add("is-approach", "is-armed");
       this.el.style.setProperty("--jb-p", p.toFixed(4));
     }
@@ -171,7 +183,7 @@
       }
     }
 
-    setJudge(text, cls, nowMsFn) {
+    setJudge(text, cls, nowMsFn, approachMs) {
       const key =
         cls === "excellent" || cls === "great" || cls === "good" || cls === "miss" ? cls : "miss";
       const holdMs = JUDGE_MS[key] ?? JUDGE_MS.good;
@@ -207,7 +219,7 @@
 
       this.judgeTimer = setTimeout(() => {
         this.clearJudgeVisual();
-        this.syncMarker(nowMsFn());
+        this.syncMarker(nowMsFn(), approachMs);
       }, holdMs);
     }
 
@@ -237,7 +249,61 @@
     }
   }
 
-  function buildChart(song) {
+  function buildEasyChart(song) {
+    const beatMs = 60000 / song.bpm;
+    const chartStartBeat = song.chartStartBeat || 0;
+    const totalBeats = Math.min(
+      song.easyBeats || 96,
+      Math.floor(((song.durationSec || 100) * song.bpm) / 60) - chartStartBeat
+    );
+    const buckets = new Map();
+    const add = (beat, panels) => {
+      if (beat < 0 || beat > totalBeats) return;
+      const t = Math.round((beat + chartStartBeat) * beatMs);
+      if (!buckets.has(t)) buckets.set(t, new Set());
+      const set = buckets.get(t);
+      (Array.isArray(panels) ? panels : [panels]).forEach((p) => set.add(p));
+    };
+
+    // A short, readable preview chart for each song. Every arrangement has a
+    // different motion so practice teaches the grid instead of one loop.
+    for (let base = 4, phrase = 0; base < totalBeats - 4; base += 8, phrase += 1) {
+      if (song.id === "imsosohappy") {
+        const path = phrase % 2 ? P.rows[phrase % 4] : P.snake;
+        add(base, path[0]);
+        add(base + 2, path[Math.min(2, path.length - 1)]);
+        add(base + 4, path[Math.min(4, path.length - 1)]);
+        add(base + 6, phrase % 3 === 2 ? P.center : path[Math.min(6, path.length - 1)]);
+      } else if (song.id === "albida") {
+        const col = P.cols[phrase % 4];
+        add(base, col[0]);
+        add(base + 2, col[1]);
+        add(base + 4, col[2]);
+        add(base + 6, phrase % 2 ? col[3] : [col[3], P.center[phrase % 4]]);
+      } else if (song.id === "flower") {
+        const ring = P.ring;
+        const offset = (phrase * 2) % ring.length;
+        add(base, ring[offset]);
+        add(base + 2, ring[(offset + 2) % ring.length]);
+        add(base + 4, ring[(offset + 4) % ring.length]);
+        add(base + 6, phrase % 2 ? P.center : ring[(offset + 6) % ring.length]);
+      } else {
+        const diagonal = phrase % 2 ? P.diagR : P.diag;
+        add(base, diagonal[0]);
+        add(base + 2, diagonal[1]);
+        add(base + 4, diagonal[2]);
+        add(base + 6, phrase % 3 === 2 ? P.corners : diagonal[3]);
+      }
+    }
+    add(totalBeats - 2, P.center);
+    add(totalBeats, P.corners);
+    return [...buckets.entries()]
+      .map(([t, set]) => note(t, [...set].sort((a, b) => a - b)))
+      .sort((a, b) => a.t - b.t || a.panels[0] - b.panels[0]);
+  }
+
+  function buildChart(song, difficultyId = "extreme") {
+    if (difficultyId === "easy") return buildEasyChart(song);
     const bpm = song.bpm;
     const beatMs = 60000 / bpm;
     const durationSec = song.durationSec || 100;
@@ -319,6 +385,40 @@
           }
           break;
         }
+        case "diagonal":
+          add(base, P.diag);
+          add(base + 1, P.diagR);
+          add(base + 2, P.center);
+          add(base + 3, P.corners);
+          break;
+        case "rowstep": {
+          const row = P.rows[seed % 4];
+          add(base, row[0]);
+          add(base + 1, row[1]);
+          add(base + 2, row[2]);
+          add(base + 3, row[3]);
+          break;
+        }
+        case "columnstep": {
+          const col = P.cols[seed % 4];
+          add(base, col[0]);
+          add(base + 1, col[1]);
+          add(base + 2, col[2]);
+          add(base + 3, col[3]);
+          break;
+        }
+        case "crossfire":
+          add(base, [0, 15]);
+          add(base + 1, [3, 12]);
+          add(base + 2, [5, 10]);
+          add(base + 3, [6, 9]);
+          break;
+        case "petal":
+          add(base, [P.ring[seed % 8]]);
+          add(base + 1, [P.ring[(seed + 2) % 8]]);
+          add(base + 2, [P.ring[(seed + 4) % 8]]);
+          add(base + 3, [P.ring[(seed + 6) % 8], P.center[seed % 4]]);
+          break;
         case "peak":
           stream(base, base + 4, path, 0.5, seed);
           add(base, P.corners);
@@ -396,6 +496,16 @@
       add(totalBeats - 2, P.ring);
       add(totalBeats - 1, P.center);
       add(totalBeats, P.corners);
+    } else if (song.id === "evans") {
+      section(0, 4, ["diagonal", "quarters", "crossfire", "rest"]);
+      section(4, 12, ["rowstep", "diagonal", "columnstep", "crossfire"]);
+      section(12, 20, ["eighths", "crossfire", "stream", "diagonal"]);
+      section(20, 28, ["columnstep", "peak", "rowstep", "crossfire"]);
+      section(28, Math.min(40, lastBar), ["stream", "peak", "diagonal", "chord"]);
+      if (lastBar > 40) section(40, lastBar, ["crossfire", "eighths", "rowstep", "rest"]);
+      add(totalBeats - 2, P.diag.concat(P.diagR));
+      add(totalBeats - 1, P.center);
+      add(totalBeats, P.corners);
     } else {
       section(0, 4, ["sparse", "quarters", "eighths", "rest"]);
       section(4, 12, ["bounce", "eighths", "bounce", "rest"]);
@@ -423,6 +533,7 @@
       title: "I'm so Happy",
       artist: "Ryu☆",
       level: 9,
+      easyLevel: 2,
       bpm: 183,
       // Chart length (s); audio file may be longer — chart stops when notes end
       durationSec: 105,
@@ -437,6 +548,7 @@
       title: "Albida",
       artist: "DJ YOSHITAKA",
       level: 9,
+      easyLevel: 3,
       bpm: 185,
       durationSec: 116,
       audioOffsetMs: 890,
@@ -449,6 +561,7 @@
       title: "Flower",
       artist: "DJ YOSHITAKA",
       level: 8,
+      easyLevel: 2,
       bpm: 173,
       durationSec: 124,
       audioOffsetMs: 390,
@@ -461,6 +574,7 @@
       title: "Evans",
       artist: "DJ YOSHITAKA",
       level: 9,
+      easyLevel: 3,
       bpm: 180,
       durationSec: 109,
       audioOffsetMs: 530,
@@ -468,19 +582,21 @@
       audio: AUDIO_BASE + "evans.mp3",
       notesHint: "shuffle",
     },
-  ].map((s) => ({ ...s, chart: null }));
+  ].map((s) => ({ ...s, charts: {} }));
 
-  function chartFor(song) {
-    if (!song.chart) song.chart = buildChart(song);
-    return song.chart;
+  function chartFor(song, difficultyId = "extreme") {
+    if (!song.charts[difficultyId]) song.charts[difficultyId] = buildChart(song, difficultyId);
+    return song.charts[difficultyId];
   }
 
   function mount(root, { onScore }) {
     let songIndex = 0;
+    let difficultyId = "easy";
 
     root.innerHTML = `
       <div class="jubeat-wrap">
-        <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="EXTREME charts"></div>
+        <div class="jb-difficulty" id="jb-difficulty" role="group" aria-label="Chart difficulty"></div>
+        <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
         <div class="game-hud">
           <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
           <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
@@ -506,6 +622,7 @@
 
     const grid = root.querySelector("#jb-grid");
     const songsEl = root.querySelector("#jb-songs");
+    const difficultyEl = root.querySelector("#jb-difficulty");
     const scoreEl = root.querySelector("#jb-score");
     const comboEl = root.querySelector("#jb-combo");
     const excEl = root.querySelector("#jb-exc");
@@ -574,6 +691,10 @@
       return SONGS[songIndex];
     }
 
+    function difficulty() {
+      return DIFFICULTIES[difficultyId];
+    }
+
     function clearCountIn() {
       countInTimers.forEach((id) => clearTimeout(id));
       countInTimers = [];
@@ -605,7 +726,7 @@
         (s, i) => `
         <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${running ? "disabled" : ""} style="--sc:${s.color}">
           <strong>${escapeHtml(s.title)}</strong>
-          <small>EXT ${s.level} · ${s.bpm} BPM · ${s.notesHint || ""}</small>
+          <small>${difficultyId === "easy" ? `EASY ${s.easyLevel}` : `EXT ${s.level}`} · ${s.bpm} BPM · ${s.notesHint || ""}</small>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
@@ -620,10 +741,31 @@
       });
     }
 
+    function paintDifficulty() {
+      difficultyEl.innerHTML = Object.entries(DIFFICULTIES)
+        .map(
+          ([id, diff]) =>
+            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" ${running ? "disabled" : ""}>${diff.label}</button>`
+        )
+        .join("");
+      difficultyEl.querySelectorAll("[data-difficulty]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (running) return;
+          difficultyId = btn.dataset.difficulty;
+          paintDifficulty();
+          paintSongs();
+          paintMeta();
+          global.ArcadeSFX?.click?.();
+        });
+      });
+    }
+
     function paintMeta() {
       const s = song();
+      const diff = difficulty();
+      const level = difficultyId === "easy" ? s.easyLevel : s.level;
       metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
-        <span class="jb-diff">EXTREME ${s.level}</span>
+        <span class="jb-diff ${difficultyId}">${diff.label} ${level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
         <span class="jb-bgm">♪ Local BGM · Shutter</span>`;
@@ -826,7 +968,7 @@
       missEl.textContent = String(counts.miss);
       combo = 0;
       comboEl.textContent = "0";
-      panel.setJudge("MISS", "miss", nowMs);
+      panel.setJudge("MISS", "miss", nowMs, difficulty().approachMs);
       if (srJudgeEl) srJudgeEl.textContent = "MISS";
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
       blip(120, 0.05, 0.025);
@@ -841,8 +983,17 @@
       const panel = panels[i];
       if (!panel) return;
       const t = nowMs();
-      const hit = panel.bestInWindow(t);
+      const diff = difficulty();
+      const hit = panel.bestInWindow(t, diff.windows.good);
       if (!hit) {
+        // The panel has an armed note, but the player committed too early or
+        // too late. Consume that note as a miss instead of giving free taps.
+        const pending = panel.soonest();
+        if (pending) {
+          panel.removeNote(pending.key);
+          registerMiss(pending, panel);
+          return;
+        }
         panel.flashEmpty();
         global.ArcadeSFX?.tick?.();
         return;
@@ -852,14 +1003,14 @@
       let label = "GOOD";
       let cls = "good";
       let pts = 100;
-      if (bestErr <= WIN.excellent) {
+      if (bestErr <= diff.windows.excellent) {
         label = "EXCELLENT";
         cls = "excellent";
         pts = 1000 + Math.min(200, combo * 3);
         counts.excellent += 1;
         blip(880 + (i % 4) * 40, 0.04, 0.03);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
-      } else if (bestErr <= WIN.great) {
+      } else if (bestErr <= diff.windows.great) {
         label = "GREAT";
         cls = "great";
         pts = 700 + Math.min(120, combo * 2);
@@ -879,7 +1030,7 @@
       comboEl.textContent = String(combo);
       excEl.textContent = String(counts.excellent);
       panel.removeNote(best.key);
-      panel.setJudge(label, cls, nowMs);
+      panel.setJudge(label, cls, nowMs, diff.approachMs);
       if (srJudgeEl) srJudgeEl.textContent = label;
     }
 
@@ -895,6 +1046,7 @@
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
       paintSongs();
+      paintDifficulty();
       const s = song();
       const total = counts.excellent + counts.great + counts.good + counts.miss;
       const hit = counts.excellent + counts.great + counts.good;
@@ -906,7 +1058,7 @@
         score,
         meta: {
           song: s.id,
-          difficulty: "EXTREME",
+          difficulty: difficulty().label,
           excellent: counts.excellent,
           great: counts.great,
           good: counts.good,
@@ -921,10 +1073,10 @@
       if (!running || submitted) return;
       const t = nowMs();
       const s = song();
-      const ch = chartFor(s);
+      const ch = chartFor(s, difficultyId);
       const duration = ch.length ? ch[ch.length - 1].t + 800 : 1000;
 
-      while (chartIndex < ch.length && ch[chartIndex].t <= t + APPROACH_MS) {
+      while (chartIndex < ch.length && ch[chartIndex].t <= t + difficulty().approachMs) {
         const n = ch[chartIndex++];
         n.panels.forEach((p) => {
           const key = `${n.t}-${p}`;
@@ -934,8 +1086,8 @@
 
       for (const panel of panels) {
         if (!running || submitted) break;
-        panel.expireMisses(t, (n) => registerMiss(n, panel));
-        panel.syncMarker(t);
+        panel.expireMisses(t, difficulty().windows.good, (n) => registerMiss(n, panel));
+        panel.syncMarker(t, difficulty().approachMs);
       }
 
       if (progEl) progEl.style.width = `${Math.min(100, (t / duration) * 100)}%`;
@@ -1036,7 +1188,7 @@
       stopBgm();
       duckLobbyMusic(true);
       const s = song();
-      chart = chartFor(s);
+      chart = chartFor(s, difficultyId);
       chartIndex = 0;
       running = true;
       clockStarted = false;
@@ -1054,10 +1206,14 @@
       startBtn.disabled = true;
       startBtn.textContent = "Playing…";
       paintSongs();
+      paintDifficulty();
       warmPanelMedia();
-      const mins = Math.round((s.durationSec || 100) / 6) / 10;
+      const chartSeconds = chart.length ? chart[chart.length - 1].t / 1000 : s.durationSec || 100;
+      const mins = Math.round(chartSeconds / 6) / 10;
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
-      hintEl.textContent = `${s.title} · EXT ${s.level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
+      const diff = difficulty();
+      const level = difficultyId === "easy" ? s.easyLevel : s.level;
+      hintEl.textContent = `${s.title} · ${diff.label} ${level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
 
       // Single path: load + play BGM, then lock chart to audio time.
@@ -1118,6 +1274,7 @@
     }
     window.addEventListener("keydown", onKey);
 
+    paintDifficulty();
     paintSongs();
     paintMeta();
     cuePreview(song());
@@ -1156,7 +1313,8 @@
     mount,
     Panel,
     WIN,
-    APPROACH_MS,
+    DIFFICULTIES,
+    APPROACH_MS: DIFFICULTIES.extreme.approachMs,
     JUDGE_MS,
     SONGS,
     chartFor,

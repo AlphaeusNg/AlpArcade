@@ -2044,6 +2044,37 @@ body.salmon-mode .fun-fact-text {
   gap: 0.55rem;
 }
 
+.jb-difficulty {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.jb-difficulty-btn {
+  min-width: 5.75rem;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.36rem 0.55rem;
+  background: transparent;
+  color: var(--dim);
+  font: 700 0.7rem var(--mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.jb-difficulty-btn.is-active {
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--teal);
+}
+
+.jb-difficulty-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .jb-song-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2102,6 +2133,10 @@ body.salmon-mode .fun-fact-text {
   color: #fb7185;
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+
+.jb-meta .jb-diff.easy {
+  color: var(--teal);
 }
 
 .jb-stage {
