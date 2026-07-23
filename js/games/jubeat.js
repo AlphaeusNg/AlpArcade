@@ -8,7 +8,7 @@
 
   const CELLS = 16;
   const MAX_SCORE = 1000000;
-  const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.99, perfect: 1.01 };
+  const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.96, perfect: 1.04 };
   const MISS_AFTER_MS = 180;
   const SCORE_WEIGHT = { good: 0.4, great: 0.7, excellent: 1 };
   const DIFFICULTIES = {
@@ -103,6 +103,22 @@
     return Math.max(0, Math.min(100, 100 - (Math.abs(time - noteTime) / approachMs) * 100));
   }
 
+  function setMarkerProgress(el, progress) {
+    if (!el) return;
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    el.style.setProperty("--jb-p", p.toFixed(4));
+    el.style.setProperty("--jb-door-size", `${(p * 50).toFixed(2)}%`);
+    el.style.setProperty("--jb-iris-turn", `${(p * 12).toFixed(2)}deg`);
+    el.style.setProperty("--jb-iris-scale", (0.15 + p * 0.95).toFixed(4));
+    el.style.setProperty("--jb-marker-opacity", (0.25 + p * 0.75).toFixed(4));
+    el.style.setProperty("--jb-touch-opacity", Math.max(0, (p - 0.5) / 0.5).toFixed(4));
+    el.style.setProperty("--jb-touch-gap", `${((1 - p) * 2.8).toFixed(3)}em`);
+    el.style.setProperty("--jb-ring-opacity", (0.28 + p * 0.72).toFixed(4));
+    el.style.setProperty("--jb-ring-scale", (1.9 - p * 0.9).toFixed(4));
+    el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
+    el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
+  }
+
   function judgeForTap(noteTime, time, approachMs) {
     const progress = (time - (noteTime - approachMs)) / approachMs;
     if (progress < JUDGE_PROGRESS.safeEarly) return { grade: "miss", label: "MISS", early: true, progress };
@@ -121,12 +137,12 @@
         <span class="jb-door jb-door-e"></span>
         <span class="jb-door jb-door-w"></span>
         <span class="jb-iris">
-          <span class="jb-blade" style="--i:0"></span>
-          <span class="jb-blade" style="--i:1"></span>
-          <span class="jb-blade" style="--i:2"></span>
-          <span class="jb-blade" style="--i:3"></span>
-          <span class="jb-blade" style="--i:4"></span>
-          <span class="jb-blade" style="--i:5"></span>
+          <span class="jb-blade" style="--blade-angle:0deg"></span>
+          <span class="jb-blade" style="--blade-angle:60deg"></span>
+          <span class="jb-blade" style="--blade-angle:120deg"></span>
+          <span class="jb-blade" style="--blade-angle:180deg"></span>
+          <span class="jb-blade" style="--blade-angle:240deg"></span>
+          <span class="jb-blade" style="--blade-angle:300deg"></span>
         </span>
         <span class="jb-touch"><span class="jb-touch-a">TOUCH</span><span class="jb-touch-b">TOUCH</span></span>
       </span>
@@ -233,14 +249,14 @@
       if (!soonest) {
         if (performance.now() >= this.judgeUntil) {
           this.el.classList.remove("is-approach", "is-armed");
-          this.el.style.setProperty("--jb-p", "0");
+          setMarkerProgress(this.el, 0);
         }
         return;
       }
       const start = soonest.t - approachMs;
       const p = Math.max(0, Math.min(1, (t - start) / approachMs));
       this.el.classList.add("is-approach", "is-armed");
-      this.el.style.setProperty("--jb-p", p.toFixed(4));
+      setMarkerProgress(this.el, p);
     }
 
     stopVid() {
@@ -283,7 +299,7 @@
       this.el.classList.remove("is-miss", "is-hit");
       this.el.classList.add(`is-judge-${key}`);
       this.el.classList.remove("is-approach", "is-armed");
-      this.el.style.setProperty("--jb-p", "0");
+      setMarkerProgress(this.el, 0);
       this.judgeUntil = performance.now() + holdMs;
 
       if (this.judgeEl) {
@@ -330,7 +346,7 @@
         this.emptyTimer = null;
       }
       this.el.classList.remove("is-armed", "is-hit", "is-miss", "is-approach", ...JUDGE_CLASSES);
-      this.el.style.setProperty("--jb-p", "0");
+      setMarkerProgress(this.el, 0);
     }
 
     destroy() {
@@ -702,7 +718,9 @@
               <div class="jb-practice-row">
                 <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
                   <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
+                    <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
                     ${markerLayersMarkup()}
+                    <span class="jb-cell-judge" hidden aria-hidden="true"></span>
                   </button>
                 </div>
                 <div class="jb-practice-feedback" aria-live="polite">
@@ -812,6 +830,8 @@
       grid.appendChild(btn);
       panels.push(new Panel(i, btn, (idx) => onPanel(idx)));
     }
+    const practicePanel = new Panel(-1, practiceCellEl, practiceTap);
+    setMarkerProgress(practiceCellEl, 0);
 
     let running = false;
     let score = 0;
@@ -881,6 +901,15 @@
         .replace(/"/g, "&quot;");
     }
 
+    function restartPractice() {
+      practicePanel.reset();
+      practiceCycleStart = performance.now();
+      practiceJudgeEl.textContent = "TOUCH";
+      practiceJudgeEl.removeAttribute("data-grade");
+      practiceJudgeEl.classList.remove("is-centered");
+      practiceAccuracyEl.textContent = "--%";
+    }
+
     function paintSongs() {
       songsEl.innerHTML = SONGS.map(
         (s, i) => `
@@ -914,6 +943,7 @@
         btn.addEventListener("click", () => {
           if (controlsLocked()) return;
           difficultyId = btn.dataset.difficulty;
+          restartPractice();
           paintDifficulty();
           paintSongs();
           paintMeta();
@@ -933,7 +963,7 @@
           markerId = btn.dataset.marker;
           grid.dataset.marker = markerId;
           markerPracticeEl.dataset.marker = markerId;
-          practiceCycleStart = performance.now();
+          restartPractice();
           paintMarkerModes();
           paintMeta();
           global.ArcadeSFX?.click?.();
@@ -960,7 +990,7 @@
     }
 
     function practiceProgress(now = performance.now()) {
-      const approachMs = DIFFICULTIES.easy.approachMs;
+      const approachMs = difficulty().approachMs;
       const cycleMs = approachMs + 420;
       const elapsed = Math.max(0, now - practiceCycleStart) % cycleMs;
       return elapsed <= approachMs ? elapsed / approachMs : null;
@@ -969,12 +999,13 @@
     function animatePractice(now) {
       if (destroyed) return;
       const progress = practiceProgress(now);
-      if (!running && !resultsOpen && !setupEl.hidden && progress != null) {
+      const showingJudge = now < practicePanel.judgeUntil;
+      if (!running && !resultsOpen && !setupEl.hidden && !showingJudge && progress != null) {
         practiceCellEl.classList.add("is-approach", "is-armed");
-        practiceCellEl.style.setProperty("--jb-p", progress.toFixed(4));
+        setMarkerProgress(practiceCellEl, progress);
       } else {
         practiceCellEl.classList.remove("is-approach", "is-armed");
-        practiceCellEl.style.setProperty("--jb-p", "0");
+        setMarkerProgress(practiceCellEl, 0);
       }
       practiceRaf = requestAnimationFrame(animatePractice);
     }
@@ -982,8 +1013,10 @@
     function practiceTap() {
       if (controlsLocked() || setupEl.hidden) return;
       global.ArcadeSFX?.unlock?.();
-      const progress = practiceProgress();
-      const approachMs = DIFFICULTIES.easy.approachMs;
+      const now = performance.now();
+      if (now < practicePanel.judgeUntil) return;
+      const progress = practiceProgress(now);
+      const approachMs = difficulty().approachMs;
       const judgment =
         progress == null
           ? { grade: "miss", label: "MISS" }
@@ -992,12 +1025,15 @@
         progress == null ? 0 : timingAccuracy(approachMs, progress * approachMs, approachMs);
       practiceJudgeEl.textContent = judgment.label;
       practiceJudgeEl.dataset.grade = judgment.grade;
+      practiceJudgeEl.classList.toggle("is-centered", !!judgment.perfect);
       practiceAccuracyEl.textContent = `${accuracy.toFixed(1)}%`;
-      practiceCellEl.classList.add("is-practice-hit");
-      setTimeout(() => practiceCellEl?.classList.remove("is-practice-hit"), 120);
-      practiceCycleStart = performance.now();
+      practicePanel.setJudge(judgment.label, judgment.grade, () => 0, approachMs);
+      practiceCycleStart = now + (JUDGE_MS[judgment.grade] || JUDGE_MS.good) + 120;
       if (judgment.grade === "miss") global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
-      else global.ArcadeSFX?.match?.() || global.ArcadeSFX?.click?.();
+      else {
+        blip(judgment.perfect ? 1040 : judgment.grade === "excellent" ? 880 : judgment.grade === "great" ? 660 : 440);
+        global.ArcadeSFX?.match?.() || global.ArcadeSFX?.click?.();
+      }
     }
 
     function stopBgm() {
@@ -1697,7 +1733,7 @@
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
-      practiceCycleStart = performance.now();
+      restartPractice();
       cuePreview(song(), true);
       startBtn.focus({ preventScroll: true });
     });
@@ -1730,7 +1766,9 @@
       }
     }
     window.addEventListener("keydown", onKey);
-    practiceCellEl.addEventListener("click", practiceTap);
+    practiceCellEl.addEventListener("click", (event) => {
+      if (event.detail === 0) practiceTap();
+    });
 
     paintDifficulty();
     paintMarkerModes();
@@ -1748,6 +1786,7 @@
         clearCountIn();
         clearResults();
         panels.forEach((p) => p.destroy());
+        practicePanel.destroy();
         stopBgm();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
@@ -1787,5 +1826,6 @@
     rankForScore,
     judgeForTap,
     timingAccuracy,
+    setMarkerProgress,
   };
 })(window);

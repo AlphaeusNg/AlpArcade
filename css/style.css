@@ -2321,10 +2321,6 @@ body.salmon-mode .fun-fact-text {
   height: 100%;
 }
 
-.jb-practice-cell.is-practice-hit {
-  transform: scale(0.94);
-}
-
 .jb-practice-feedback {
   display: grid;
   gap: 0.2rem;
@@ -2354,6 +2350,11 @@ body.salmon-mode .fun-fact-text {
 
 .jb-practice-feedback strong[data-grade="good"] {
   color: #60a5fa;
+}
+
+.jb-practice-feedback strong.is-centered {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(103, 232, 249, 0.9);
 }
 
 .jb-practice-feedback small {
@@ -2777,8 +2778,8 @@ body.salmon-mode .fun-fact-text {
   box-shadow:
     0 0 10px rgba(34, 211, 238, 0.95),
     inset 0 0 12px rgba(45, 212, 191, 0.65);
-  opacity: calc(0.28 + var(--jb-p, 0) * 0.72);
-  transform: scale(calc(1.9 - var(--jb-p, 0) * 0.9)) rotate(calc(var(--jb-p, 0) * 180deg));
+  opacity: var(--jb-ring-opacity, 0.28);
+  transform: scale(var(--jb-ring-scale, 1.9)) rotate(var(--jb-ring-turn, 0deg));
 }
 
 .jb-ring-marker::before,
@@ -2817,19 +2818,19 @@ body.salmon-mode .fun-fact-text {
 }
 
 .jb-sweep-top {
-  top: calc(var(--jb-p, 0) * 50%);
+  top: var(--jb-sweep-position, 0%);
 }
 
 .jb-sweep-bottom {
-  bottom: calc(var(--jb-p, 0) * 50%);
+  bottom: var(--jb-sweep-position, 0%);
 }
 
 .jb-sweep-left {
-  left: calc(var(--jb-p, 0) * 50%);
+  left: var(--jb-sweep-position, 0%);
 }
 
 .jb-sweep-right {
-  right: calc(var(--jb-p, 0) * 50%);
+  right: var(--jb-sweep-position, 0%);
 }
 
 .jb-marker-surface[data-marker="stealth"] .jb-alt-marker,
@@ -2868,7 +2869,7 @@ body.salmon-mode .fun-fact-text {
   top: 0;
   left: 0;
   right: 0;
-  height: calc(var(--jb-p, 0) * 50%);
+  height: var(--jb-door-size, 0%);
   border-bottom: 1px solid rgba(220, 235, 255, 0.35);
   background:
     linear-gradient(180deg, #7a8ba3 0%, #3a4a60 40%, #1e2a38 100%);
@@ -2878,7 +2879,7 @@ body.salmon-mode .fun-fact-text {
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(var(--jb-p, 0) * 50%);
+  height: var(--jb-door-size, 0%);
   border-top: 1px solid rgba(220, 235, 255, 0.35);
   background:
     linear-gradient(0deg, #7a8ba3 0%, #3a4a60 40%, #1e2a38 100%);
@@ -2888,7 +2889,7 @@ body.salmon-mode .fun-fact-text {
   top: 0;
   bottom: 0;
   left: 0;
-  width: calc(var(--jb-p, 0) * 50%);
+  width: var(--jb-door-size, 0%);
   border-right: 1px solid rgba(220, 235, 255, 0.35);
   background:
     linear-gradient(90deg, #7a8ba3 0%, #3a4a60 40%, #1e2a38 100%);
@@ -2898,7 +2899,7 @@ body.salmon-mode .fun-fact-text {
   top: 0;
   bottom: 0;
   right: 0;
-  width: calc(var(--jb-p, 0) * 50%);
+  width: var(--jb-door-size, 0%);
   border-left: 1px solid rgba(220, 235, 255, 0.35);
   background:
     linear-gradient(270deg, #7a8ba3 0%, #3a4a60 40%, #1e2a38 100%);
@@ -2931,10 +2932,10 @@ body.salmon-mode .fun-fact-text {
     );
   border: 1px solid rgba(230, 240, 255, 0.3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: rotate(calc(var(--i) * 60deg + var(--jb-p, 0) * 12deg))
-    scale(calc(0.15 + 0.95 * var(--jb-p, 0)));
+  transform: rotate(calc(var(--blade-angle, 0deg) + var(--jb-iris-turn, 0deg)))
+    scale(var(--jb-iris-scale, 0.15));
   transform-origin: 50% 50%;
-  opacity: calc(0.25 + 0.75 * var(--jb-p, 0));
+  opacity: var(--jb-marker-opacity, 0.25);
 }
 
 /* TOUCH halves approach from top + bottom, overlap at hit */
@@ -2954,28 +2955,26 @@ body.salmon-mode .fun-fact-text {
     0 0 10px rgba(140, 200, 255, 1),
     0 0 20px rgba(80, 150, 255, 0.7),
     0 2px 4px rgba(0, 0, 0, 0.9);
-  opacity: calc(max(0, (var(--jb-p, 0) - 0.5) / 0.5));
+  opacity: var(--jb-touch-opacity, 0);
 }
 
 .jb-touch-a,
 .jb-touch-b {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  line-height: 1;
   white-space: nowrap;
 }
 
 .jb-touch-a {
-  top: calc(50% - 0.55em - (1 - var(--jb-p, 0)) * 40%);
+  clip-path: inset(0 0 50% 0);
+  transform: translate(-50%, calc(-50% - var(--jb-touch-gap, 2.8em)));
 }
 
 .jb-touch-b {
-  top: calc(50% + 0.05em + (1 - var(--jb-p, 0)) * 40%);
-}
-
-/* When nearly closed, halves sit on one line */
-.jb-cell.is-approach .jb-touch {
-  /* combined visual via stacked halves */
+  clip-path: inset(50% 0 0 0);
+  transform: translate(-50%, calc(-50% + var(--jb-touch-gap, 2.8em)));
 }
 
 .jb-cell.is-hit {
