@@ -1,0 +1,7 @@
+{
+  "name": "alparcade",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.mjs"
+  }
+}

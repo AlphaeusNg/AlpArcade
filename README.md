@@ -55,12 +55,35 @@ Players never must sign up to play. After a run they can **Save with Google**, p
 
 Zero-build static site: plain HTML/CSS/JS. No framework, no bundler. Works on GitHub Pages.
 
+### Frontend structure
+
+GitHub Pages requires `index.html` and `404.html` at the repository root. Their runtime dependencies are grouped by responsibility:
+
+```text
+css/
+  base.css lobby.css play.css games.css
+  responsive.css features.css game-controls.css error.css
+js/
+  app.js firebase-config.js version.js
+  core/ features/ services/ games/
+assets/
+  icon.svg jubeat/
+```
+
 ### Local preview
 
 ```bash
 python3 -m http.server 8080
 # open http://127.0.0.1:8080/
 ```
+
+### Tests
+
+```bash
+npm test
+```
+
+The dependency-free suite checks JavaScript syntax, HTML/local asset references, CSS block balance, GitHub Pages root entrypoints, and Pulse Grid timing/scoring invariants.
 
 ### Enable GitHub Pages
 

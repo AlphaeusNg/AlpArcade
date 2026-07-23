@@ -1,0 +1,1182 @@
+/* Difficulty chips */
+.diff-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.diff-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diff-chip:hover:not(:disabled) {
+  border-color: var(--border-hot);
+  color: var(--text);
+}
+
+.diff-chip.active {
+  border-color: var(--border-hot);
+  background: rgba(45, 212, 191, 0.12);
+  color: var(--teal);
+}
+
+.diff-chip.locked,
+.diff-chip:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.rx-pad.decoy {
+  background: #9a3412;
+  color: #ffedd5;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.75rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn.primary {
+  background: var(--grad);
+  color: #041018;
+  box-shadow: 0 8px 24px rgba(45, 212, 191, 0.25);
+}
+
+.btn.ghost {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn.ghost:hover {
+  border-color: var(--border-hot);
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.btn.small {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.btn.danger {
+  border-color: rgba(251, 113, 133, 0.35);
+  color: #fecdd3;
+}
+
+.btn.danger:hover {
+  background: rgba(251, 113, 133, 0.12);
+}
+
+/* Player bar */
+.player-bar {
+  padding: 1.1rem 1.25rem 1rem;
+  margin-bottom: 2rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.name-form label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--dim);
+  font-family: var(--mono);
+  margin-bottom: 0.35rem;
+}
+
+.name-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+
+.name-row input:focus {
+  border-color: var(--border-hot);
+}
+
+.player-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.hud-label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-family: var(--mono);
+}
+
+.player-stats strong {
+  font-size: 1.05rem;
+}
+
+.xp-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--grad);
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+/* Cabinets */
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+.cabinets {
+  margin-bottom: 1.15rem;
+}
+
+.cabinet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin-bottom: 0.25rem;
+}
+
+.cabinet {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.7rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+  min-width: 0;
+}
+
+.cabinet:hover,
+.cabinet:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--border-hot);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+.cabinet.is-locked {
+  opacity: 0.62;
+  border-style: dashed;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+}
+
+.cabinet.is-locked:hover,
+.cabinet.is-locked:focus-visible {
+  transform: none;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Still clickable so we can toast the requirement — visual lock only */
+
+.cabinet .cab-lock {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.cabinet {
+  position: relative;
+}
+
+.cabinets-unlock-hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  color: var(--dim);
+  text-align: center;
+}
+
+.cab-icon {
+  font-size: 1.25rem;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(45, 212, 191, 0.08);
+  flex-shrink: 0;
+}
+
+.cab-body {
+  min-width: 0;
+}
+
+.cab-body strong {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cab-desc {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cab-go {
+  color: var(--cyan);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cab-best {
+  display: block;
+  margin-top: 0.18rem;
+  font-size: 0.62rem;
+  color: var(--teal);
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scores */
+.scores {
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  /* Skip layout/paint work until the scoreboard is near the viewport */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+.scores-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.scores-head .section-title {
+  margin: 0;
+}
+
+.score-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.scores-note {
+  color: var(--dim);
+  font-size: 0.88rem;
+  margin: 0 0 1.1rem;
+}
+
+.scores-note code {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  color: var(--teal);
+}
+
+.brand-mark-aa {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: -0.04em;
+  min-width: 2.1rem;
+  padding: 0 0.15rem;
+}
+
+.intro-hero {
+  margin: 0;
+  padding: 1.2rem 1.3rem 1.15rem;
+  height: 100%;
+}
+
+.intro-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1.25rem;
+  height: 100%;
+}
+
+.aa-logo {
+  margin: 0;
+  font-size: clamp(0.55rem, 1.6vw, 0.72rem);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: var(--teal);
+  text-shadow: 0 0 24px rgba(45, 212, 191, 0.25);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.intro-hero-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.intro-title {
+  margin: 0.15rem 0 0.55rem;
+  font-size: clamp(1.85rem, 5vw, 2.45rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.intro-hero .intro-thanks {
+  margin: 0;
+  max-width: 34rem;
+  line-height: 1.55;
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.intro-hero .intro-thanks strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.intro-tip {
+  margin: 0.65rem 0 0;
+  font-size: 0.72rem;
+  color: var(--dim);
+  line-height: 1.45;
+}
+
+/* —— Left music dock (match VK stacking: panel above page, tab on outer edge) —— */
+.music-dock {
+  --music-panel-w: min(22rem, calc(100vw - 2.5rem));
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  overflow: visible;
+}
+
+/* Closed: left edge · Open: rides the station panel’s right border */
+.music-dock-tab {
+  pointer-events: auto !important;
+  position: fixed;
+  left: 0;
+  top: 50%;
+  z-index: 70;
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 0.95rem 0.48rem;
+  border: 1px solid rgba(45, 212, 191, 0.42);
+  border-left: 0;
+  border-radius: 0 12px 12px 0;
+  background: rgba(8, 12, 18, 0.96);
+  color: var(--muted);
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  transition:
+    left 0.28s ease,
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.music-dock.is-dock .music-dock-tab,
+.music-dock.is-open .music-dock-tab,
+.music-dock-tab.is-active-tab {
+  left: var(--music-panel-w);
+  color: var(--teal);
+  border-color: rgba(45, 212, 191, 0.65);
+  background: rgba(8, 14, 20, 0.98);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
+}
+
+.music-dock.is-playing .music-dock-tab-icon {
+  animation: music-tab-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes music-tab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.music-dock-tab:hover,
+.music-dock-tab:focus-visible {
+  color: var(--teal);
+  border-color: rgba(45, 212, 191, 0.7);
+  outline: none;
+}
+
+.music-dock-tab-icon {
+  color: var(--teal);
+  font-size: 0.95rem;
+  writing-mode: horizontal-tb;
+  text-orientation: upright;
+  flex-shrink: 0;
+}
+
+.music-dock-tab-text {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  max-height: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Station list — z-index above page chrome; below only the edge tab */
+.music-dock-panel {
+  pointer-events: none;
+  position: fixed;
+  left: 0;
+  top: 4.25rem;
+  bottom: 1rem;
+  width: var(--music-panel-w, min(22rem, calc(100vw - 2.5rem)));
+  max-height: calc(100vh - 5.25rem);
+  z-index: 56;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.95rem 1rem 1.05rem;
+  margin: 0;
+  border-radius: 0 16px 16px 0;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-left: 0;
+  background: rgba(6, 10, 16, 0.97);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.music-dock.is-dock .music-dock-panel,
+.music-dock.is-open .music-dock-panel,
+.music-dock-panel.is-open {
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+}
+
+.music-dock-scrim {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 54;
+  background: rgba(2, 6, 12, 0.48);
+  border: 0;
+  display: none;
+}
+
+.music-dock.is-dock .music-dock-scrim:not([hidden]),
+.music-dock.is-open .music-dock-scrim:not([hidden]) {
+  display: block;
+  pointer-events: auto;
+}
+
+.music-dock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.music-dock-head-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.bg-music-title {
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
+}
+
+.music-dock-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.music-dock-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--muted);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.music-dock-close:hover,
+.music-dock-close:focus-visible {
+  border-color: rgba(45, 212, 191, 0.45);
+  color: var(--teal);
+  outline: none;
+}
+
+.bg-music-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+.bg-music-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.bg-music-btn {
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.bg-music-btn:hover,
+.bg-music-btn:focus-visible {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.08);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.bg-music-btn.is-active {
+  border-color: rgba(45, 212, 191, 0.55);
+  background: rgba(45, 212, 191, 0.12);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.15);
+}
+
+.bg-music-btn strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.bg-music-btn small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+.music-player-slot {
+  position: relative;
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.bg-music-empty {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--dim);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.music-player-shell[hidden] {
+  display: none !important;
+}
+
+/* Player stays in the dock slot only (no free-float / drag) */
+.music-player-shell,
+.music-player-shell.is-docked {
+  position: relative;
+  pointer-events: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-shadow: none;
+  z-index: auto;
+  transform: none;
+}
+
+.music-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  user-select: none;
+  cursor: default;
+}
+
+.music-player-label {
+  flex: 1;
+  font-size: 0.72rem;
+  color: var(--teal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.music-player-frame-wrap {
+  width: 100%;
+  line-height: 0;
+}
+
+.music-player-frame-wrap iframe {
+  display: block;
+  width: 100%;
+  height: 152px;
+  border: 0;
+  background: #000;
+}
+
+.music-dock-tab.is-playing-tab .music-dock-tab-icon,
+.music-dock.is-playing .music-dock-tab-icon {
+  color: var(--teal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .music-dock-tab,
+  .music-dock-panel {
+    transition: none;
+  }
+}
+
+.cloud-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0 0 1.1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.86rem;
+}
+
+.cloud-banner.is-online {
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.cloud-banner.is-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.cloud-banner.is-off {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.cloud-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--dim);
+  flex-shrink: 0;
+}
+
+.cloud-banner.is-online .cloud-dot {
+  background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+}
+
+.cloud-banner.is-error .cloud-dot {
+  background: #f87171;
+}
+
+.cloud-banner.is-connecting .cloud-dot {
+  background: #fbbf24;
+  animation: cloud-pulse 1s ease-in-out infinite;
+}
+
+@keyframes cloud-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.cloud-status {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.82em;
+  flex: 1 1 12rem;
+  line-height: 1.4;
+}
+
+.cloud-banner.is-online .cloud-status {
+  color: var(--teal);
+}
+
+.cloud-banner.is-error .cloud-status {
+  color: #fca5a5;
+}
+
+.auth-row.is-signed-in #btn-google-signin {
+  display: none !important;
+}
+
+.auth-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.auth-label {
+  flex: 1 1 12rem;
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+.lb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+}
+
+.lb-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.lb-chip:hover {
+  border-color: rgba(45, 212, 191, 0.35);
+  color: var(--text);
+}
+
+.lb-chip.is-active {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.12);
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.play-layout {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .play-layout {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+}
+
+.play-lb {
+  padding: 1rem 1.1rem;
+}
+
+.play-lb-title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.play-lb-sub {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+.cloud-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.cloud-modal[hidden] {
+  display: none !important;
+}
+
+.cloud-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.cloud-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  padding: 1.35rem 1.4rem 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cloud-modal-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.cloud-modal-summary {
+  margin: 0;
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.cloud-modal-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cloud-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#cloud-save-step-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#cloud-save-step-main[hidden],
+#cloud-save-step-username[hidden] {
+  display: none !important;
+}
+
+.cloud-username-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+#cloud-username-input {
+  width: 100%;
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: inherit;
+}
+
+#cloud-username-input:focus {
+  outline: none;
+  border-color: rgba(45, 212, 191, 0.5);
+}
+
+.cloud-modal-status {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+.scores-sub {
+  font-weight: 500;
+  font-size: 0.78em;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+
+.scores-grid {
+  display: grid;
+  /* Desktop: personal bests | hall of fame | global on one row */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.15rem;
+  align-items: start;
+}
+
+.scores-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scores-wide {
+  grid-column: 1 / -1;
+}
+
+.scores h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.global-hall-list .who {
+  color: var(--teal);
+}
+
+/* Scrollable score / achievement panels — caps visible rows */
+.list-scroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 212, 191, 0.35) transparent;
+}
+
+.list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.3);
+  border-radius: 999px;
+}
+
+/* ~5 hall rows visible */
+.list-scroll-hof {
+  max-height: 14.5rem;
+}
+
+/* personal bests — ~5–6 games */
+.list-scroll-pb {
+  max-height: 14.5rem;
+}
+
+/* global: top ~10 visible, rest scroll */
+.list-scroll-global {
+  max-height: 27rem;
+}
+
+/* recent runs — compact */
+.list-scroll-history {
+  max-height: 12.5rem;
+}
+
+/* achievements — ~3 rows (desktop can show more width) */
+.list-scroll-ach {
+  max-height: 11.5rem;
+}
+
+.hs-list,
+.hall-list,
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.hs-list li,
+.hall-list li,
+.history-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+}
+
+.hs-list .hs-game {
+  color: var(--text);
+}
+
+.hs-list .hs-score {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.hs-list .hs-extra {
+  grid-column: 1 / -1;
+  color: var(--dim);
+  font-size: 0.75rem;
+  font-family: var(--mono);
+}
+
+.hall-list li {
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+}
+
+.hall-list .rank {
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.hall-list .who {
+  font-weight: 600;
+}
+
+.hall-list .what,
+.history-list .what {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.hall-list .pts,
+.history-list .pts {
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.hall-list .arcade-points {
+  display: block;
+  color: var(--violet);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.history-list li {
+  grid-template-columns: 1.2fr auto auto auto;
+}
+
+.history-list .xp {
+  color: var(--violet);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.history-list .when {
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+.empty {
+  color: var(--dim) !important;
+  display: block !important;
+}
+
+.bridge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.4rem;
+}
+
+.bridge h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+}
+
+.bridge p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 32rem;
+}
+

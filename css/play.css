@@ -1,0 +1,146 @@
+/* Play view */
+.play-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.play-bar h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.play-title-block {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.play-controls {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-mount {
+  padding: 1.1rem;
+  min-height: 420px;
+}
+
+.play-layout.is-screen-locked {
+  height: var(--cabinet-play-height);
+  min-height: var(--cabinet-play-height);
+  max-height: var(--cabinet-play-height);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  contain: layout paint;
+}
+
+.game-mount.is-screen-locked {
+  height: var(--cabinet-screen-height);
+  min-height: var(--cabinet-screen-height);
+  max-height: var(--cabinet-screen-height);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  contain: size layout paint;
+}
+
+.play-layout.is-screen-locked .play-lb {
+  max-height: var(--cabinet-screen-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+#play-view.is-app-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  background: var(--bg);
+}
+
+#play-view.is-app-fullscreen .play-bar {
+  position: fixed;
+  top: max(0.5rem, env(safe-area-inset-top));
+  right: max(0.5rem, env(safe-area-inset-right));
+  z-index: 50;
+  width: 40px;
+  margin: 0;
+  pointer-events: none;
+}
+
+#play-view.is-app-fullscreen .play-bar > *:not(#btn-fullscreen) {
+  display: none;
+}
+
+#play-view.is-app-fullscreen #btn-fullscreen {
+  display: block;
+  pointer-events: auto;
+  background: rgba(5, 8, 15, 0.88);
+  touch-action: manipulation;
+}
+
+#play-view.is-app-fullscreen .play-layout {
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+#play-view.is-app-fullscreen .game-mount {
+  width: 100%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  scrollbar-gutter: auto;
+}
+
+#play-view.is-app-fullscreen .play-lb {
+  display: none;
+}
+
+.game-hud {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 0.9rem;
+  text-align: center;
+}
+
+.game-hud strong {
+  display: block;
+  font-size: 1.15rem;
+}
+
+.game-status,
+.game-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0.9rem;
+}
+
+.game-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+

@@ -1,0 +1,113 @@
+/* Salmon mode easter egg (fun facts spam) */
+body.salmon-mode {
+  --teal: #fb7185;
+  --cyan: #fda4af;
+  --violet: #fb923c;
+  --grad: linear-gradient(135deg, #fb7185 0%, #fb923c 50%, #fbbf24 100%);
+}
+
+/* Daily challenge */
+.daily-row {
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.daily-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.daily-badge {
+  font-size: 0.72rem;
+  color: var(--dim);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.daily-badge.is-done {
+  color: var(--teal);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+.daily-task {
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  color: var(--muted);
+}
+
+.daily-task strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+/* Achievements */
+.achievements {
+  padding: 0.85rem 1rem 0.95rem;
+  margin-bottom: 0.85rem;
+}
+
+.achievements .section-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.achievements-count {
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+.achievements-list {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  align-content: start;
+}
+
+.ach-item {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0.42;
+  filter: grayscale(0.7);
+}
+
+.ach-item.is-unlocked {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.ach-icon {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.ach-body strong {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.ach-body small {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--dim);
+  line-height: 1.3;
+}
+

@@ -29,17 +29,22 @@ Game modules: `js/games/<id>.js` — **lazy-loaded** when a cabinet opens (`js/a
 
 ```text
 index.html
-css/style.css
+css/
+  base.css            # Tokens, reset, shared shell primitives
+  lobby.css           # Lobby, profile, scores, music dock
+  play.css            # Shared cabinet play chrome
+  games.css           # Main game surfaces
+  responsive.css      # Ordered viewport adaptations
+  features.css        # Daily, achievements, easter eggs
+  game-controls.css   # Late-loaded touch controls
+  error.css           # Root 404 document
 js/
   app.js              # Lobby, routing, HUD, help, phone header hide
-  music.js            # Spotify bg music: autoplay + left dock
-  audio.js            # SFX / mute
-  scores.js           # Local scores, XP, export/import
-  cloud-scores.js     # Firebase global boards + account sync
   firebase-config.js  # runtime web keys (loaded by index.html)
-  achievements.js
-  daily.js            # Daily challenge keyed to SGT (Asia/Singapore)
   version.js          # SITE_VERSION — bump every deploy
+  core/               # SFX, local scores, stable game viewport
+  features/           # Achievements, daily challenge, music dock
+  services/           # Firebase global boards + account sync
   games/*.js
 firebase/             # backend infra only (not served as app logic)
   README.md
@@ -76,13 +81,9 @@ manifest.webmanifest
 
 ```bash
 cd /home/alph/projects/AlpArcade
+npm test
 python3 -m http.server 8080
 # http://127.0.0.1:8080/
-
-node --check js/app.js
-node --check js/music.js
-node --check js/scores.js
-# etc.
 ```
 
 ## Conventions
