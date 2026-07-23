@@ -65,6 +65,53 @@
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
   }
 
+  function withoutPanelOverlaps(chart, minimumGapMs) {
+    const gap = Math.max(0, Number(minimumGapMs) || 0);
+    const lastHitAt = Array(CELLS).fill(-Infinity);
+    return [...(Array.isArray(chart) ? chart : [])]
+      .sort((a, b) => a.t - b.t)
+      .map((event) => {
+        const panels = [...new Set(event.panels || [])]
+          .filter((panel) => Number.isInteger(panel) && panel >= 0 && panel < CELLS)
+          .filter((panel) => {
+            if (event.t - lastHitAt[panel] < gap) return false;
+            lastHitAt[panel] = event.t;
+            return true;
+          });
+        return panels.length ? note(event.t, panels) : null;
+      })
+      .filter(Boolean);
+  }
+
+  function hasPanelOverlaps(chart, minimumGapMs) {
+    const total = (Array.isArray(chart) ? chart : []).reduce((sum, event) => sum + (event.panels?.length || 0), 0);
+    const filtered = withoutPanelOverlaps(chart, minimumGapMs);
+    return filtered.reduce((sum, event) => sum + event.panels.length, 0) !== total;
+  }
+
+  function panelPlacementOverlaps(steps, targetIndex, panel, bpm, stepBeats, minimumGapMs) {
+    const stepMs = (60000 / Number(bpm)) * Number(stepBeats);
+    if (!Number.isFinite(stepMs) || stepMs <= 0) return true;
+    return (Array.isArray(steps) ? steps : []).some(
+      (step, index) =>
+        Array.isArray(step) &&
+        step.includes(panel) &&
+        Math.abs(index - targetIndex) * stepMs < Math.max(0, Number(minimumGapMs) || 0)
+    );
+  }
+
+  function withoutStepOverlaps(steps, bpm, stepBeats, minimumGapMs) {
+    const filtered = (Array.isArray(steps) ? steps : []).map(() => []);
+    (Array.isArray(steps) ? steps : []).forEach((panels, index) => {
+      (Array.isArray(panels) ? panels : []).forEach((panel) => {
+        if (!panelPlacementOverlaps(filtered, index, panel, bpm, stepBeats, minimumGapMs)) {
+          filtered[index].push(panel);
+        }
+      });
+    });
+    return filtered;
+  }
+
   function streakMultiplier(streak) {
     return 1 + Math.min(0.5, Math.floor(Math.max(0, streak - 1) / 5) * 0.05);
   }
@@ -745,6 +792,15 @@
     },
   ].map((s) => ({ ...s, charts: {} }));
 
+  function customApproachMs(level) {
+    return level <= 3 ? 1400 : level <= 7 ? 1200 : 1000;
+  }
+
+  function customMinimumPanelGapMs(level) {
+    const approachMs = customApproachMs(level);
+    return approachMs + customRuntimeLeadMs(approachMs);
+  }
+
   function normalizeCustomChartDefinition(value, { requireNotes = true } = {}) {
     if (!value || typeof value !== "object") return null;
     const baseSong = SONGS.find((song) => song.id === value.baseSongId);
@@ -763,11 +819,17 @@
         ? CUSTOM_START_BEATS
         : Math.max(0, Math.min(32, Number.isFinite(requestedStartBeat) ? requestedStartBeat : 0));
     const rawSteps = Array.isArray(value.steps) ? value.steps.slice(0, CUSTOM_MAX_STEPS) : [];
-    const steps = (rawSteps.length ? rawSteps : [[]]).map((step) => {
+    const normalizedSteps = (rawSteps.length ? rawSteps : [[]]).map((step) => {
       const panels = Array.isArray(step) ? step : [];
       return [...new Set(panels.map(Number).filter((panel) => Number.isInteger(panel) && panel >= 0 && panel < CELLS))]
         .sort((a, b) => a - b);
     });
+    const steps = withoutStepOverlaps(
+      normalizedSteps,
+      baseSong.bpm,
+      stepBeats,
+      customMinimumPanelGapMs(level)
+    );
     if (requireNotes && !steps.some((step) => step.length)) return null;
     const fallbackId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const id = String(value.id || fallbackId)
@@ -802,7 +864,7 @@
     const baseSong = SONGS.find((song) => song.id === definition.baseSongId);
     const chart = buildCustomChart(definition);
     const totalHits = chart.reduce((total, event) => total + event.panels.length, 0);
-    const approachMs = definition.level <= 3 ? 1400 : definition.level <= 7 ? 1200 : 1000;
+    const approachMs = customApproachMs(definition.level);
     return {
       ...baseSong,
       id: `custom-${definition.id}`,
@@ -842,8 +904,15 @@
   }
 
   function chartFor(song, difficultyId = "extreme") {
-    if (song.custom) return song.charts.custom || [];
-    if (!song.charts[difficultyId]) song.charts[difficultyId] = buildChart(song, difficultyId);
+    if (song.custom) {
+      return withoutPanelOverlaps(song.charts.custom || [], song.difficulty?.approachMs);
+    }
+    if (!song.charts[difficultyId]) {
+      song.charts[difficultyId] = withoutPanelOverlaps(
+        buildChart(song, difficultyId),
+        DIFFICULTIES[difficultyId]?.approachMs
+      );
+    }
     return song.charts[difficultyId];
   }
 
@@ -857,10 +926,13 @@
     if (!song.custom) return source;
     const leadMs = customRuntimeLeadMs(song.difficulty?.approachMs);
     const rampMs = leadMs * 4;
-    return source.map((event) => {
-      const appliedLead = leadMs * Math.min(1, Math.max(0, event.t) / rampMs);
-      return note(Math.max(0, Math.round(event.t - appliedLead)), [...event.panels]);
-    });
+    return withoutPanelOverlaps(
+      source.map((event) => {
+        const appliedLead = leadMs * Math.min(1, Math.max(0, event.t) / rampMs);
+        return note(Math.max(0, Math.round(event.t - appliedLead)), [...event.panels]);
+      }),
+      song.difficulty?.approachMs
+    );
   }
 
   function mount(root, { onScore }) {
@@ -884,6 +956,7 @@
     let editorRecordToken = 0;
     let editorRecordAnchorAudioMs = 0;
     let editorRecordAnchorPerf = 0;
+    const editorConflictTimers = new Map();
 
     root.innerHTML = `
       <div class="jubeat-wrap">
@@ -1351,6 +1424,7 @@
       editorRecorderHitsEl.textContent = "0 HITS";
       editorRecordProgressEl.style.width = "0%";
       editorRecordGridEl.classList.remove("is-recording");
+      clearEditorConflictFlashes();
       setEditorFieldsLocked(false);
     }
 
@@ -1369,6 +1443,7 @@
       editorEl.hidden = true;
       editorDraft = null;
       editorStatusEl.textContent = "";
+      clearEditorConflictFlashes();
       setEditorFieldsLocked(false);
     }
 
@@ -1465,6 +1540,48 @@
       return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
     }
 
+    function clearEditorConflictFlashes() {
+      editorConflictTimers.forEach((timer) => clearTimeout(timer));
+      editorConflictTimers.clear();
+      editorRecordGridEl?.querySelectorAll(".is-overlap").forEach((button) => button.classList.remove("is-overlap"));
+      editorGridEl?.querySelectorAll(".is-overlap").forEach((button) => button.classList.remove("is-overlap"));
+    }
+
+    function editorPanelGapMs() {
+      if (!editorDraft) return 0;
+      editorDraft.level = Math.max(1, Math.min(10, Math.round(Number(editorLevelEl.value) || editorDraft.level || 1)));
+      return customMinimumPanelGapMs(editorDraft.level);
+    }
+
+    function editorPlacementOverlaps(index, panel) {
+      if (!editorDraft) return true;
+      return panelPlacementOverlaps(
+        editorDraft.steps,
+        index,
+        panel,
+        editorBaseSong().bpm,
+        editorDraft.stepBeats,
+        editorPanelGapMs()
+      );
+    }
+
+    function flashEditorOverlap(button, panel) {
+      if (!button || !editorDraft) return;
+      button.classList.remove("is-hit");
+      button.classList.add("is-overlap");
+      const previousTimer = editorConflictTimers.get(button);
+      if (previousTimer) clearTimeout(previousTimer);
+      const timer = setTimeout(() => {
+        button.classList.remove("is-overlap");
+        editorConflictTimers.delete(button);
+      }, 220);
+      editorConflictTimers.set(button, timer);
+      const stepMs = (60000 / editorBaseSong().bpm) * editorDraft.stepBeats;
+      const minimumSteps = Math.ceil(editorPanelGapMs() / stepMs);
+      editorStatusEl.textContent = `Overlap rejected on panel ${panel + 1}. Leave at least ${minimumSteps} steps before using it again.`;
+      global.ArcadeSFX?.foul?.();
+    }
+
     function editorChartTimeMs(baseSong = editorBaseSong()) {
       if (!audioEl || !Number.isFinite(audioEl.currentTime)) return 0;
       const rawMs = Math.max(0, audioEl.currentTime * 1000 - (baseSong.audioOffsetMs || 0));
@@ -1493,15 +1610,19 @@
       }
       while (editorDraft.steps.length <= index) editorDraft.steps.push([]);
       const step = editorDraft.steps[index];
-      if (!step.includes(panel)) {
-        step.push(panel);
-        step.sort((a, b) => a - b);
-        editorRecordedHits += 1;
-        editorRecorderHitsEl.textContent = `${editorRecordedHits} HITS`;
-      }
       const panelButton = button || editorRecordGridEl.querySelector(`[data-record-panel="${panel}"]`);
+      if (editorPlacementOverlaps(index, panel)) {
+        flashEditorOverlap(panelButton, panel);
+        return;
+      }
+      step.push(panel);
+      step.sort((a, b) => a - b);
+      editorRecordedHits += 1;
+      editorRecorderHitsEl.textContent = `${editorRecordedHits} HIT${editorRecordedHits === 1 ? "" : "S"}`;
+      panelButton?.classList.remove("is-overlap");
       panelButton?.classList.add("is-hit");
       setTimeout(() => panelButton?.classList.remove("is-hit"), 100);
+      if (editorStatusEl.textContent.startsWith("Overlap rejected")) editorStatusEl.textContent = "";
       global.ArcadeSFX?.click?.();
     }
 
@@ -1577,6 +1698,7 @@
       editorRecordProgressEl.style.width = "0%";
       editorRecorderStateEl.textContent = "LOADING TRACK";
       editorStatusEl.textContent = "";
+      clearEditorConflictFlashes();
       setEditorFieldsLocked(true);
       editorRecordBtn.disabled = true;
       loadAudio(baseSong.audio).then(async (ready) => {
@@ -2628,8 +2750,12 @@
         const step = editorDraft.steps[editorStep];
         const position = step.indexOf(panel);
         if (position >= 0) step.splice(position, 1);
-        else step.push(panel);
+        else if (editorPlacementOverlaps(editorStep, panel)) {
+          flashEditorOverlap(button, panel);
+          return;
+        } else step.push(panel);
         step.sort((a, b) => a - b);
+        if (editorStatusEl.textContent.startsWith("Overlap rejected")) editorStatusEl.textContent = "";
         paintEditor();
         global.ArcadeSFX?.click?.();
       });
@@ -2751,6 +2877,7 @@
         cancelAnimationFrame(practiceRaf);
         cancelAnimationFrame(editorRecordRaf);
         clearTimeout(editorPreviewTimer);
+        clearEditorConflictFlashes();
         editorRecordToken += 1;
         editorRecording = false;
         clearCountIn();
@@ -2796,6 +2923,10 @@
     SONGS,
     chartFor,
     runtimeChartFor,
+    withoutPanelOverlaps,
+    hasPanelOverlaps,
+    panelPlacementOverlaps,
+    customMinimumPanelGapMs,
     customRuntimeLeadMs,
     buildChart,
     CUSTOM_CHART_STORAGE_KEY,

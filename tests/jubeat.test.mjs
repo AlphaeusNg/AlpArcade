@@ -39,8 +39,14 @@ assert(
 assert(new Set(game.SONGS.map((song) => song.jacket)).size === game.SONGS.length, "Song jackets must remain unique");
 
 for (const song of game.SONGS) {
-  const chart = game.chartFor(song, "extreme");
-  const tracker = game.createScoreTracker(chart);
+  for (const difficultyId of ["easy", "extreme"]) {
+    assert(
+      !game.hasPanelOverlaps(game.chartFor(song, difficultyId), game.DIFFICULTIES[difficultyId].approachMs),
+      `${song.id} ${difficultyId} chart must not overlap notes on one panel`
+    );
+  }
+  const extremeChart = game.chartFor(song, "extreme");
+  const tracker = game.createScoreTracker(extremeChart);
   for (let streak = 1; streak <= tracker.totalNotes; streak += 1) {
     tracker.register("excellent", streak);
   }
@@ -107,6 +113,42 @@ assert(
 assert(game.customStepIndexForTime(0, 180, 0.25, 0) === 0, "Recording must capture the first beat");
 assert(game.customStepIndexForTime(170, 180, 0.25, 0) === 2, "Recording must snap taps to the nearest grid step");
 assert(game.customStepIndexForTime(170, 180, 0.3, 0) === -1, "Unsupported recording grids must be rejected");
+
+const overlapSteps = Array.from({ length: 17 }, () => []);
+overlapSteps[0] = [0, 1];
+overlapSteps[1] = [0];
+overlapSteps[15] = [0];
+overlapSteps[16] = [0];
+const overlapDefinition = game.normalizeCustomChartDefinition({
+  ...recordedDefinition,
+  id: "overlap-chart",
+  steps: overlapSteps,
+});
+assert(
+  JSON.stringify(overlapDefinition.steps[0]) === JSON.stringify([0, 1]) &&
+    overlapDefinition.steps[1].length === 0 &&
+    overlapDefinition.steps[15].length === 0 &&
+    JSON.stringify(overlapDefinition.steps[16]) === JSON.stringify([0]),
+  "Custom charts must reject repeated panels until the approach window is clear"
+);
+assert(
+  game.panelPlacementOverlaps(
+    overlapDefinition.steps,
+    17,
+    0,
+    180,
+    0.25,
+    game.customMinimumPanelGapMs(overlapDefinition.level)
+  ),
+  "Recorder overlap checks must detect a too-close repeated panel"
+);
+assert(
+  !game.hasPanelOverlaps(
+    game.runtimeChartFor(game.customSongFromDefinition(overlapDefinition), "custom"),
+    game.customSongFromDefinition(overlapDefinition).difficulty.approachMs
+  ),
+  "Runtime timing compensation must not reintroduce custom panel overlaps"
+);
 
 const longRecording = {
   ...recordedDefinition,

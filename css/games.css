@@ -814,6 +814,24 @@
   box-shadow: inset 0 0 0 3px rgba(103, 232, 249, 0.42);
 }
 
+.jb-record-grid button.is-overlap,
+.jb-editor-grid button.is-overlap {
+  border-color: #fda4af;
+  background: #be123c;
+  color: #fff;
+  box-shadow:
+    inset 0 0 0 3px rgba(253, 164, 175, 0.48),
+    0 0 12px rgba(225, 29, 72, 0.72);
+  animation: jb-overlap-rejected 110ms ease-in-out 2 alternate;
+}
+
+@keyframes jb-overlap-rejected {
+  to {
+    background: #fb7185;
+    transform: scale(0.94);
+  }
+}
+
 .jb-record-progress {
   width: min(100%, 23rem);
   height: 0.25rem;
