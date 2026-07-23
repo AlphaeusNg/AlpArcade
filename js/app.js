@@ -20,6 +20,12 @@
     releaseActiveGameScreenLock = null;
   }
 
+  function lockActiveCabinetScreen() {
+    releaseCabinetScreen();
+    if (!activeGame || playView.hidden) return;
+    releaseActiveGameScreenLock = window.ArcadeGameScreen?.lock?.(gameMount) || null;
+  }
+
   const GAME_LOADERS = {
     tictactoe: () => window.GameTicTacToe,
     shooter: () => window.GameShooter,
@@ -961,7 +967,7 @@
       const ctrl = $("#play-controls");
       if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Have fun";
       renderPlayLeaderboard();
-      releaseActiveGameScreenLock = window.ArcadeGameScreen?.lock?.(gameMount) || null;
+      lockActiveCabinetScreen();
 
       // hash for deep links
       if (location.hash !== `#play/${id}`) {
@@ -980,6 +986,7 @@
   }
 
   function backToLobby() {
+    window.ArcadeGameScreen?.exitFullscreen?.(playView)?.catch?.(() => {});
     releaseCabinetScreen();
     if (activeGame?.destroy) activeGame.destroy();
     activeGame = null;
@@ -1051,6 +1058,35 @@
     shareLastRun().catch(() => showToast("Share failed"));
   });
 
+  const fullscreenButton = $("#btn-fullscreen");
+  let fullscreenExitAt = -Infinity;
+  window.ArcadeGameScreen?.guardFullscreenGestures?.(playView);
+
+  function syncFullscreenUi() {
+    const active = window.ArcadeGameScreen?.isFullscreen?.(playView) || false;
+    const wasActive = playView.classList.contains("is-app-fullscreen");
+    if (wasActive && !active) fullscreenExitAt = performance.now();
+    playView.classList.toggle("is-app-fullscreen", active);
+    if (fullscreenButton) {
+      fullscreenButton.hidden = !window.ArcadeGameScreen?.isFullscreenSupported?.(playView);
+      fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
+      fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+      fullscreenButton.title = active ? "Exit fullscreen" : "Enter fullscreen";
+    }
+    lockActiveCabinetScreen();
+  }
+
+  fullscreenButton?.addEventListener("click", () => {
+    const action = window.ArcadeGameScreen?.isFullscreen?.(playView)
+      ? window.ArcadeGameScreen.exitFullscreen(playView)
+      : window.ArcadeGameScreen?.enterFullscreen?.(playView);
+    action?.catch?.(() => showToast("Fullscreen unavailable"));
+  });
+  document.addEventListener("fullscreenchange", syncFullscreenUi);
+  document.addEventListener("webkitfullscreenchange", syncFullscreenUi);
+  document.addEventListener("fullscreenerror", () => showToast("Fullscreen unavailable"));
+  syncFullscreenUi();
+
   function openHelp() {
     const m = $("#help-modal");
     if (m) m.hidden = false;
@@ -1078,6 +1114,8 @@
       return;
     }
     if (playView?.hidden) return;
+    if (window.ArcadeGameScreen?.isFullscreen?.(playView)) return;
+    if (performance.now() - fullscreenExitAt < 600) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     e.preventDefault();

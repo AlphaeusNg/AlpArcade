@@ -445,7 +445,8 @@ body.salmon-mode .fun-fact-text {
   }
 }
 
-.mute-btn {
+.mute-btn,
+.fullscreen-btn {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
   border-radius: 10px;
@@ -457,8 +458,20 @@ body.salmon-mode .fun-fact-text {
   padding: 0;
 }
 
-.mute-btn:hover {
+.mute-btn:hover,
+.fullscreen-btn:hover {
   border-color: var(--border-hot);
+}
+
+.fullscreen-btn {
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+}
+
+.fullscreen-btn[aria-pressed="true"] {
+  border-color: var(--teal);
+  background: rgba(45, 212, 191, 0.14);
+  color: var(--teal);
 }
 
 /* Difficulty chips */
@@ -1705,6 +1718,60 @@ body.salmon-mode .fun-fact-text {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+#play-view.is-app-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  background: var(--bg);
+}
+
+#play-view.is-app-fullscreen .play-bar {
+  position: fixed;
+  top: max(0.5rem, env(safe-area-inset-top));
+  right: max(0.5rem, env(safe-area-inset-right));
+  z-index: 50;
+  width: 40px;
+  margin: 0;
+  pointer-events: none;
+}
+
+#play-view.is-app-fullscreen .play-bar > *:not(#btn-fullscreen) {
+  display: none;
+}
+
+#play-view.is-app-fullscreen #btn-fullscreen {
+  display: block;
+  pointer-events: auto;
+  background: rgba(5, 8, 15, 0.88);
+  touch-action: manipulation;
+}
+
+#play-view.is-app-fullscreen .play-layout {
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+#play-view.is-app-fullscreen .game-mount {
+  width: 100%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  scrollbar-gutter: auto;
+}
+
+#play-view.is-app-fullscreen .play-lb {
+  display: none;
 }
 
 .game-hud {
