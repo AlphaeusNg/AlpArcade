@@ -28,6 +28,15 @@ assert(
   new Set(game.SONGS.map((song) => JSON.stringify(game.chartFor(song, "extreme")))).size === game.SONGS.length,
   "Extreme song charts must remain unique"
 );
+assert(
+  game.SONGS.every(
+    (song) =>
+      /^assets\/jubeat\/jackets\/[a-z0-9-]+\.webp$/.test(song.jacket) &&
+      fs.existsSync(path.join(root, song.jacket))
+  ),
+  "Every built-in song must use a local jacket asset"
+);
+assert(new Set(game.SONGS.map((song) => song.jacket)).size === game.SONGS.length, "Song jackets must remain unique");
 
 for (const song of game.SONGS) {
   const chart = game.chartFor(song, "extreme");

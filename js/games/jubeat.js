@@ -50,6 +50,7 @@
   };
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
+  const JACKET_BASE = "assets/jubeat/jackets/";
   const RESULT_AUDIO_BASE = AUDIO_BASE + "results/";
   const MARKER_MODES = [
     { id: "iris", label: "Iris" },
@@ -697,6 +698,7 @@
       audioOffsetMs: 580,
       color: "#f472b6",
       audio: AUDIO_BASE + "imsosohappy.mp3",
+      jacket: JACKET_BASE + "imsosohappy.webp",
       notesHint: "beat chart",
     },
     {
@@ -710,6 +712,7 @@
       audioOffsetMs: 890,
       color: "#38bdf8",
       audio: AUDIO_BASE + "albida.mp3",
+      jacket: JACKET_BASE + "albida.webp",
       notesHint: "columns",
     },
     {
@@ -723,6 +726,7 @@
       audioOffsetMs: 390,
       color: "#c084fc",
       audio: AUDIO_BASE + "flower.mp3",
+      jacket: JACKET_BASE + "flower.webp",
       notesHint: "petals",
     },
     {
@@ -736,6 +740,7 @@
       audioOffsetMs: 530,
       color: "#fbbf24",
       audio: AUDIO_BASE + "evans.mp3",
+      jacket: JACKET_BASE + "evans.webp",
       notesHint: "shuffle",
     },
   ].map((s) => ({ ...s, charts: {} }));
@@ -887,7 +892,24 @@
             <span>SELECT MUSIC</span>
             <strong id="jb-selection-title">${escapeHtml(SONGS[songIndex].title)}</strong>
           </header>
-          <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
+          <div class="jb-song-browser">
+            <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
+            <section class="jb-song-detail" id="jb-song-detail" aria-live="polite">
+              <div class="jb-song-jacket">
+                <img id="jb-song-jacket" alt="" decoding="async">
+              </div>
+              <div class="jb-song-detail-copy">
+                <p id="jb-song-detail-artist"></p>
+                <h3 id="jb-song-detail-title"></h3>
+                <dl>
+                  <div><dt>Difficulty</dt><dd id="jb-song-detail-difficulty"></dd></div>
+                  <div><dt>Previous best</dt><dd id="jb-song-detail-best"></dd></div>
+                  <div><dt>Total taps</dt><dd id="jb-song-detail-taps"></dd></div>
+                  <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
+                </dl>
+              </div>
+            </section>
+          </div>
           <div class="jb-custom-actions">
             <button type="button" class="btn ghost small" id="jb-custom-new">Create pattern</button>
             <button type="button" class="btn ghost small" id="jb-custom-edit" hidden>Edit pattern</button>
@@ -1049,6 +1071,7 @@
           </div>
           <p class="game-hint" id="jb-hint">1–4 QWER ASDF ZXCV</p>
         </section>
+        <div class="jb-fullscreen-row" id="jb-fullscreen-slot"></div>
         <div class="jb-music" id="jb-music">
           <audio id="jb-audio" class="jb-audio" preload="auto" playsinline></audio>
           <audio id="jb-result-audio" class="jb-audio" preload="auto" playsinline></audio>
@@ -1061,6 +1084,13 @@
     const playfieldEl = root.querySelector("#jb-playfield");
     const grid = root.querySelector("#jb-grid");
     const songsEl = root.querySelector("#jb-songs");
+    const songJacketEl = root.querySelector("#jb-song-jacket");
+    const songDetailArtistEl = root.querySelector("#jb-song-detail-artist");
+    const songDetailTitleEl = root.querySelector("#jb-song-detail-title");
+    const songDetailDifficultyEl = root.querySelector("#jb-song-detail-difficulty");
+    const songDetailBestEl = root.querySelector("#jb-song-detail-best");
+    const songDetailTapsEl = root.querySelector("#jb-song-detail-taps");
+    const songDetailBpmEl = root.querySelector("#jb-song-detail-bpm");
     const selectionTitleEl = root.querySelector("#jb-selection-title");
     const selectionHintEl = root.querySelector("#jb-selection-hint");
     const customNewBtn = root.querySelector("#jb-custom-new");
@@ -1131,6 +1161,10 @@
     const resultsRetryBtn = root.querySelector("#jb-results-retry");
     const resultsContinueBtn = root.querySelector("#jb-results-continue");
     const resultAudioEl = root.querySelector("#jb-result-audio");
+    const fullscreenSlotEl = root.querySelector("#jb-fullscreen-slot");
+    const fullscreenBtn = document.querySelector("#btn-fullscreen");
+    const fullscreenHome = fullscreenBtn?.parentElement || null;
+    const fullscreenHomeNext = fullscreenBtn?.nextSibling || null;
 
     /** @type {Panel[]} */
     const panels = [];
@@ -1198,6 +1232,47 @@
 
     function controlsLocked() {
       return running || resultsOpen;
+    }
+
+    function playView() {
+      return root.closest("#play-view");
+    }
+
+    function fullscreenSupported() {
+      const view = playView();
+      return !!view && !!global.ArcadeGameScreen?.isFullscreenSupported?.(view);
+    }
+
+    function restoreFullscreenButton({ show = false } = {}) {
+      if (!fullscreenBtn || !fullscreenHome) return;
+      fullscreenBtn.classList.remove("jb-play-fullscreen");
+      if (fullscreenHomeNext?.parentNode === fullscreenHome) {
+        fullscreenHome.insertBefore(fullscreenBtn, fullscreenHomeNext);
+      } else {
+        fullscreenHome.appendChild(fullscreenBtn);
+      }
+      fullscreenBtn.hidden = !show || !fullscreenSupported();
+    }
+
+    function showGameplayFullscreenButton() {
+      if (!fullscreenBtn || !fullscreenSlotEl) return;
+      fullscreenSlotEl.appendChild(fullscreenBtn);
+      fullscreenBtn.classList.add("jb-play-fullscreen");
+      fullscreenBtn.hidden = !fullscreenSupported();
+    }
+
+    function hideGameplayFullscreenButton() {
+      if (global.ArcadeGameScreen?.isFullscreen?.(playView())) {
+        showGameplayFullscreenButton();
+        return;
+      }
+      restoreFullscreenButton();
+    }
+
+    function onJubeatFullscreenChange() {
+      if (!running && !resultsOpen && !global.ArcadeGameScreen?.isFullscreen?.(playView())) {
+        restoreFullscreenButton();
+      }
     }
 
     function clearCountIn() {
@@ -1610,11 +1685,8 @@
       const songs = allSongs();
       songsEl.innerHTML = songs.map(
         (s, i) => `
-        <button type="button" role="tab" aria-selected="${i === songIndex}" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}">
-          <span class="jb-song-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <strong>${escapeHtml(s.title)}</strong>
-          <small>${escapeHtml(s.artist)}</small>
-          <em>${s.custom ? `CUSTOM ${s.level} · UNRANKED` : difficultyId === "easy" ? `EASY ${s.easyLevel}` : difficultyId === "extreme" ? `EXT ${s.level}` : `EASY ${s.easyLevel} / EXT ${s.level}`} · ${s.bpm} BPM</em>
+        <button type="button" role="tab" aria-selected="${i === songIndex}" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}" title="${escapeHtml(s.title)}">
+          <span>${escapeHtml(s.title)}</span>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
@@ -1677,6 +1749,47 @@
       markerPracticeEl.dataset.marker = markerId;
     }
 
+    function selectedChartTotal() {
+      return chartFor(song(), song().custom ? "custom" : difficultyId).reduce(
+        (total, event) => total + event.panels.length,
+        0
+      );
+    }
+
+    function previousBest() {
+      const selected = song();
+      if (selected.custom) return null;
+      const selectedDifficulty = difficulty().label;
+      const history = global.ArcadeScores?.getState?.().history;
+      if (!Array.isArray(history)) return 0;
+      return history.reduce((best, entry) => {
+        if (
+          entry?.game !== "jubeat" ||
+          entry.meta?.song !== selected.id ||
+          entry.meta?.difficulty !== selectedDifficulty
+        ) {
+          return best;
+        }
+        return Math.max(best, Number(entry.score) || 0);
+      }, 0);
+    }
+
+    function paintSongDetail() {
+      const selected = song();
+      const best = previousBest();
+      songJacketEl.src = selected.jacket;
+      songJacketEl.alt = `${selected.title} jacket artwork`;
+      songDetailArtistEl.textContent = selected.artist;
+      songDetailTitleEl.textContent = selected.title;
+      songDetailTitleEl.style.color = selected.color;
+      songDetailDifficultyEl.textContent = selected.custom
+        ? `CUSTOM ${selected.level} · UNRANKED`
+        : `EASY ${selected.easyLevel} / EXTREME ${selected.level} · ${difficulty().label} selected`;
+      songDetailBestEl.textContent = selected.custom ? "Unranked" : best ? formatScore(best) : "No score yet";
+      songDetailTapsEl.textContent = selectedChartTotal().toLocaleString();
+      songDetailBpmEl.textContent = `${selected.bpm} BPM`;
+    }
+
     function paintMeta() {
       const s = song();
       const diff = difficulty();
@@ -1691,6 +1804,7 @@
         <span class="jb-bgm">♪ Local BGM · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
       playfieldEl.style.setProperty("--jb-accent", s.color);
+      paintSongDetail();
     }
 
     function practiceProgress(now = performance.now()) {
@@ -2442,6 +2556,7 @@
       startBtn.disabled = true;
       setupEl.hidden = true;
       playfieldEl.hidden = false;
+      showGameplayFullscreenButton();
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
@@ -2567,8 +2682,10 @@
       paintDifficulty();
       paintMarkerModes();
       paintCustomActions();
+      paintMeta();
       restartPractice();
       cuePreview(song(), true);
+      hideGameplayFullscreenButton();
       startBtn.focus({ preventScroll: true });
     });
 
@@ -2605,10 +2722,13 @@
       }
     }
     window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onJubeatFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", onJubeatFullscreenChange);
     practiceCellEl.addEventListener("click", (event) => {
       if (event.detail === 0) practiceTap();
     });
 
+    restoreFullscreenButton();
     paintDifficulty();
     paintMarkerModes();
     paintSongs();
@@ -2634,6 +2754,9 @@
         stopBgm();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
+        document.removeEventListener("fullscreenchange", onJubeatFullscreenChange);
+        document.removeEventListener("webkitfullscreenchange", onJubeatFullscreenChange);
+        restoreFullscreenButton({ show: true });
         try {
           if (audioEl) {
             audioEl.pause();
