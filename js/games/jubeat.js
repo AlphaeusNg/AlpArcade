@@ -1165,6 +1165,12 @@
     const fullscreenBtn = document.querySelector("#btn-fullscreen");
     const fullscreenHome = fullscreenBtn?.parentElement || null;
     const fullscreenHomeNext = fullscreenBtn?.nextSibling || null;
+    const syncGameAudioMute = (muted = global.ArcadeSFX?.isMuted?.() ?? false) => {
+      if (audioEl) audioEl.muted = !!muted;
+      if (resultAudioEl) resultAudioEl.muted = !!muted;
+    };
+    const stopMuteSync = global.ArcadeSFX?.onMuteChange?.(syncGameAudioMute) || (() => {});
+    syncGameAudioMute();
 
     /** @type {Panel[]} */
     const panels = [];
@@ -1907,7 +1913,7 @@
       if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
       try {
         resultAudioEl.src = RESULT_AUDIO_BASE + "final-a.mp4";
-        resultAudioEl.muted = false;
+        resultAudioEl.muted = global.ArcadeSFX?.isMuted?.() ?? false;
         resultAudioEl.volume = 0;
         const ready = resultAudioEl.play();
         ready
@@ -2756,6 +2762,7 @@
         window.removeEventListener("keydown", onKey);
         document.removeEventListener("fullscreenchange", onJubeatFullscreenChange);
         document.removeEventListener("webkitfullscreenchange", onJubeatFullscreenChange);
+        stopMuteSync();
         restoreFullscreenButton({ show: true });
         try {
           if (audioEl) {

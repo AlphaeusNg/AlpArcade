@@ -10,6 +10,7 @@
   let ctx = null;
   let unlocked = false;
   let muted = localStorage.getItem(MUTE_KEY) === "1";
+  const muteListeners = new Set();
 
   function ac() {
     if (muted) return null;
@@ -79,12 +80,31 @@
       return muted;
     },
     setMuted(v) {
-      muted = !!v;
+      const nextMuted = !!v;
+      if (muted === nextMuted) return muted;
+      muted = nextMuted;
       localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+      muteListeners.forEach((listener) => {
+        try {
+          listener(muted);
+        } catch {
+          /* A media listener must not break the global mute control. */
+        }
+      });
       return muted;
     },
     toggleMute() {
       return SFX.setMuted(!muted);
+    },
+    onMuteChange(listener) {
+      if (typeof listener !== "function") return () => {};
+      muteListeners.add(listener);
+      try {
+        listener(muted);
+      } catch {
+        muteListeners.delete(listener);
+      }
+      return () => muteListeners.delete(listener);
     },
     /** Call from a click / key / pointer handler before playing tones. */
     unlock() {
