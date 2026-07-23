@@ -84,6 +84,17 @@ const recordedDefinition = {
 const recordedChart = game.buildCustomChart(recordedDefinition);
 assert(recordedChart[0].t === 0, "Recorded first-beat taps must remain aligned to chart time zero");
 assert(recordedChart[1].t === Math.round((60000 / 180) * 0.5), "Recorded taps must retain quantized beat timing");
+const recordedSong = game.customSongFromDefinition(recordedDefinition);
+const runtimeChart = game.runtimeChartFor(recordedSong, "custom");
+assert(game.customRuntimeLeadMs(recordedSong.difficulty.approachMs) === 96, "Level 6 custom charts need a 96ms lead");
+assert(runtimeChart[0].t === 0, "Runtime compensation must preserve the first chart beat");
+assert(runtimeChart[1].t < recordedChart[1].t, "Recorded custom notes must appear slightly earlier at runtime");
+const sameTapTime = 832;
+assert(game.judgeForTap(1000, sameTapTime, 1200).grade === "great", "Timing fixture must begin as GREAT");
+assert(
+  game.judgeForTap(1000 - game.customRuntimeLeadMs(1200), sameTapTime, 1200).grade === "excellent",
+  "Custom playback lead must promote the same near-boundary tap to EXCELLENT"
+);
 assert(game.customStepIndexForTime(0, 180, 0.25, 0) === 0, "Recording must capture the first beat");
 assert(game.customStepIndexForTime(170, 180, 0.25, 0) === 2, "Recording must snap taps to the nearest grid step");
 assert(game.customStepIndexForTime(170, 180, 0.3, 0) === -1, "Unsupported recording grids must be rejected");

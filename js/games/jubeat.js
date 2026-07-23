@@ -13,6 +13,9 @@
   const CUSTOM_START_BEATS = 4;
   const CUSTOM_MAX_STEPS = 2048;
   const CUSTOM_TIMELINE_BEATS = 4;
+  const CUSTOM_RUNTIME_LEAD_RATIO = 0.08;
+  const CUSTOM_RUNTIME_LEAD_MIN_MS = 80;
+  const CUSTOM_RUNTIME_LEAD_MAX_MS = 110;
   const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.96, perfect: 1.04 };
   const MISS_AFTER_MS = 180;
   const SCORE_WEIGHT = { good: 0.4, great: 0.7, excellent: 1 };
@@ -837,6 +840,22 @@
     if (song.custom) return song.charts.custom || [];
     if (!song.charts[difficultyId]) song.charts[difficultyId] = buildChart(song, difficultyId);
     return song.charts[difficultyId];
+  }
+
+  function customRuntimeLeadMs(approachMs) {
+    const estimated = Math.round((Number(approachMs) || 0) * CUSTOM_RUNTIME_LEAD_RATIO);
+    return Math.max(CUSTOM_RUNTIME_LEAD_MIN_MS, Math.min(CUSTOM_RUNTIME_LEAD_MAX_MS, estimated));
+  }
+
+  function runtimeChartFor(song, difficultyId = "extreme") {
+    const source = chartFor(song, difficultyId);
+    if (!song.custom) return source;
+    const leadMs = customRuntimeLeadMs(song.difficulty?.approachMs);
+    const rampMs = leadMs * 4;
+    return source.map((event) => {
+      const appliedLead = leadMs * Math.min(1, Math.max(0, event.t) / rampMs);
+      return note(Math.max(0, Math.round(event.t - appliedLead)), [...event.panels]);
+    });
   }
 
   function mount(root, { onScore }) {
@@ -2217,8 +2236,7 @@
     function frame() {
       if (!running || submitted) return;
       const t = nowMs();
-      const s = song();
-      const ch = chartFor(s, difficultyId);
+      const ch = chart;
       const duration = ch.length ? ch[ch.length - 1].t + 800 : 1000;
 
       while (chartIndex < ch.length && ch[chartIndex].t <= t + difficulty().approachMs) {
@@ -2404,7 +2422,7 @@
       duckLobbyMusic(true);
       primeResultAudio();
       const s = song();
-      chart = chartFor(s, difficultyId);
+      chart = runtimeChartFor(s, difficultyId);
       resetAccuracyTimeline(chart);
       chartIndex = 0;
       running = true;
@@ -2647,6 +2665,8 @@
     JUDGE_MS,
     SONGS,
     chartFor,
+    runtimeChartFor,
+    customRuntimeLeadMs,
     buildChart,
     CUSTOM_CHART_STORAGE_KEY,
     normalizeCustomChartDefinition,
