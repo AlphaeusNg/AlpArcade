@@ -1174,26 +1174,6 @@ body.salmon-mode .fun-fact-text {
   min-width: 0;
 }
 
-.music-player-close {
-  flex-shrink: 0;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--muted);
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-}
-
-.music-player-close:hover {
-  border-color: rgba(45, 212, 191, 0.45);
-  color: var(--teal);
-}
-
 .music-player-frame-wrap {
   width: 100%;
   line-height: 0;

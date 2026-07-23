@@ -86,24 +86,13 @@
     return s;
   }
 
-  function ensureStopButton() {
+  /** Strip legacy chrome (drag / mini / stop ×) from older builds. */
+  function stripLegacyPlayerChrome() {
     const bar = shell()?.querySelector(".music-player-bar");
     if (!bar) return;
-    // Strip drag / mini chrome from older builds
     $("#music-player-grip")?.remove();
     $("#music-player-min")?.remove();
-    if (!$("#music-player-close")) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.id = "music-player-close";
-      b.className = "music-player-close";
-      b.title = "Stop music";
-      b.setAttribute("aria-label", "Stop music");
-      b.textContent = "×";
-      bar.appendChild(b);
-    }
-    const closeB = $("#music-player-close");
-    if (closeB) closeB.hidden = false;
+    $("#music-player-close")?.remove();
   }
 
   function updateLabels() {
@@ -174,9 +163,9 @@
       t.style.pointerEvents = "auto";
     }
     if (sc) {
-      const narrow = window.matchMedia("(max-width: 820px)").matches;
-      sc.hidden = !(dockOpen && narrow);
-      sc.setAttribute("aria-hidden", sc.hidden ? "true" : "false");
+      // Any viewport: scrim catches outside clicks to minimize the dock
+      sc.hidden = !dockOpen;
+      sc.setAttribute("aria-hidden", dockOpen ? "false" : "true");
     }
     updateLabels();
     if (persist) persistUi();
@@ -228,7 +217,7 @@
       duckedEmbed = "";
     }
     ensureShellInSlot();
-    ensureStopButton();
+    stripLegacyPlayerChrome();
     const f = frame();
     const s = shell();
     const e = empty();
@@ -340,7 +329,7 @@
 
   function boot() {
     ensureShellInSlot();
-    ensureStopButton();
+    stripLegacyPlayerChrome();
     $("#music-mini-tab")?.remove();
     restoreUi();
     autoStart();
@@ -372,10 +361,13 @@
           setDockOpen(!dockOpen);
           return;
         }
-        if (e.target.closest?.("#music-player-close")) {
-          e.preventDefault();
-          e.stopPropagation();
-          stopMusic();
+        // Outside the open dock panel → minimize (tab/scrim handled above)
+        if (dockOpen) {
+          const inPanel = e.target.closest?.("#music-dock-panel, .music-dock-panel");
+          const inTab = e.target.closest?.("#music-dock-tab, .music-dock-tab");
+          if (!inPanel && !inTab) {
+            setDockOpen(false);
+          }
         }
       },
       true
@@ -398,14 +390,6 @@
     });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && dockOpen) setDockOpen(false);
-    });
-    window.addEventListener("resize", () => {
-      const sc = scrim();
-      if (sc) {
-        const narrow = window.matchMedia("(max-width: 820px)").matches;
-        sc.hidden = !(dockOpen && narrow);
-        sc.setAttribute("aria-hidden", sc.hidden ? "true" : "false");
-      }
     });
   }
 

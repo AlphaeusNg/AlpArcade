@@ -44,7 +44,7 @@
           <button type="button" class="music-dock-close" id="music-dock-close" title="Close station list" aria-label="Close station list">×</button>
         </div>
       </div>
-      <p class="bg-music-hint mono">Pick a station · player stays in this panel · × stops · closes without cutting audio</p>
+      <p class="bg-music-hint mono">Pick a station · player stays in this panel · click outside to close · audio keeps playing</p>
       <div class="bg-music-picks" role="group" aria-label="Playlists">
         <button type="button" class="bg-music-btn" data-playlist="lofi" data-embed="https://open.spotify.com/embed/playlist/0IcjCtBQgkV41B1jkMeAaw?utm_source=generator">
           <strong>Lofi Beats</strong>
@@ -60,7 +60,6 @@
         <div class="music-player-shell is-docked" id="music-player-shell" hidden>
           <div class="music-player-bar">
             <span class="music-player-label mono" id="music-player-label">Playing…</span>
-            <button type="button" class="music-player-close" id="music-player-close" title="Stop music" aria-label="Stop music">×</button>
           </div>
           <div class="music-player-frame-wrap">
             <iframe
