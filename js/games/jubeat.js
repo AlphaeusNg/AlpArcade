@@ -8,6 +8,10 @@
 
   const CELLS = 16;
   const MAX_SCORE = 1000000;
+  const CUSTOM_CHART_STORAGE_KEY = "alparcade-jubeat-custom-charts-v1";
+  const CUSTOM_STEP_BEATS = [1, 0.5, 0.25];
+  const CUSTOM_START_BEATS = 4;
+  const CUSTOM_MAX_STEPS = 128;
   const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.96, perfect: 1.04 };
   const MISS_AFTER_MS = 180;
   const SCORE_WEIGHT = { good: 0.4, great: 0.7, excellent: 1 };
@@ -732,7 +736,91 @@
     },
   ].map((s) => ({ ...s, charts: {} }));
 
+  function normalizeCustomChartDefinition(value, { requireNotes = true } = {}) {
+    if (!value || typeof value !== "object") return null;
+    const baseSong = SONGS.find((song) => song.id === value.baseSongId);
+    if (!baseSong) return null;
+    const name = String(value.name || "")
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .trim()
+      .slice(0, 32);
+    if (!name) return null;
+    const level = Math.max(1, Math.min(10, Math.round(Number(value.level) || 1)));
+    const requestedStepBeats = Number(value.stepBeats);
+    const stepBeats = CUSTOM_STEP_BEATS.includes(requestedStepBeats) ? requestedStepBeats : 0.5;
+    const rawSteps = Array.isArray(value.steps) ? value.steps.slice(0, CUSTOM_MAX_STEPS) : [];
+    const steps = (rawSteps.length ? rawSteps : [[]]).map((step) => {
+      const panels = Array.isArray(step) ? step : [];
+      return [...new Set(panels.map(Number).filter((panel) => Number.isInteger(panel) && panel >= 0 && panel < CELLS))]
+        .sort((a, b) => a - b);
+    });
+    if (requireNotes && !steps.some((step) => step.length)) return null;
+    const fallbackId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = String(value.id || fallbackId)
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 48);
+    return { id: id || fallbackId, name, baseSongId: baseSong.id, level, stepBeats, steps };
+  }
+
+  function buildCustomChart(value) {
+    const definition = normalizeCustomChartDefinition(value);
+    if (!definition) return [];
+    const baseSong = SONGS.find((song) => song.id === definition.baseSongId);
+    const beatMs = 60000 / baseSong.bpm;
+    return definition.steps
+      .map((panels, index) =>
+        panels.length ? note(Math.round((CUSTOM_START_BEATS + index * definition.stepBeats) * beatMs), panels) : null
+      )
+      .filter(Boolean);
+  }
+
+  function customSongFromDefinition(value) {
+    const definition = normalizeCustomChartDefinition(value);
+    if (!definition) return null;
+    const baseSong = SONGS.find((song) => song.id === definition.baseSongId);
+    const chart = buildCustomChart(definition);
+    const totalHits = chart.reduce((total, event) => total + event.panels.length, 0);
+    const approachMs = definition.level <= 3 ? 1400 : definition.level <= 7 ? 1200 : 1000;
+    return {
+      ...baseSong,
+      id: `custom-${definition.id}`,
+      customId: definition.id,
+      custom: true,
+      title: definition.name,
+      artist: `CUSTOM · ${baseSong.title}`,
+      level: definition.level,
+      easyLevel: definition.level,
+      durationSec: chart.length ? chart[chart.length - 1].t / 1000 + 1 : 8,
+      notesHint: `${totalHits} hits · local practice`,
+      charts: { custom: chart },
+      difficulty: { label: "CUSTOM", shortLabel: "Custom", approachMs },
+    };
+  }
+
+  function loadCustomChartDefinitions(storage) {
+    try {
+      const values = JSON.parse(storage?.getItem?.(CUSTOM_CHART_STORAGE_KEY) || "[]");
+      if (!Array.isArray(values)) return [];
+      return values.map((value) => normalizeCustomChartDefinition(value)).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCustomChartDefinitions(storage, values) {
+    const definitions = (Array.isArray(values) ? values : [])
+      .map((value) => normalizeCustomChartDefinition(value))
+      .filter(Boolean);
+    try {
+      storage?.setItem?.(CUSTOM_CHART_STORAGE_KEY, JSON.stringify(definitions));
+    } catch {
+      /* Local storage may be unavailable in private browsing. */
+    }
+    return definitions;
+  }
+
   function chartFor(song, difficultyId = "extreme") {
+    if (song.custom) return song.charts.custom || [];
     if (!song.charts[difficultyId]) song.charts[difficultyId] = buildChart(song, difficultyId);
     return song.charts[difficultyId];
   }
@@ -741,6 +829,16 @@
     let songIndex = 0;
     let difficultyId = "easy";
     let markerId = "iris";
+    let chartStorage = null;
+    try {
+      chartStorage = global.localStorage;
+    } catch {
+      /* Storage access can be blocked in sandboxed browsing contexts. */
+    }
+    let customDefinitions = loadCustomChartDefinitions(chartStorage);
+    let customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
+    let editorDraft = null;
+    let editorStep = 0;
 
     root.innerHTML = `
       <div class="jubeat-wrap">
@@ -750,6 +848,70 @@
             <strong id="jb-selection-title">${escapeHtml(SONGS[songIndex].title)}</strong>
           </header>
           <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
+          <div class="jb-custom-actions">
+            <button type="button" class="btn ghost small" id="jb-custom-new">Create pattern</button>
+            <button type="button" class="btn ghost small" id="jb-custom-edit" hidden>Edit pattern</button>
+            <button type="button" class="btn ghost small jb-custom-delete" id="jb-custom-delete" hidden>Delete</button>
+          </div>
+          <section class="jb-chart-editor" id="jb-chart-editor" aria-labelledby="jb-chart-editor-title" hidden>
+            <header>
+              <div>
+                <p class="jb-setup-label">CUSTOM CHART</p>
+                <strong id="jb-chart-editor-title">Create tapping pattern</strong>
+              </div>
+              <button type="button" class="jb-editor-close" id="jb-editor-close" aria-label="Close chart editor" title="Close">×</button>
+            </header>
+            <div class="jb-editor-fields">
+              <label>
+                <span>NAME</span>
+                <input id="jb-editor-name" maxlength="32" autocomplete="off" placeholder="My pattern">
+              </label>
+              <label>
+                <span>TRACK</span>
+                <select id="jb-editor-song">
+                  ${SONGS.map((song) => `<option value="${song.id}">${escapeHtml(song.title)}</option>`).join("")}
+                </select>
+              </label>
+              <label>
+                <span>LEVEL</span>
+                <input id="jb-editor-level" type="number" min="1" max="10" step="1" value="5" inputmode="numeric">
+              </label>
+              <label>
+                <span>STEP</span>
+                <select id="jb-editor-division">
+                  <option value="1">1 beat</option>
+                  <option value="0.5" selected>1/2 beat</option>
+                  <option value="0.25">1/4 beat</option>
+                </select>
+              </label>
+            </div>
+            <div class="jb-editor-sequence">
+              <div class="jb-editor-step-head">
+                <strong id="jb-editor-step-label">STEP 1 / 16</strong>
+                <span>Select multiple panels for a chord</span>
+              </div>
+              <div class="jb-editor-timeline" id="jb-editor-timeline" role="tablist" aria-label="Pattern steps"></div>
+              <div class="jb-editor-grid" id="jb-editor-grid" role="grid" aria-label="Custom pattern 4 by 4 grid">
+                ${Array.from(
+                  { length: CELLS },
+                  (_, index) =>
+                    `<button type="button" data-editor-panel="${index}" aria-pressed="false" aria-label="Panel ${index + 1}">${index + 1}</button>`
+                ).join("")}
+              </div>
+              <div class="jb-editor-step-actions">
+                <button type="button" class="btn ghost small" id="jb-editor-prev" aria-label="Previous step" title="Previous step">←</button>
+                <button type="button" class="btn ghost small" id="jb-editor-next" aria-label="Next step" title="Next step">→</button>
+                <button type="button" class="btn ghost small" id="jb-editor-add">Add step</button>
+                <button type="button" class="btn ghost small" id="jb-editor-remove">Remove step</button>
+                <button type="button" class="btn ghost small" id="jb-editor-clear">Clear step</button>
+              </div>
+            </div>
+            <p class="jb-editor-status" id="jb-editor-status" aria-live="polite"></p>
+            <div class="jb-editor-save-actions">
+              <button type="button" class="btn ghost small" id="jb-editor-save">Save</button>
+              <button type="button" class="btn primary" id="jb-editor-test">Save &amp; test</button>
+            </div>
+          </section>
           <div class="jb-setup-controls">
             <section class="jb-setup-panel" aria-labelledby="jb-difficulty-label">
               <p class="jb-setup-label" id="jb-difficulty-label">DIFFICULTY</p>
@@ -827,6 +989,27 @@
     const songsEl = root.querySelector("#jb-songs");
     const selectionTitleEl = root.querySelector("#jb-selection-title");
     const selectionHintEl = root.querySelector("#jb-selection-hint");
+    const customNewBtn = root.querySelector("#jb-custom-new");
+    const customEditBtn = root.querySelector("#jb-custom-edit");
+    const customDeleteBtn = root.querySelector("#jb-custom-delete");
+    const editorEl = root.querySelector("#jb-chart-editor");
+    const editorTitleEl = root.querySelector("#jb-chart-editor-title");
+    const editorCloseBtn = root.querySelector("#jb-editor-close");
+    const editorNameEl = root.querySelector("#jb-editor-name");
+    const editorSongEl = root.querySelector("#jb-editor-song");
+    const editorLevelEl = root.querySelector("#jb-editor-level");
+    const editorDivisionEl = root.querySelector("#jb-editor-division");
+    const editorStepLabelEl = root.querySelector("#jb-editor-step-label");
+    const editorTimelineEl = root.querySelector("#jb-editor-timeline");
+    const editorGridEl = root.querySelector("#jb-editor-grid");
+    const editorPrevBtn = root.querySelector("#jb-editor-prev");
+    const editorNextBtn = root.querySelector("#jb-editor-next");
+    const editorAddBtn = root.querySelector("#jb-editor-add");
+    const editorRemoveBtn = root.querySelector("#jb-editor-remove");
+    const editorClearBtn = root.querySelector("#jb-editor-clear");
+    const editorStatusEl = root.querySelector("#jb-editor-status");
+    const editorSaveBtn = root.querySelector("#jb-editor-save");
+    const editorTestBtn = root.querySelector("#jb-editor-test");
     const difficultyEl = root.querySelector("#jb-difficulty");
     const markerModeEl = root.querySelector("#jb-marker-mode");
     const markerPracticeEl = root.querySelector("#jb-marker-practice");
@@ -906,12 +1089,20 @@
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
 
+    function allSongs() {
+      return SONGS.concat(customSongs);
+    }
+
     function song() {
-      return SONGS[songIndex];
+      return allSongs()[songIndex] || SONGS[0];
     }
 
     function difficulty() {
-      return DIFFICULTIES[difficultyId];
+      return song().custom ? song().difficulty : DIFFICULTIES[difficultyId] || DIFFICULTIES.easy;
+    }
+
+    function levelFor(s = song()) {
+      return s.custom ? s.level : difficultyId === "easy" ? s.easyLevel : s.level;
     }
 
     function controlsLocked() {
@@ -953,21 +1144,140 @@
       practiceAccuracyEl.textContent = "--%";
     }
 
+    function closeEditor() {
+      editorEl.hidden = true;
+      editorDraft = null;
+      editorStatusEl.textContent = "";
+    }
+
+    function paintEditor() {
+      if (!editorDraft) return;
+      editorStep = Math.max(0, Math.min(editorDraft.steps.length - 1, editorStep));
+      editorStepLabelEl.textContent = `STEP ${editorStep + 1} / ${editorDraft.steps.length}`;
+      editorTimelineEl.innerHTML = editorDraft.steps
+        .map(
+          (panels, index) =>
+            `<button type="button" role="tab" data-editor-step="${index}" aria-selected="${index === editorStep}" class="${index === editorStep ? "is-active" : ""}${panels.length ? " has-note" : ""}" title="Step ${index + 1}${panels.length ? ` · ${panels.length} hit${panels.length === 1 ? "" : "s"}` : " · rest"}">${index + 1}</button>`
+        )
+        .join("");
+      editorTimelineEl.querySelectorAll("[data-editor-step]").forEach((button) => {
+        button.addEventListener("click", () => {
+          editorStep = Number(button.dataset.editorStep);
+          paintEditor();
+        });
+      });
+      const selected = new Set(editorDraft.steps[editorStep]);
+      editorGridEl.querySelectorAll("[data-editor-panel]").forEach((button) => {
+        const active = selected.has(Number(button.dataset.editorPanel));
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      editorPrevBtn.disabled = editorStep === 0;
+      editorNextBtn.disabled = editorStep === editorDraft.steps.length - 1;
+      editorRemoveBtn.disabled = editorDraft.steps.length === 1;
+      requestAnimationFrame(() => {
+        editorTimelineEl.querySelector(".is-active")?.scrollIntoView?.({ block: "nearest", inline: "center" });
+      });
+    }
+
+    function openEditor(definition) {
+      if (controlsLocked()) return;
+      const selectedSong = song();
+      const baseSongId = selectedSong.custom
+        ? customDefinitions.find((item) => item.id === selectedSong.customId)?.baseSongId
+        : selectedSong.id;
+      const source =
+        definition ||
+        {
+          id: "",
+          name: "",
+          baseSongId: baseSongId || SONGS[0].id,
+          level: 5,
+          stepBeats: 0.5,
+          steps: Array.from({ length: 16 }, () => []),
+        };
+      editorDraft = {
+        ...source,
+        steps: source.steps.map((step) => [...step]),
+      };
+      editorStep = 0;
+      editorTitleEl.textContent = definition ? "Edit tapping pattern" : "Create tapping pattern";
+      editorNameEl.value = editorDraft.name;
+      editorSongEl.value = editorDraft.baseSongId;
+      editorLevelEl.value = String(editorDraft.level);
+      editorDivisionEl.value = String(editorDraft.stepBeats);
+      editorStatusEl.textContent = "";
+      editorEl.hidden = false;
+      paintEditor();
+      editorNameEl.focus({ preventScroll: true });
+    }
+
+    function syncEditorFields() {
+      if (!editorDraft) return;
+      editorDraft.name = editorNameEl.value;
+      editorDraft.baseSongId = editorSongEl.value;
+      editorDraft.level = Number(editorLevelEl.value);
+      editorDraft.stepBeats = Number(editorDivisionEl.value);
+    }
+
+    function saveEditor({ test = false } = {}) {
+      if (!editorDraft) return;
+      syncEditorFields();
+      const definition = normalizeCustomChartDefinition(editorDraft);
+      if (!definition) {
+        editorStatusEl.textContent = editorDraft.name.trim()
+          ? "Add at least one panel to the pattern."
+          : "Enter a chart name and add at least one panel.";
+        return;
+      }
+      const existingIndex = customDefinitions.findIndex((item) => item.id === definition.id);
+      if (existingIndex >= 0) customDefinitions.splice(existingIndex, 1, definition);
+      else customDefinitions.push(definition);
+      customDefinitions = saveCustomChartDefinitions(chartStorage, customDefinitions);
+      customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
+      const selectedIndex = allSongs().findIndex((item) => item.customId === definition.id);
+      songIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      difficultyId = "custom";
+      closeEditor();
+      paintSongs();
+      paintDifficulty();
+      paintCustomActions();
+      paintMeta();
+      cuePreview(song(), true);
+      global.ArcadeSFX?.match?.() || global.ArcadeSFX?.click?.();
+      if (test) start();
+    }
+
+    function paintCustomActions() {
+      const isCustom = !!song().custom;
+      customEditBtn.hidden = !isCustom;
+      customDeleteBtn.hidden = !isCustom;
+      customNewBtn.disabled = controlsLocked();
+      customEditBtn.disabled = controlsLocked();
+      customDeleteBtn.disabled = controlsLocked();
+    }
+
     function paintSongs() {
-      songsEl.innerHTML = SONGS.map(
+      const songs = allSongs();
+      songsEl.innerHTML = songs.map(
         (s, i) => `
         <button type="button" role="tab" aria-selected="${i === songIndex}" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}">
           <span class="jb-song-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <strong>${escapeHtml(s.title)}</strong>
           <small>${escapeHtml(s.artist)}</small>
-          <em>${difficultyId === "easy" ? `EASY ${s.easyLevel}` : `EXT ${s.level}`} · ${s.bpm} BPM</em>
+          <em>${s.custom ? `CUSTOM ${s.level} · UNRANKED` : difficultyId === "easy" ? `EASY ${s.easyLevel}` : difficultyId === "extreme" ? `EXT ${s.level}` : `EASY ${s.easyLevel} / EXT ${s.level}`} · ${s.bpm} BPM</em>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
         btn.addEventListener("click", () => {
           if (controlsLocked()) return;
           songIndex = Number(btn.dataset.s);
+          if (song().custom) difficultyId = "custom";
+          else if (difficultyId === "custom") difficultyId = "easy";
+          closeEditor();
           paintSongs();
+          paintDifficulty();
+          paintCustomActions();
           paintMeta();
           cuePreview(song(), true);
           global.ArcadeSFX?.click?.();
@@ -976,7 +1286,9 @@
     }
 
     function paintDifficulty() {
-      difficultyEl.innerHTML = Object.entries(DIFFICULTIES)
+      const choices = song().custom ? [["custom", song().difficulty]] : Object.entries(DIFFICULTIES);
+      difficultyEl.classList.toggle("is-custom", song().custom);
+      difficultyEl.innerHTML = choices
         .map(
           ([id, diff]) =>
             `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" aria-pressed="${id === difficultyId}" ${controlsLocked() ? "disabled" : ""}>${diff.label}</button>`
@@ -1019,7 +1331,7 @@
     function paintMeta() {
       const s = song();
       const diff = difficulty();
-      const level = difficultyId === "easy" ? s.easyLevel : s.level;
+      const level = levelFor(s);
       selectionTitleEl.textContent = s.title;
       selectionTitleEl.style.color = s.color;
       selectionHintEl.textContent = `${s.artist} · ${diff.label} ${level} · ${s.bpm} BPM · ${s.notesHint}`;
@@ -1477,7 +1789,7 @@
       }
     }
 
-    function showResults({ rank, arcadePoints, total, fullCombo }) {
+    function showResults({ rank, arcadePoints, total, fullCombo, unranked = false }) {
       if (!resultsEl) return;
       resultsOpen = true;
       resultsEl.hidden = false;
@@ -1514,7 +1826,7 @@
         setTimeout(() => {
           resultsEl.classList.add("is-stats-visible");
           resultsStatsEl.textContent = `EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
-          resultsArcadeEl.textContent = `ARCADE +${arcadePoints} PTS`;
+          resultsArcadeEl.textContent = unranked ? "CUSTOM PRACTICE · UNRANKED" : `ARCADE +${arcadePoints} PTS`;
         }, 2250),
         setTimeout(() => {
           if (!resultsOpen || !resultsContinueBtn.hidden) return;
@@ -1538,34 +1850,38 @@
       const fullCombo = total > 0 && counts.miss === 0;
       const accuracy = overallAccuracy();
       const rank = rankForScore(score);
-      const arcadePoints =
-        global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
+      const arcadePoints = s.custom
+        ? 0
+        : global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
       const cleared = rank !== "FAIL";
       hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · ${accuracy.toFixed(1)}% accuracy · rank ${rank}`;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
-      showResults({ rank, arcadePoints, total, fullCombo });
+      showResults({ rank, arcadePoints, total, fullCombo, unranked: s.custom });
       startPostGameLoop(s);
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
-      onScore?.({
-        score,
-        meta: {
-          song: s.id,
-          difficulty: difficulty().label,
-          rank,
-          arcadePoints,
-          excellent: counts.excellent,
-          great: counts.great,
-          good: counts.good,
-          miss: counts.miss,
-          bestCombo,
-          fullCombo,
-          accuracy: Number(accuracy.toFixed(2)),
-          marker: markerId,
-          cleared,
-        },
-      });
+      paintCustomActions();
+      if (!s.custom) {
+        onScore?.({
+          score,
+          meta: {
+            song: s.id,
+            difficulty: difficulty().label,
+            rank,
+            arcadePoints,
+            excellent: counts.excellent,
+            great: counts.great,
+            good: counts.good,
+            miss: counts.miss,
+            bestCombo,
+            fullCombo,
+            accuracy: Number(accuracy.toFixed(2)),
+            marker: markerId,
+            cleared,
+          },
+        });
+      }
     }
 
     function frame() {
@@ -1759,11 +2075,78 @@
       const mins = Math.round(chartSeconds / 6) / 10;
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
       const diff = difficulty();
-      const level = difficultyId === "easy" ? s.easyLevel : s.level;
+      const level = levelFor(s);
       hintEl.textContent = `${s.title} · ${diff.label} ${level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
       runStartSequence(s);
     }
 
+    customNewBtn.addEventListener("click", () => openEditor());
+    customEditBtn.addEventListener("click", () => {
+      const definition = customDefinitions.find((item) => item.id === song().customId);
+      if (definition) openEditor(definition);
+    });
+    customDeleteBtn.addEventListener("click", () => {
+      const selected = song();
+      if (!selected.custom || controlsLocked()) return;
+      const shouldDelete = typeof global.confirm !== "function" || global.confirm(`Delete "${selected.title}"?`);
+      if (!shouldDelete) return;
+      customDefinitions = customDefinitions.filter((item) => item.id !== selected.customId);
+      customDefinitions = saveCustomChartDefinitions(chartStorage, customDefinitions);
+      customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
+      songIndex = 0;
+      difficultyId = "easy";
+      closeEditor();
+      paintSongs();
+      paintDifficulty();
+      paintCustomActions();
+      paintMeta();
+      cuePreview(song(), true);
+    });
+    editorCloseBtn.addEventListener("click", closeEditor);
+    editorSongEl.addEventListener("change", () => {
+      const baseSong = SONGS.find((item) => item.id === editorSongEl.value);
+      if (baseSong) cuePreview(baseSong, true);
+    });
+    editorGridEl.querySelectorAll("[data-editor-panel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!editorDraft) return;
+        const panel = Number(button.dataset.editorPanel);
+        const step = editorDraft.steps[editorStep];
+        const position = step.indexOf(panel);
+        if (position >= 0) step.splice(position, 1);
+        else step.push(panel);
+        step.sort((a, b) => a - b);
+        paintEditor();
+        global.ArcadeSFX?.click?.();
+      });
+    });
+    editorPrevBtn.addEventListener("click", () => {
+      editorStep = Math.max(0, editorStep - 1);
+      paintEditor();
+    });
+    editorNextBtn.addEventListener("click", () => {
+      editorStep = Math.min(editorDraft.steps.length - 1, editorStep + 1);
+      paintEditor();
+    });
+    editorAddBtn.addEventListener("click", () => {
+      if (!editorDraft || editorDraft.steps.length >= CUSTOM_MAX_STEPS) return;
+      editorDraft.steps.splice(editorStep + 1, 0, []);
+      editorStep += 1;
+      paintEditor();
+    });
+    editorRemoveBtn.addEventListener("click", () => {
+      if (!editorDraft || editorDraft.steps.length <= 1) return;
+      editorDraft.steps.splice(editorStep, 1);
+      editorStep = Math.min(editorStep, editorDraft.steps.length - 1);
+      paintEditor();
+    });
+    editorClearBtn.addEventListener("click", () => {
+      if (!editorDraft) return;
+      editorDraft.steps[editorStep] = [];
+      paintEditor();
+    });
+    editorSaveBtn.addEventListener("click", () => saveEditor());
+    editorTestBtn.addEventListener("click", () => saveEditor({ test: true }));
     startBtn.addEventListener("click", start);
     resultsContinueBtn.addEventListener("click", () => {
       clearResults();
@@ -1775,6 +2158,7 @@
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
+      paintCustomActions();
       restartPractice();
       cuePreview(song(), true);
       startBtn.focus({ preventScroll: true });
@@ -1815,6 +2199,7 @@
     paintDifficulty();
     paintMarkerModes();
     paintSongs();
+    paintCustomActions();
     paintMeta();
     cuePreview(song());
     practiceRaf = requestAnimationFrame(animatePractice);
@@ -1864,6 +2249,12 @@
     SONGS,
     chartFor,
     buildChart,
+    CUSTOM_CHART_STORAGE_KEY,
+    normalizeCustomChartDefinition,
+    buildCustomChart,
+    customSongFromDefinition,
+    loadCustomChartDefinitions,
+    saveCustomChartDefinitions,
     createScoreTracker,
     rankForScore,
     judgeForTap,

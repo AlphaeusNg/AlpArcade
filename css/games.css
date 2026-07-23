@@ -596,6 +596,210 @@
   cursor: not-allowed;
 }
 
+.jb-custom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.jb-custom-actions .jb-custom-delete {
+  color: #fb7185;
+}
+
+.jb-chart-editor {
+  width: 100%;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-hot);
+  border-bottom: 1px solid var(--border);
+}
+
+.jb-chart-editor[hidden] {
+  display: none;
+}
+
+.jb-chart-editor > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.jb-chart-editor > header p {
+  margin-bottom: 0.18rem;
+}
+
+.jb-chart-editor > header strong {
+  font-size: 0.95rem;
+}
+
+.jb-editor-close {
+  display: grid;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--dim);
+  font: 1.1rem/1 var(--mono);
+  cursor: pointer;
+}
+
+.jb-editor-fields {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1.5fr) minmax(8rem, 1.4fr) minmax(4.5rem, 0.55fr) minmax(6.5rem, 0.8fr);
+  gap: 0.5rem;
+}
+
+.jb-editor-fields label {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.jb-editor-fields label > span,
+.jb-editor-step-head span {
+  color: var(--muted);
+  font: 700 0.58rem var(--mono);
+}
+
+.jb-editor-fields input,
+.jb-editor-fields select {
+  width: 100%;
+  min-width: 0;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 0.55rem;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  font: 0.72rem var(--mono);
+}
+
+.jb-editor-sequence {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  gap: 0.6rem 0.85rem;
+  margin-top: 0.8rem;
+}
+
+.jb-editor-step-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.jb-editor-step-head strong {
+  font: 700 0.7rem var(--mono);
+}
+
+.jb-editor-timeline {
+  display: flex;
+  grid-column: 1;
+  gap: 0.22rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.2rem 0 0.4rem;
+  scrollbar-width: thin;
+}
+
+.jb-editor-timeline button {
+  position: relative;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--muted);
+  font: 0.58rem var(--mono);
+  cursor: pointer;
+}
+
+.jb-editor-timeline button.has-note::after {
+  position: absolute;
+  right: 0.22rem;
+  bottom: 0.2rem;
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 50%;
+  background: var(--cyan);
+  content: "";
+}
+
+.jb-editor-timeline button.is-active {
+  border-color: var(--teal);
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--text);
+}
+
+.jb-editor-grid {
+  display: grid;
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.24rem;
+  align-self: start;
+  width: 12rem;
+  aspect-ratio: 1;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  background: #070b12;
+}
+
+.jb-editor-grid button {
+  min-width: 0;
+  border: 1px solid #263548;
+  border-radius: 4px;
+  background: #101a26;
+  color: var(--muted);
+  font: 0.6rem var(--mono);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.jb-editor-grid button.is-active {
+  border-color: var(--cyan);
+  background: #0e7490;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(103, 232, 249, 0.35);
+}
+
+.jb-editor-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1;
+  gap: 0.35rem;
+}
+
+.jb-editor-step-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.jb-editor-status {
+  min-height: 1.2em;
+  margin: 0.55rem 0 0;
+  color: #fb7185;
+  font: 0.65rem var(--mono);
+}
+
+.jb-editor-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.jb-difficulty.is-custom {
+  grid-template-columns: 1fr;
+}
+
 .jb-practice-row {
   display: grid;
   grid-template-columns: 6.5rem minmax(0, 1fr);
@@ -1799,6 +2003,18 @@
     width: 5.7rem;
   }
 
+  .jb-editor-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jb-editor-sequence {
+    grid-template-columns: minmax(0, 1fr) 9.5rem;
+  }
+
+  .jb-editor-grid {
+    width: 9.5rem;
+  }
+
   .jb-results-score {
     font-size: 2.25rem;
   }
@@ -1821,6 +2037,23 @@
 
   .jb-select-header strong {
     text-align: left;
+  }
+
+  .jb-editor-sequence {
+    grid-template-columns: 1fr;
+  }
+
+  .jb-editor-step-head,
+  .jb-editor-timeline,
+  .jb-editor-step-actions {
+    grid-column: 1;
+  }
+
+  .jb-editor-grid {
+    grid-row: auto;
+    grid-column: 1;
+    width: min(100%, 12rem);
+    margin: 0 auto;
   }
 }
 
@@ -2035,4 +2268,3 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
-
