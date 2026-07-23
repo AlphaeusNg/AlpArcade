@@ -1677,6 +1677,36 @@ body.salmon-mode .fun-fact-text {
   min-height: 420px;
 }
 
+.play-layout.is-screen-locked {
+  height: var(--cabinet-play-height);
+  min-height: var(--cabinet-play-height);
+  max-height: var(--cabinet-play-height);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  contain: layout paint;
+}
+
+.game-mount.is-screen-locked {
+  height: var(--cabinet-screen-height);
+  min-height: var(--cabinet-screen-height);
+  max-height: var(--cabinet-screen-height);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  contain: size layout paint;
+}
+
+.play-layout.is-screen-locked .play-lb {
+  max-height: var(--cabinet-screen-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .game-hud {
   display: flex;
   justify-content: center;

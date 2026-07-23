@@ -1105,7 +1105,6 @@
             audioEl.currentTime = Math.max(0, (s.audioOffsetMs || 0) / 1000);
             audioEl.play()?.catch?.(() => {});
           }
-          if (musicNoteEl) musicNoteEl.textContent = `Post-game loop · ${s.title}`;
         } catch {
           /* result screen remains usable if background audio cannot resume */
         }

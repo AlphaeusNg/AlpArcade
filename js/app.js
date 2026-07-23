@@ -13,6 +13,12 @@
   let activeGameId = null;
   let lastCabinet = null;
   let opening = false;
+  let releaseActiveGameScreenLock = null;
+
+  function releaseCabinetScreen() {
+    releaseActiveGameScreenLock?.();
+    releaseActiveGameScreenLock = null;
+  }
 
   const GAME_LOADERS = {
     tictactoe: () => window.GameTicTacToe,
@@ -885,6 +891,7 @@
     lastCabinet = document.querySelector(`[data-game="${id}"]`);
 
     try {
+      releaseCabinetScreen();
       if (activeGame?.destroy) activeGame.destroy();
       activeGame = null;
       activeGameId = null;
@@ -954,6 +961,7 @@
       const ctrl = $("#play-controls");
       if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Have fun";
       renderPlayLeaderboard();
+      releaseActiveGameScreenLock = window.ArcadeGameScreen?.lock?.(gameMount) || null;
 
       // hash for deep links
       if (location.hash !== `#play/${id}`) {
@@ -972,6 +980,7 @@
   }
 
   function backToLobby() {
+    releaseCabinetScreen();
     if (activeGame?.destroy) activeGame.destroy();
     activeGame = null;
     activeGameId = null;
