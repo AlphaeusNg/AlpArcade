@@ -98,14 +98,45 @@
     return Math.max(0, Math.round(Number(score) || 0)).toLocaleString();
   }
 
+  function timingAccuracy(noteTime, time, approachMs) {
+    if (!Number.isFinite(noteTime) || !Number.isFinite(time) || !approachMs) return 0;
+    return Math.max(0, Math.min(100, 100 - (Math.abs(time - noteTime) / approachMs) * 100));
+  }
+
   function judgeForTap(noteTime, time, approachMs) {
     const progress = (time - (noteTime - approachMs)) / approachMs;
     if (progress < JUDGE_PROGRESS.safeEarly) return { grade: "miss", label: "MISS", early: true, progress };
     if (progress < JUDGE_PROGRESS.good) return { grade: "good", label: "GOOD", progress };
     if (progress < JUDGE_PROGRESS.great) return { grade: "great", label: "GREAT", progress };
     if (progress < JUDGE_PROGRESS.excellent) return { grade: "excellent", label: "EXCELLENT", progress };
-    if (progress <= JUDGE_PROGRESS.perfect) return { grade: "excellent", label: "PERFECT EXCELLENT", perfect: true, progress };
+    if (progress <= JUDGE_PROGRESS.perfect) return { grade: "excellent", label: "EXCELLENT", perfect: true, progress };
     return { grade: "miss", label: "MISS", progress };
+  }
+
+  function markerLayersMarkup() {
+    return `
+      <span class="jb-shutter" aria-hidden="true">
+        <span class="jb-door jb-door-n"></span>
+        <span class="jb-door jb-door-s"></span>
+        <span class="jb-door jb-door-e"></span>
+        <span class="jb-door jb-door-w"></span>
+        <span class="jb-iris">
+          <span class="jb-blade" style="--i:0"></span>
+          <span class="jb-blade" style="--i:1"></span>
+          <span class="jb-blade" style="--i:2"></span>
+          <span class="jb-blade" style="--i:3"></span>
+          <span class="jb-blade" style="--i:4"></span>
+          <span class="jb-blade" style="--i:5"></span>
+        </span>
+        <span class="jb-touch"><span class="jb-touch-a">TOUCH</span><span class="jb-touch-b">TOUCH</span></span>
+      </span>
+      <span class="jb-alt-marker" aria-hidden="true">
+        <span class="jb-ring-marker"></span>
+        <span class="jb-sweep-line jb-sweep-top"></span>
+        <span class="jb-sweep-line jb-sweep-bottom"></span>
+        <span class="jb-sweep-line jb-sweep-left"></span>
+        <span class="jb-sweep-line jb-sweep-right"></span>
+      </span>`;
   }
 
   /**
@@ -654,46 +685,93 @@
 
     root.innerHTML = `
       <div class="jubeat-wrap">
-        <div class="jb-difficulty" id="jb-difficulty" role="group" aria-label="Chart difficulty"></div>
-        <div class="jb-marker-mode" id="jb-marker-mode" role="group" aria-label="Shutter design"></div>
-        <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
-        <div class="game-hud">
-          <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
-          <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
-          <div><span class="hud-label">EXC</span><strong id="jb-exc">0</strong></div>
-          <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
-        </div>
-        <div class="jb-meta mono" id="jb-meta"></div>
-        <div class="jb-stage">
-          <div class="jb-grid" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
-          <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
-          <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
-          <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
-            <p class="jb-results-kicker" id="jb-results-kicker">TRACK COMPLETE</p>
-            <p class="jb-results-score" id="jb-results-score">0</p>
-            <p class="jb-results-rank" id="jb-results-rank">RANK</p>
-            <p class="jb-results-combo" id="jb-results-combo"></p>
-            <p class="jb-results-stats" id="jb-results-stats"></p>
-            <p class="jb-results-arcade" id="jb-results-arcade"></p>
-            <button type="button" class="btn primary jb-results-continue" id="jb-results-continue" hidden>Continue</button>
-          </section>
-        </div>
+        <section class="jb-setup" id="jb-setup" aria-label="Pulse Grid setup">
+          <header class="jb-select-header">
+            <span>SELECT MUSIC</span>
+            <strong id="jb-selection-title">${escapeHtml(SONGS[songIndex].title)}</strong>
+          </header>
+          <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
+          <div class="jb-setup-controls">
+            <section class="jb-setup-panel" aria-labelledby="jb-difficulty-label">
+              <p class="jb-setup-label" id="jb-difficulty-label">DIFFICULTY</p>
+              <div class="jb-difficulty" id="jb-difficulty" role="group" aria-label="Chart difficulty"></div>
+            </section>
+            <section class="jb-setup-panel jb-marker-lab" aria-labelledby="jb-marker-label">
+              <p class="jb-setup-label" id="jb-marker-label">MARKER</p>
+              <div class="jb-marker-mode" id="jb-marker-mode" role="group" aria-label="Shutter design"></div>
+              <div class="jb-practice-row">
+                <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
+                  <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
+                    ${markerLayersMarkup()}
+                  </button>
+                </div>
+                <div class="jb-practice-feedback" aria-live="polite">
+                  <span>PRACTICE</span>
+                  <strong id="jb-practice-judge">TOUCH</strong>
+                  <small id="jb-practice-accuracy">--%</small>
+                </div>
+              </div>
+            </section>
+          </div>
+          <p class="game-hint jb-selection-hint" id="jb-selection-hint"></p>
+          <div class="game-actions">
+            <button type="button" class="btn primary" id="jb-start">Confirm song</button>
+          </div>
+        </section>
+        <section class="jb-playfield" id="jb-playfield" hidden>
+          <div class="game-hud">
+            <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
+            <div><span class="hud-label">Combo</span><strong id="jb-combo">0</strong></div>
+            <div><span class="hud-label">EXC</span><strong id="jb-exc">0</strong></div>
+            <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
+          </div>
+          <div class="jb-meta mono" id="jb-meta"></div>
+          <div class="jb-stage">
+            <div class="jb-grid jb-marker-surface" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
+            <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
+            <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
+            <section class="jb-start-sequence" id="jb-start-sequence" hidden aria-live="assertive">
+              <div class="jb-loading-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+              <p id="jb-start-sequence-label">LOADING</p>
+              <strong id="jb-start-sequence-song"></strong>
+            </section>
+            <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
+              <p class="jb-results-kicker" id="jb-results-kicker">TRACK COMPLETE</p>
+              <p class="jb-results-score" id="jb-results-score">0</p>
+              <p class="jb-results-rank" id="jb-results-rank">RANK</p>
+              <p class="jb-results-combo" id="jb-results-combo"></p>
+              <div class="jb-results-accuracy">
+                <span>ACCURACY</span>
+                <strong id="jb-results-accuracy">0.0%</strong>
+              </div>
+              <div class="jb-accuracy-timeline" id="jb-accuracy-timeline" role="img" aria-label="Timing accuracy by note"></div>
+              <p class="jb-results-stats" id="jb-results-stats"></p>
+              <p class="jb-results-arcade" id="jb-results-arcade"></p>
+              <button type="button" class="btn primary jb-results-continue" id="jb-results-continue" hidden>Continue</button>
+            </section>
+          </div>
+          <p class="game-hint" id="jb-hint">1–4 QWER ASDF ZXCV</p>
+        </section>
         <div class="jb-music" id="jb-music">
           <audio id="jb-audio" class="jb-audio" preload="auto" playsinline></audio>
           <audio id="jb-result-audio" class="jb-audio" preload="auto" playsinline></audio>
-          <p class="jb-music-note mono" id="jb-music-note">Local BGM · hit when the shutter closes</p>
-        </div>
-        <p class="game-hint" id="jb-hint">Hit when the shutter closes on the beat · miss never fails the chart · 1–4 QWER ASDF ZXCV</p>
-        <div class="game-actions">
-          <button type="button" class="btn primary" id="jb-start">Start chart</button>
+          <p class="jb-music-note mono" id="jb-music-note">Select a track</p>
         </div>
       </div>
     `;
 
+    const setupEl = root.querySelector("#jb-setup");
+    const playfieldEl = root.querySelector("#jb-playfield");
     const grid = root.querySelector("#jb-grid");
     const songsEl = root.querySelector("#jb-songs");
+    const selectionTitleEl = root.querySelector("#jb-selection-title");
+    const selectionHintEl = root.querySelector("#jb-selection-hint");
     const difficultyEl = root.querySelector("#jb-difficulty");
     const markerModeEl = root.querySelector("#jb-marker-mode");
+    const markerPracticeEl = root.querySelector("#jb-marker-practice");
+    const practiceCellEl = root.querySelector("#jb-practice-cell");
+    const practiceJudgeEl = root.querySelector("#jb-practice-judge");
+    const practiceAccuracyEl = root.querySelector("#jb-practice-accuracy");
     const scoreEl = root.querySelector("#jb-score");
     const comboEl = root.querySelector("#jb-combo");
     const excEl = root.querySelector("#jb-exc");
@@ -705,12 +783,17 @@
     const startBtn = root.querySelector("#jb-start");
     const musicNoteEl = root.querySelector("#jb-music-note");
     const audioEl = root.querySelector("#jb-audio");
+    const startSequenceEl = root.querySelector("#jb-start-sequence");
+    const startSequenceLabelEl = root.querySelector("#jb-start-sequence-label");
+    const startSequenceSongEl = root.querySelector("#jb-start-sequence-song");
     const resultsEl = root.querySelector("#jb-results");
     const resultsScoreEl = root.querySelector("#jb-results-score");
     const resultsRankEl = root.querySelector("#jb-results-rank");
     const resultsComboEl = root.querySelector("#jb-results-combo");
     const resultsStatsEl = root.querySelector("#jb-results-stats");
     const resultsArcadeEl = root.querySelector("#jb-results-arcade");
+    const resultsAccuracyEl = root.querySelector("#jb-results-accuracy");
+    const accuracyTimelineEl = root.querySelector("#jb-accuracy-timeline");
     const resultsContinueBtn = root.querySelector("#jb-results-continue");
     const resultAudioEl = root.querySelector("#jb-result-audio");
 
@@ -724,28 +807,7 @@
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
       btn.innerHTML = `
         <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
-        <span class="jb-shutter" aria-hidden="true">
-          <span class="jb-door jb-door-n"></span>
-          <span class="jb-door jb-door-s"></span>
-          <span class="jb-door jb-door-e"></span>
-          <span class="jb-door jb-door-w"></span>
-          <span class="jb-iris">
-            <span class="jb-blade" style="--i:0"></span>
-            <span class="jb-blade" style="--i:1"></span>
-            <span class="jb-blade" style="--i:2"></span>
-            <span class="jb-blade" style="--i:3"></span>
-            <span class="jb-blade" style="--i:4"></span>
-            <span class="jb-blade" style="--i:5"></span>
-          </span>
-          <span class="jb-touch"><span class="jb-touch-a">TOUCH</span><span class="jb-touch-b">TOUCH</span></span>
-        </span>
-        <span class="jb-alt-marker" aria-hidden="true">
-          <span class="jb-ring-marker"></span>
-          <span class="jb-sweep-line jb-sweep-top"></span>
-          <span class="jb-sweep-line jb-sweep-bottom"></span>
-          <span class="jb-sweep-line jb-sweep-left"></span>
-          <span class="jb-sweep-line jb-sweep-right"></span>
-        </span>
+        ${markerLayersMarkup()}
         <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       grid.appendChild(btn);
       panels.push(new Panel(i, btn, (idx) => onPanel(idx)));
@@ -755,7 +817,7 @@
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
-    let counts = { perfect: 0, excellent: 0, great: 0, good: 0, miss: 0 };
+    let counts = { excellent: 0, great: 0, good: 0, miss: 0 };
     let chart = [];
     let chartIndex = 0;
     let t0 = 0;
@@ -771,12 +833,15 @@
     let audioSrc = "";
     let loadGen = 0;
     let countInTimers = [];
-    let startFallbackTimer = null;
     let scoreTracker = null;
     let resultsOpen = false;
     let resultRaf = 0;
     let resultTimers = [];
     let announcementToken = 0;
+    let accuracyTimeline = [];
+    let accuracyByKey = new Map();
+    let practiceRaf = 0;
+    let practiceCycleStart = performance.now();
 
     function song() {
       return SONGS[songIndex];
@@ -793,9 +858,9 @@
     function clearCountIn() {
       countInTimers.forEach((id) => clearTimeout(id));
       countInTimers = [];
-      if (startFallbackTimer) {
-        clearTimeout(startFallbackTimer);
-        startFallbackTimer = null;
+      if (startSequenceEl) {
+        startSequenceEl.hidden = true;
+        startSequenceEl.className = "jb-start-sequence";
       }
     }
 
@@ -819,9 +884,11 @@
     function paintSongs() {
       songsEl.innerHTML = SONGS.map(
         (s, i) => `
-        <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}">
+        <button type="button" role="tab" aria-selected="${i === songIndex}" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}">
+          <span class="jb-song-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <strong>${escapeHtml(s.title)}</strong>
-          <small>${difficultyId === "easy" ? `EASY ${s.easyLevel}` : `EXT ${s.level}`} · ${s.bpm} BPM · ${s.notesHint || ""}</small>
+          <small>${escapeHtml(s.artist)}</small>
+          <em>${difficultyId === "easy" ? `EASY ${s.easyLevel}` : `EXT ${s.level}`} · ${s.bpm} BPM</em>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
@@ -830,7 +897,7 @@
           songIndex = Number(btn.dataset.s);
           paintSongs();
           paintMeta();
-          cuePreview(song());
+          cuePreview(song(), true);
           global.ArcadeSFX?.click?.();
         });
       });
@@ -840,7 +907,7 @@
       difficultyEl.innerHTML = Object.entries(DIFFICULTIES)
         .map(
           ([id, diff]) =>
-            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" ${controlsLocked() ? "disabled" : ""}>${diff.label}</button>`
+            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" aria-pressed="${id === difficultyId}" ${controlsLocked() ? "disabled" : ""}>${diff.label}</button>`
         )
         .join("");
       difficultyEl.querySelectorAll("[data-difficulty]").forEach((btn) => {
@@ -865,24 +932,72 @@
           if (controlsLocked()) return;
           markerId = btn.dataset.marker;
           grid.dataset.marker = markerId;
+          markerPracticeEl.dataset.marker = markerId;
+          practiceCycleStart = performance.now();
           paintMarkerModes();
           paintMeta();
           global.ArcadeSFX?.click?.();
         });
       });
       grid.dataset.marker = markerId;
+      markerPracticeEl.dataset.marker = markerId;
     }
 
     function paintMeta() {
       const s = song();
       const diff = difficulty();
       const level = difficultyId === "easy" ? s.easyLevel : s.level;
+      selectionTitleEl.textContent = s.title;
+      selectionTitleEl.style.color = s.color;
+      selectionHintEl.textContent = `${s.artist} · ${diff.label} ${level} · ${s.bpm} BPM · ${s.notesHint}`;
       metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
         <span class="jb-diff ${difficultyId}">${diff.label} ${level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
         <span class="jb-bgm">♪ Local BGM · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
+      playfieldEl.style.setProperty("--jb-accent", s.color);
+    }
+
+    function practiceProgress(now = performance.now()) {
+      const approachMs = DIFFICULTIES.easy.approachMs;
+      const cycleMs = approachMs + 420;
+      const elapsed = Math.max(0, now - practiceCycleStart) % cycleMs;
+      return elapsed <= approachMs ? elapsed / approachMs : null;
+    }
+
+    function animatePractice(now) {
+      if (destroyed) return;
+      const progress = practiceProgress(now);
+      if (!running && !resultsOpen && !setupEl.hidden && progress != null) {
+        practiceCellEl.classList.add("is-approach", "is-armed");
+        practiceCellEl.style.setProperty("--jb-p", progress.toFixed(4));
+      } else {
+        practiceCellEl.classList.remove("is-approach", "is-armed");
+        practiceCellEl.style.setProperty("--jb-p", "0");
+      }
+      practiceRaf = requestAnimationFrame(animatePractice);
+    }
+
+    function practiceTap() {
+      if (controlsLocked() || setupEl.hidden) return;
+      global.ArcadeSFX?.unlock?.();
+      const progress = practiceProgress();
+      const approachMs = DIFFICULTIES.easy.approachMs;
+      const judgment =
+        progress == null
+          ? { grade: "miss", label: "MISS" }
+          : judgeForTap(approachMs, progress * approachMs, approachMs);
+      const accuracy =
+        progress == null ? 0 : timingAccuracy(approachMs, progress * approachMs, approachMs);
+      practiceJudgeEl.textContent = judgment.label;
+      practiceJudgeEl.dataset.grade = judgment.grade;
+      practiceAccuracyEl.textContent = `${accuracy.toFixed(1)}%`;
+      practiceCellEl.classList.add("is-practice-hit");
+      setTimeout(() => practiceCellEl?.classList.remove("is-practice-hit"), 120);
+      practiceCycleStart = performance.now();
+      if (judgment.grade === "miss") global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
+      else global.ArcadeSFX?.match?.() || global.ArcadeSFX?.click?.();
     }
 
     function stopBgm() {
@@ -938,7 +1053,7 @@
     function primeResultAudio() {
       if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
       try {
-        resultAudioEl.src = RESULT_AUDIO_BASE + "rank-a.mp3";
+        resultAudioEl.src = RESULT_AUDIO_BASE + "final-a.mp4";
         resultAudioEl.muted = false;
         resultAudioEl.volume = 0;
         const ready = resultAudioEl.play();
@@ -1001,42 +1116,30 @@
       });
     }
 
-    function cuePreview(s) {
+    function cuePreview(s, autoplay = false) {
       if (!s?.audio) return;
       loadAudio(s.audio).then((ok) => {
+        if (ok && autoplay && !destroyed && !controlsLocked() && !setupEl.hidden) {
+          try {
+            duckLobbyMusic(true);
+            audioEl.loop = true;
+            audioEl.volume = 0.52;
+            audioEl.currentTime = Math.max(0, (s.audioOffsetMs || 0) / 1000);
+            audioEl.play()?.catch?.(() => {
+              duckLobbyMusic(false);
+            });
+          } catch {
+            duckLobbyMusic(false);
+          }
+        } else if (!ok && autoplay) {
+          duckLobbyMusic(false);
+        }
         if (musicNoteEl) {
           musicNoteEl.textContent = ok
-            ? `♪ ${s.title} · ${s.artist} · ready`
+            ? autoplay
+              ? `Preview · ${s.title} · ${s.artist}`
+              : `${s.title} · ${s.artist} · ready`
             : `♪ ${s.title} · audio missing (chart still playable)`;
-        }
-      });
-    }
-
-    function playBgm(s) {
-      if (!s?.audio || !audioEl) return Promise.resolve(false);
-      return loadAudio(s.audio).then((ok) => {
-        // Never start orphan audio if the chart already fell back to wall clock
-        if (!ok || destroyed || !running || clockStarted) return false;
-        try {
-          audioEl.currentTime = 0;
-          audioEl.volume = 1;
-          audioEl.loop = false;
-          const p = audioEl.play();
-          if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
-          if (p?.then) {
-            return p
-              .then(() => {
-                if (destroyed || !running || (clockStarted && !useAudioClock)) {
-                  stopBgm();
-                  return false;
-                }
-                return true;
-              })
-              .catch(() => false);
-          }
-          return true;
-        } catch {
-          return false;
         }
       });
     }
@@ -1137,8 +1240,59 @@
       return n;
     }
 
-    function registerMiss(n, panel) {
+    function resetAccuracyTimeline(events) {
+      accuracyTimeline = [];
+      accuracyByKey = new Map();
+      events.forEach((event) => {
+        event.panels.forEach((panel) => {
+          const key = `${event.t}-${panel}`;
+          const entry = { key, noteTime: event.t, panel, grade: null, accuracy: null, deltaMs: null };
+          accuracyTimeline.push(entry);
+          accuracyByKey.set(key, entry);
+        });
+      });
+    }
+
+    function recordAccuracy(n, grade, tapTime = null) {
+      const entry = accuracyByKey.get(n?.key);
+      if (!entry || entry.grade != null) return;
+      entry.grade = grade;
+      entry.deltaMs = Number.isFinite(tapTime) ? Math.round(tapTime - n.t) : null;
+      entry.accuracy = Number.isFinite(tapTime)
+        ? timingAccuracy(n.t, tapTime, difficulty().approachMs)
+        : 0;
+    }
+
+    function overallAccuracy() {
+      if (!accuracyTimeline.length) return 0;
+      const total = accuracyTimeline.reduce((sum, entry) => sum + (entry.accuracy ?? 0), 0);
+      return total / accuracyTimeline.length;
+    }
+
+    function renderAccuracyTimeline() {
+      if (!accuracyTimelineEl) return;
+      const fragment = document.createDocumentFragment();
+      accuracyTimeline.forEach((entry, index) => {
+        const box = document.createElement("span");
+        const accuracy = entry.accuracy ?? 0;
+        box.className = `jb-accuracy-box is-${entry.grade || "miss"}`;
+        box.style.opacity = String(0.38 + accuracy * 0.0062);
+        box.title = `Note ${index + 1}: ${accuracy.toFixed(1)}%${
+          entry.deltaMs == null ? " · missed" : ` · ${entry.deltaMs > 0 ? "+" : ""}${entry.deltaMs} ms`
+        }`;
+        box.setAttribute("aria-hidden", "true");
+        fragment.appendChild(box);
+      });
+      accuracyTimelineEl.replaceChildren(fragment);
+      accuracyTimelineEl.setAttribute(
+        "aria-label",
+        `${overallAccuracy().toFixed(1)} percent timing accuracy across ${accuracyTimeline.length} notes`
+      );
+    }
+
+    function registerMiss(n, panel, tapTime = null) {
       if (!running || submitted) return;
+      recordAccuracy(n, "miss", tapTime);
       counts.miss += 1;
       missEl.textContent = String(counts.miss);
       combo = 0;
@@ -1151,10 +1305,7 @@
 
     function onPanel(i) {
       global.ArcadeSFX?.unlock?.();
-      if (!running) {
-        start();
-        return;
-      }
+      if (!running || !clockStarted) return;
       const panel = panels[i];
       if (!panel) return;
       const t = nowMs();
@@ -1170,13 +1321,12 @@
       const { note: best, grade, label, perfect } = judgment;
       if (grade === "miss") {
         panel.removeNote(best.key);
-        registerMiss(best, panel);
+        registerMiss(best, panel, t);
         return;
       }
 
       if (grade === "excellent") {
-        if (perfect) counts.perfect += 1;
-        else counts.excellent += 1;
+        counts.excellent += 1;
         blip(perfect ? 1040 + (i % 4) * 40 : 880 + (i % 4) * 40, 0.04, 0.03);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
       } else if (grade === "great") {
@@ -1190,11 +1340,12 @@
       }
 
       combo += 1;
+      recordAccuracy(best, grade, t);
       if (combo > bestCombo) bestCombo = combo;
       score = scoreTracker?.register(grade, combo) || 0;
       scoreEl.textContent = formatScore(score);
       comboEl.textContent = String(combo);
-      excEl.textContent = String(counts.excellent + counts.perfect);
+      excEl.textContent = String(counts.excellent);
       panel.removeNote(best.key);
       panel.setJudge(label, grade, nowMs, diff.approachMs);
       if (srJudgeEl) srJudgeEl.textContent = label;
@@ -1227,45 +1378,25 @@
       else global.ArcadeSFX?.levelUp?.();
       if (audioEl) audioEl.volume = 0.16;
 
-      const rankFile = {
-        EXC: "rank-exc.mp3",
-        SSS: "rank-sss.mp3",
-        SS: "rank-ss.mp3",
-        S: "rank-s.mp3",
-        A: "rank-a.mp3",
-        B: "rank-b.mp3",
-        C: "rank-c.mp3",
-        D: "rank-d.mp3",
-        FAIL: "rank-fail.mp3",
-      }[rank] || "rank-fail.mp3";
-      const queue = [rankFile];
-      if (fullCombo) queue.push("full-combo.mp3");
       const token = ++announcementToken;
-
-      const playNext = (index) => {
-        if (token !== announcementToken || !resultsOpen) return;
-        if (index >= queue.length) {
-          finish();
-          return;
-        }
-        try {
-          let advanced = false;
-          const advance = () => {
-            if (advanced) return;
-            advanced = true;
-            playNext(index + 1);
-          };
-          resultAudioEl.onended = advance;
-          resultAudioEl.onerror = advance;
-          resultAudioEl.src = RESULT_AUDIO_BASE + queue[index];
-          resultAudioEl.currentTime = 0;
-          resultAudioEl.volume = 1;
-          resultAudioEl.play()?.catch?.(advance);
-        } catch {
-          playNext(index + 1);
-        }
+      let completed = false;
+      const complete = () => {
+        if (completed || token !== announcementToken) return;
+        completed = true;
+        finish();
       };
-      playNext(0);
+      const rankId = rank.toLowerCase();
+      const comboSuffix = fullCombo ? "-full-combo" : "";
+      try {
+        resultAudioEl.onended = complete;
+        resultAudioEl.onerror = complete;
+        resultAudioEl.src = `${RESULT_AUDIO_BASE}final-${rankId}${comboSuffix}.mp4`;
+        resultAudioEl.currentTime = 0;
+        resultAudioEl.volume = 1;
+        resultAudioEl.play()?.catch?.(complete);
+      } catch {
+        complete();
+      }
     }
 
     function showResults({ rank, arcadePoints, total, fullCombo }) {
@@ -1276,6 +1407,8 @@
       resultsScoreEl.textContent = "0";
       resultsRankEl.textContent = "RANK";
       resultsComboEl.textContent = fullCombo ? "FULL COMBO" : "";
+      resultsAccuracyEl.textContent = `${overallAccuracy().toFixed(1)}%`;
+      renderAccuracyTimeline();
       resultsStatsEl.textContent = "";
       resultsArcadeEl.textContent = "";
       resultsContinueBtn.hidden = true;
@@ -1302,14 +1435,14 @@
         }, 1650),
         setTimeout(() => {
           resultsEl.classList.add("is-stats-visible");
-          resultsStatsEl.textContent = `P.EXC ${counts.perfect} · EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
+          resultsStatsEl.textContent = `EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
           resultsArcadeEl.textContent = `ARCADE +${arcadePoints} PTS`;
         }, 2250),
         setTimeout(() => {
           if (!resultsOpen || !resultsContinueBtn.hidden) return;
           resultsEl.classList.add("is-ready");
           resultsContinueBtn.hidden = false;
-        }, fullCombo ? 7600 : 5600)
+        }, 9000)
       );
     }
 
@@ -1323,13 +1456,14 @@
       startBtn.disabled = true;
       startBtn.textContent = "Play again";
       const s = song();
-      const total = counts.perfect + counts.excellent + counts.great + counts.good + counts.miss;
+      const total = counts.excellent + counts.great + counts.good + counts.miss;
       const fullCombo = total > 0 && counts.miss === 0;
+      const accuracy = overallAccuracy();
       const rank = rankForScore(score);
       const arcadePoints =
         global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
       const cleared = rank !== "FAIL";
-      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · rank ${rank} · max combo ${bestCombo}`;
+      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · ${accuracy.toFixed(1)}% accuracy · rank ${rank}`;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
       showResults({ rank, arcadePoints, total, fullCombo });
       startPostGameLoop(s);
@@ -1343,13 +1477,13 @@
           difficulty: difficulty().label,
           rank,
           arcadePoints,
-          perfect: counts.perfect,
           excellent: counts.excellent,
           great: counts.great,
           good: counts.good,
           miss: counts.miss,
           bestCombo,
           fullCombo,
+          accuracy: Number(accuracy.toFixed(2)),
           marker: markerId,
           cleared,
         },
@@ -1400,10 +1534,6 @@
     function beginChartClock(fromAudio) {
       if (clockStarted || !running || destroyed) return;
       clockStarted = true;
-      if (startFallbackTimer) {
-        clearTimeout(startFallbackTimer);
-        startFallbackTimer = null;
-      }
       const perf = performance.now();
       t0 = perf;
       useAudioClock = !!fromAudio;
@@ -1417,50 +1547,6 @@
       raf = requestAnimationFrame(frame);
     }
 
-    /**
-     * Single start path: wait until audio is past the intro offset (first
-     * audible beat), then lock the chart clock so note 0 approaches cleanly.
-     * If play never happens, fall back to local clock (and stop orphan audio).
-     */
-    function waitForPlaybackThenStart(deadlineMs) {
-      const deadline = performance.now() + deadlineMs;
-      const poll = () => {
-        if (!running || destroyed || clockStarted) return;
-        try {
-          if (audioEl && !audioEl.paused && !audioEl.ended) {
-            const offsetSec = songOffsetMs() / 1000;
-            // Start chart once we're at/past intro silence (or immediately if none)
-            if (audioEl.currentTime + 0.02 >= offsetSec) {
-              beginChartClock(true);
-              return;
-            }
-            // Audio is playing through intro — keep waiting
-            if (performance.now() < deadline) {
-              setTimeout(poll, 30);
-              return;
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-        if (performance.now() >= deadline) {
-          try {
-            if (audioEl && !audioEl.paused && !audioEl.ended && !clockStarted) {
-              beginChartClock(true);
-              return;
-            }
-          } catch {
-            /* ignore */
-          }
-          stopBgm();
-          beginChartClock(false);
-          return;
-        }
-        setTimeout(poll, 40);
-      };
-      poll();
-    }
-
     function warmPanelMedia() {
       Object.values(PANEL_ART).forEach((src) => {
         const img = new Image();
@@ -1468,8 +1554,98 @@
       });
     }
 
+    function setStartSequence(stage, s) {
+      startSequenceEl.hidden = false;
+      startSequenceEl.className = `jb-start-sequence is-${stage.toLowerCase()}`;
+      startSequenceLabelEl.textContent = stage;
+      startSequenceSongEl.textContent = `${s.title} · ${difficulty().label}`;
+    }
+
+    function prepareChartAudio(s) {
+      if (!s?.audio || !audioEl) return Promise.resolve(false);
+      return loadAudio(s.audio).then((ok) => {
+        if (!ok || destroyed || !running) return false;
+        try {
+          audioEl.loop = false;
+          audioEl.currentTime = songOffsetMs() / 1000;
+          audioEl.volume = 0;
+          const primed = audioEl.play();
+          if (!primed?.then) {
+            audioEl.pause();
+            audioEl.volume = 1;
+            return true;
+          }
+          return primed
+            .then(() => {
+              audioEl.pause();
+              audioEl.currentTime = songOffsetMs() / 1000;
+              audioEl.volume = 1;
+              return true;
+            })
+            .catch(() => {
+              audioEl.volume = 1;
+              return false;
+            });
+        } catch {
+          audioEl.volume = 1;
+          return false;
+        }
+      });
+    }
+
+    function launchChart(s, audioReady) {
+      if (!running || destroyed || clockStarted) return;
+      clearCountIn();
+      if (!audioReady || !audioEl) {
+        beginChartClock(false);
+        return;
+      }
+      try {
+        audioEl.currentTime = songOffsetMs() / 1000;
+        audioEl.volume = 1;
+        audioEl.loop = false;
+        const playback = audioEl.play();
+        if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
+        if (playback?.then) {
+          playback.then(() => beginChartClock(true)).catch(() => {
+            stopBgm();
+            beginChartClock(false);
+          });
+        } else {
+          beginChartClock(true);
+        }
+      } catch {
+        stopBgm();
+        beginChartClock(false);
+      }
+    }
+
+    function runStartSequence(s) {
+      const loadingAt = performance.now();
+      setStartSequence("LOADING", s);
+      prepareChartAudio(s).then((audioReady) => {
+        if (!running || destroyed) return;
+        const loadingDelay = Math.max(0, 650 - (performance.now() - loadingAt));
+        countInTimers.push(
+          setTimeout(() => {
+            if (!running || destroyed) return;
+            setStartSequence("READY", s);
+            global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
+            countInTimers.push(
+              setTimeout(() => {
+                if (!running || destroyed) return;
+                setStartSequence("START", s);
+                global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
+                countInTimers.push(setTimeout(() => launchChart(s, audioReady), 620));
+              }, 920)
+            );
+          }, loadingDelay)
+        );
+      });
+    }
+
     function start() {
-      if (resultsOpen) return;
+      if (resultsOpen || running) return;
       cancelAnimationFrame(raf);
       clearCountIn();
       panels.forEach((p) => p.reset());
@@ -1478,6 +1654,7 @@
       primeResultAudio();
       const s = song();
       chart = chartFor(s, difficultyId);
+      resetAccuracyTimeline(chart);
       chartIndex = 0;
       running = true;
       clockStarted = false;
@@ -1486,7 +1663,7 @@
       score = 0;
       combo = 0;
       bestCombo = 0;
-      counts = { perfect: 0, excellent: 0, great: 0, good: 0, miss: 0 };
+      counts = { excellent: 0, great: 0, good: 0, miss: 0 };
       scoreTracker = createScoreTracker(chart);
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
@@ -1494,7 +1671,8 @@
       missEl.textContent = "0";
       if (progEl) progEl.style.width = "0%";
       startBtn.disabled = true;
-      startBtn.textContent = "Playing…";
+      setupEl.hidden = true;
+      playfieldEl.hidden = false;
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
@@ -1505,51 +1683,28 @@
       const diff = difficulty();
       const level = difficultyId === "easy" ? s.easyLevel : s.level;
       hintEl.textContent = `${s.title} · ${diff.label} ${level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
-      global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
-
-      // Single path: load + play BGM, then lock chart to audio time.
-      // Absolute fallback only if nothing starts (no dual clocks).
-      playBgm(s).then((ok) => {
-        if (!running || destroyed || clockStarted) return;
-        if (ok) {
-          waitForPlaybackThenStart(5000);
-        } else {
-          const beatMs = 60000 / s.bpm;
-          countInTimers.push(
-            setTimeout(() => {
-              if (!clockStarted && running && !destroyed) beginChartClock(false);
-            }, Math.round(beatMs * 2))
-          );
-        }
-      });
-      startFallbackTimer = setTimeout(() => {
-        if (running && !clockStarted && !destroyed) {
-          stopBgm();
-          beginChartClock(false);
-        }
-      }, 6000);
+      runStartSequence(s);
     }
 
     startBtn.addEventListener("click", start);
     resultsContinueBtn.addEventListener("click", () => {
       clearResults();
       stopBgm();
-      duckLobbyMusic(false);
+      playfieldEl.hidden = true;
+      setupEl.hidden = false;
       startBtn.disabled = false;
+      startBtn.textContent = "Confirm song";
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
+      practiceCycleStart = performance.now();
+      cuePreview(song(), true);
       startBtn.focus({ preventScroll: true });
     });
 
     function onKey(e) {
       if (resultsOpen) return;
-      if (!running && (e.key === " " || e.key === "Enter")) {
-        e.preventDefault();
-        start();
-        return;
-      }
-      if (!running) return;
+      if (!running || !clockStarted) return;
       const map = {
         "1": 0,
         "2": 1,
@@ -1575,18 +1730,21 @@
       }
     }
     window.addEventListener("keydown", onKey);
+    practiceCellEl.addEventListener("click", practiceTap);
 
     paintDifficulty();
     paintMarkerModes();
     paintSongs();
     paintMeta();
     cuePreview(song());
+    practiceRaf = requestAnimationFrame(animatePractice);
 
     return {
       destroy() {
         destroyed = true;
         running = false;
         cancelAnimationFrame(raf);
+        cancelAnimationFrame(practiceRaf);
         clearCountIn();
         clearResults();
         panels.forEach((p) => p.destroy());
@@ -1628,5 +1786,6 @@
     createScoreTracker,
     rankForScore,
     judgeForTap,
+    timingAccuracy,
   };
 })(window);
