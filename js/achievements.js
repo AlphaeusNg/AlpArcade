@@ -24,8 +24,8 @@
     { id: "memory-200", title: "Card Shark", blurb: "Score 200+ in Memory", icon: "🧠" },
     { id: "tapper-100", title: "Whack Happy", blurb: "Score 100+ in Target Tap", icon: "🎯" },
     { id: "tapper-300", title: "Grid God", blurb: "Score 300+ in Target Tap", icon: "✨" },
-    { id: "jubeat-5k", title: "Panel Poet", blurb: "Score 5000+ on a Pulse Grid chart", icon: "🎹" },
-    { id: "jubeat-20k", title: "Jubeat Heart", blurb: "Score 20000+ on EXTREME", icon: "💜" },
+    { id: "jubeat-5k", title: "Panel Poet", blurb: "Score 500,000+ on a Pulse Grid chart", icon: "🎹" },
+    { id: "jubeat-20k", title: "Jubeat Heart", blurb: "Score 900,000+ on EXTREME", icon: "💜" },
     { id: "jubeat-exc", title: "All Excellent-ish", blurb: "100+ EXCELLENT judges in one chart", icon: "✨" },
     { id: "breaker-800", title: "Brick Layer", blurb: "Score 800+ in Circuit Breaker", icon: "🧱" },
     { id: "five-games", title: "Tour the Floor", blurb: "Play 5 different cabinets", icon: "🕹️" },
@@ -251,9 +251,9 @@
       if (score >= 300) push("tapper-300");
     }
     if (gameId === "jubeat") {
-      if (score >= 5000) push("jubeat-5k");
-      if (score >= 20000) push("jubeat-20k");
-      if ((meta.excellent || 0) >= 100) push("jubeat-exc");
+      if (score >= 500000) push("jubeat-5k");
+      if (score >= 900000) push("jubeat-20k");
+      if ((meta.excellent || 0) + (meta.perfect || 0) >= 100) push("jubeat-exc");
     }
     if (gameId === "breaker" && score >= 800) push("breaker-800");
 

@@ -17,7 +17,7 @@
     reaction: { label: "Reaction Lab", higherIsBetter: false, unit: "ms" },
     memory: { label: "Memory Match", higherIsBetter: true, unit: "pts" },
     tapper: { label: "Target Tap", higherIsBetter: true, unit: "pts" },
-    jubeat: { label: "Pulse Grid", higherIsBetter: true, unit: "pts" },
+    jubeat: { label: "Pulse Grid", higherIsBetter: true, unit: "score" },
     breaker: { label: "Circuit Breaker", higherIsBetter: true, unit: "pts" },
   };
 
@@ -137,6 +137,10 @@
       xpGained = meta.result === "win" ? 25 : meta.result === "draw" ? 10 : 5;
     } else if (gameId === "reaction") {
       xpGained = Math.max(5, Math.round(80 - num / 10));
+    } else if (gameId === "jubeat") {
+      // Keep the million-point chart score for rankings; award its translated
+      // Arcade points as XP so a strong chart does not inflate account level.
+      xpGained = Math.max(5, Math.round(Number(meta.arcadePoints) || 0));
     } else {
       xpGained = Math.max(5, Math.round(num / 10));
     }
@@ -185,6 +189,7 @@
     const g = GAMES[gameId];
     if (!g) return String(score);
     if (gameId === "reaction") return score == null ? "—" : `${score} ms`;
+    if (gameId === "jubeat") return score == null ? "—" : Number(score).toLocaleString();
     return `${score} ${g.unit}`;
   }
 

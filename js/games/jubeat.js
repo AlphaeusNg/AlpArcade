@@ -7,18 +7,19 @@
   "use strict";
 
   const CELLS = 16;
-  const WIN = { excellent: 45, great: 90, good: 140 };
+  const MAX_SCORE = 1000000;
+  const JUDGE_PROGRESS = { safeEarly: 0.5, good: 0.7, great: 0.9, excellent: 0.99, perfect: 1.01 };
+  const MISS_AFTER_MS = 180;
+  const SCORE_WEIGHT = { good: 0.4, great: 0.7, excellent: 1 };
   const DIFFICULTIES = {
     easy: {
       label: "EASY",
       shortLabel: "Easy practice",
-      windows: { excellent: 80, great: 150, good: 230 },
       approachMs: 1400,
     },
     extreme: {
       label: "EXTREME",
       shortLabel: "Extreme",
-      windows: WIN,
       approachMs: 1000,
     },
   };
@@ -44,6 +45,60 @@
 
   function note(t, panels) {
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
+  }
+
+  function streakMultiplier(streak) {
+    return 1 + Math.min(0.5, Math.floor(Math.max(0, streak - 1) / 5) * 0.05);
+  }
+
+  function createScoreTracker(chart) {
+    const totalNotes = chart.reduce((sum, event) => sum + event.panels.length, 0);
+    const perfectRaw = Array.from({ length: totalNotes }, (_, index) => streakMultiplier(index + 1)).reduce(
+      (sum, value) => sum + value,
+      0
+    );
+    let rawScore = 0;
+
+    return {
+      register(grade, streak) {
+        rawScore += (SCORE_WEIGHT[grade] || 0) * streakMultiplier(streak);
+        return this.score();
+      },
+      score() {
+        if (!perfectRaw) return 0;
+        return Math.min(MAX_SCORE, Math.round((rawScore / perfectRaw) * MAX_SCORE));
+      },
+      arcadePoints() {
+        return Math.max(0, Math.round(this.score() / 10000));
+      },
+      totalNotes,
+    };
+  }
+
+  function rankForScore(score) {
+    if (score >= MAX_SCORE) return "EXC";
+    if (score >= 980000) return "SSS";
+    if (score >= 950000) return "SS";
+    if (score >= 900000) return "S";
+    if (score >= 800000) return "A";
+    if (score >= 700000) return "B";
+    if (score >= 600000) return "C";
+    if (score >= 500000) return "D";
+    return "FAIL";
+  }
+
+  function formatScore(score) {
+    return Math.max(0, Math.round(Number(score) || 0)).toLocaleString();
+  }
+
+  function judgeForTap(noteTime, time, approachMs) {
+    const progress = (time - (noteTime - approachMs)) / approachMs;
+    if (progress < JUDGE_PROGRESS.safeEarly) return null;
+    if (progress < JUDGE_PROGRESS.good) return { grade: "good", label: "GOOD", progress };
+    if (progress < JUDGE_PROGRESS.great) return { grade: "great", label: "GREAT", progress };
+    if (progress < JUDGE_PROGRESS.excellent) return { grade: "excellent", label: "EXCELLENT", progress };
+    if (progress <= JUDGE_PROGRESS.perfect) return { grade: "excellent", label: "PERFECT EXCELLENT", perfect: true, progress };
+    return { grade: "miss", label: "MISS", progress };
   }
 
   /**
@@ -113,21 +168,17 @@
       return this.queue[0] || null;
     }
 
-    /**
-     * Judge only the head of the queue (soonest note) — same as the shutter.
-     * Closest-of-all would credit a later note and auto-miss the earlier one.
-     */
-    bestInWindow(t, goodWindow) {
+    /** Judge the head of the queue — never credit a later overlapping note. */
+    judgeTap(t, approachMs) {
       const head = this.queue[0];
       if (!head) return null;
-      const err = Math.abs(t - head.t);
-      if (err > goodWindow) return null;
-      return { note: head, err };
+      const judgment = judgeForTap(head.t, t, approachMs);
+      return judgment ? { note: head, ...judgment } : null;
     }
 
-    /** Expire notes past good window → miss. */
-    expireMisses(t, goodWindow, onMiss) {
-      const late = this.queue.filter((n) => t - n.t > goodWindow);
+    /** Expire untouched notes after the shutter closes. */
+    expireMisses(t, onMiss) {
+      const late = this.queue.filter((n) => t - n.t > MISS_AFTER_MS);
       for (const n of late) {
         this.removeNote(n.key);
         onMiss(n);
@@ -608,6 +659,14 @@
           <div class="jb-grid" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
           <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
           <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
+          <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
+            <p class="jb-results-kicker" id="jb-results-kicker">TRACK COMPLETE</p>
+            <p class="jb-results-score" id="jb-results-score">0</p>
+            <p class="jb-results-rank" id="jb-results-rank">RANK</p>
+            <p class="jb-results-stats" id="jb-results-stats"></p>
+            <p class="jb-results-arcade" id="jb-results-arcade"></p>
+            <button type="button" class="btn primary jb-results-continue" id="jb-results-continue" hidden>Continue</button>
+          </section>
         </div>
         <div class="jb-music" id="jb-music">
           <audio id="jb-audio" class="jb-audio" preload="auto" playsinline></audio>
@@ -634,6 +693,12 @@
     const startBtn = root.querySelector("#jb-start");
     const musicNoteEl = root.querySelector("#jb-music-note");
     const audioEl = root.querySelector("#jb-audio");
+    const resultsEl = root.querySelector("#jb-results");
+    const resultsScoreEl = root.querySelector("#jb-results-score");
+    const resultsRankEl = root.querySelector("#jb-results-rank");
+    const resultsStatsEl = root.querySelector("#jb-results-stats");
+    const resultsArcadeEl = root.querySelector("#jb-results-arcade");
+    const resultsContinueBtn = root.querySelector("#jb-results-continue");
 
     /** @type {Panel[]} */
     const panels = [];
@@ -669,7 +734,7 @@
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
-    let counts = { excellent: 0, great: 0, good: 0, miss: 0 };
+    let counts = { perfect: 0, excellent: 0, great: 0, good: 0, miss: 0 };
     let chart = [];
     let chartIndex = 0;
     let t0 = 0;
@@ -686,6 +751,10 @@
     let loadGen = 0;
     let countInTimers = [];
     let startFallbackTimer = null;
+    let scoreTracker = null;
+    let resultsOpen = false;
+    let resultRaf = 0;
+    let resultTimers = [];
 
     function song() {
       return SONGS[songIndex];
@@ -693,6 +762,10 @@
 
     function difficulty() {
       return DIFFICULTIES[difficultyId];
+    }
+
+    function controlsLocked() {
+      return running || resultsOpen;
     }
 
     function clearCountIn() {
@@ -724,14 +797,14 @@
     function paintSongs() {
       songsEl.innerHTML = SONGS.map(
         (s, i) => `
-        <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${running ? "disabled" : ""} style="--sc:${s.color}">
+        <button type="button" class="jb-song-chip${i === songIndex ? " is-active" : ""}" data-s="${i}" ${controlsLocked() ? "disabled" : ""} style="--sc:${s.color}">
           <strong>${escapeHtml(s.title)}</strong>
           <small>${difficultyId === "easy" ? `EASY ${s.easyLevel}` : `EXT ${s.level}`} · ${s.bpm} BPM · ${s.notesHint || ""}</small>
         </button>`
       ).join("");
       songsEl.querySelectorAll("[data-s]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          if (running) return;
+          if (controlsLocked()) return;
           songIndex = Number(btn.dataset.s);
           paintSongs();
           paintMeta();
@@ -745,12 +818,12 @@
       difficultyEl.innerHTML = Object.entries(DIFFICULTIES)
         .map(
           ([id, diff]) =>
-            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" ${running ? "disabled" : ""}>${diff.label}</button>`
+            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" ${controlsLocked() ? "disabled" : ""}>${diff.label}</button>`
         )
         .join("");
       difficultyEl.querySelectorAll("[data-difficulty]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          if (running) return;
+          if (controlsLocked()) return;
           difficultyId = btn.dataset.difficulty;
           paintDifficulty();
           paintSongs();
@@ -984,36 +1057,27 @@
       if (!panel) return;
       const t = nowMs();
       const diff = difficulty();
-      const hit = panel.bestInWindow(t, diff.windows.good);
-      if (!hit) {
-        // The panel has an armed note, but the player committed too early or
-        // too late. Consume that note as a miss instead of giving free taps.
-        const pending = panel.soonest();
-        if (pending) {
-          panel.removeNote(pending.key);
-          registerMiss(pending, panel);
-          return;
-        }
+      const judgment = panel.judgeTap(t, diff.approachMs);
+      if (!judgment) {
+        // A tap before the shutter reaches 50% is only visual feedback.
         panel.flashEmpty();
         global.ArcadeSFX?.tick?.();
         return;
       }
 
-      const { note: best, err: bestErr } = hit;
-      let label = "GOOD";
-      let cls = "good";
-      let pts = 100;
-      if (bestErr <= diff.windows.excellent) {
-        label = "EXCELLENT";
-        cls = "excellent";
-        pts = 1000 + Math.min(200, combo * 3);
-        counts.excellent += 1;
-        blip(880 + (i % 4) * 40, 0.04, 0.03);
+      const { note: best, grade, label, perfect } = judgment;
+      if (grade === "miss") {
+        panel.removeNote(best.key);
+        registerMiss(best, panel);
+        return;
+      }
+
+      if (grade === "excellent") {
+        if (perfect) counts.perfect += 1;
+        else counts.excellent += 1;
+        blip(perfect ? 1040 + (i % 4) * 40 : 880 + (i % 4) * 40, 0.04, 0.03);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
-      } else if (bestErr <= diff.windows.great) {
-        label = "GREAT";
-        cls = "great";
-        pts = 700 + Math.min(120, combo * 2);
+      } else if (grade === "great") {
         counts.great += 1;
         blip(660, 0.04, 0.028);
         global.ArcadeSFX?.click?.();
@@ -1025,13 +1089,63 @@
 
       combo += 1;
       if (combo > bestCombo) bestCombo = combo;
-      score += pts;
-      scoreEl.textContent = String(score);
+      score = scoreTracker?.register(grade, combo) || 0;
+      scoreEl.textContent = formatScore(score);
       comboEl.textContent = String(combo);
-      excEl.textContent = String(counts.excellent);
+      excEl.textContent = String(counts.excellent + counts.perfect);
       panel.removeNote(best.key);
-      panel.setJudge(label, cls, nowMs, diff.approachMs);
+      panel.setJudge(label, grade, nowMs, diff.approachMs);
       if (srJudgeEl) srJudgeEl.textContent = label;
+    }
+
+    function clearResults() {
+      cancelAnimationFrame(resultRaf);
+      resultRaf = 0;
+      resultTimers.forEach((timer) => clearTimeout(timer));
+      resultTimers = [];
+      resultsOpen = false;
+      if (resultsEl) {
+        resultsEl.hidden = true;
+        resultsEl.className = "jb-results";
+      }
+    }
+
+    function showResults({ rank, arcadePoints, total }) {
+      if (!resultsEl) return;
+      resultsOpen = true;
+      resultsEl.hidden = false;
+      resultsEl.className = "jb-results is-open";
+      resultsScoreEl.textContent = "0";
+      resultsRankEl.textContent = "RANK";
+      resultsStatsEl.textContent = "";
+      resultsArcadeEl.textContent = "";
+      resultsContinueBtn.hidden = true;
+
+      const countStart = performance.now();
+      const countDuration = 1150;
+      const tick = (now) => {
+        const progress = Math.min(1, (now - countStart) / countDuration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        resultsScoreEl.textContent = formatScore(score * eased);
+        if (progress < 1) resultRaf = requestAnimationFrame(tick);
+      };
+      resultRaf = requestAnimationFrame(tick);
+
+      resultTimers.push(
+        setTimeout(() => {
+          resultsEl.classList.add("is-rank-visible");
+          resultsRankEl.textContent = rank;
+        }, 1250),
+        setTimeout(() => {
+          resultsEl.classList.add("is-stats-visible");
+          resultsStatsEl.textContent = `P.EXC ${counts.perfect} · EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
+          resultsArcadeEl.textContent = `ARCADE +${arcadePoints} PTS`;
+        }, 1700),
+        setTimeout(() => {
+          resultsEl.classList.add("is-ready");
+          resultsContinueBtn.hidden = false;
+        }, 2200)
+      );
     }
 
     function finish() {
@@ -1043,22 +1157,26 @@
       stopBgm();
       duckLobbyMusic(false);
       panels.forEach((p) => p.reset());
-      startBtn.disabled = false;
+      startBtn.disabled = true;
       startBtn.textContent = "Play again";
+      const s = song();
+      const total = counts.perfect + counts.excellent + counts.great + counts.good + counts.miss;
+      const rank = rankForScore(score);
+      const arcadePoints = scoreTracker?.arcadePoints() || 0;
+      const cleared = rank !== "FAIL";
+      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · rank ${rank} · max combo ${bestCombo}`;
+      if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
+      showResults({ rank, arcadePoints, total });
       paintSongs();
       paintDifficulty();
-      const s = song();
-      const total = counts.excellent + counts.great + counts.good + counts.miss;
-      const hit = counts.excellent + counts.great + counts.good;
-      const excRate = total ? Math.round((counts.excellent / total) * 100) : 0;
-      const cleared = total > 0 && hit / total >= 0.7;
-      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · ${score} pts · EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} · ${excRate}% EXC · max combo ${bestCombo}`;
-      if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
       onScore?.({
         score,
         meta: {
           song: s.id,
           difficulty: difficulty().label,
+          rank,
+          arcadePoints,
+          perfect: counts.perfect,
           excellent: counts.excellent,
           great: counts.great,
           good: counts.good,
@@ -1086,7 +1204,7 @@
 
       for (const panel of panels) {
         if (!running || submitted) break;
-        panel.expireMisses(t, difficulty().windows.good, (n) => registerMiss(n, panel));
+        panel.expireMisses(t, (n) => registerMiss(n, panel));
         panel.syncMarker(t, difficulty().approachMs);
       }
 
@@ -1182,6 +1300,7 @@
     }
 
     function start() {
+      if (resultsOpen) return;
       cancelAnimationFrame(raf);
       clearCountIn();
       panels.forEach((p) => p.reset());
@@ -1197,7 +1316,8 @@
       score = 0;
       combo = 0;
       bestCombo = 0;
-      counts = { excellent: 0, great: 0, good: 0, miss: 0 };
+      counts = { perfect: 0, excellent: 0, great: 0, good: 0, miss: 0 };
+      scoreTracker = createScoreTracker(chart);
       scoreEl.textContent = "0";
       comboEl.textContent = "0";
       excEl.textContent = "0";
@@ -1240,8 +1360,16 @@
     }
 
     startBtn.addEventListener("click", start);
+    resultsContinueBtn.addEventListener("click", () => {
+      clearResults();
+      startBtn.disabled = false;
+      paintSongs();
+      paintDifficulty();
+      startBtn.focus({ preventScroll: true });
+    });
 
     function onKey(e) {
+      if (resultsOpen) return;
       if (!running && (e.key === " " || e.key === "Enter")) {
         e.preventDefault();
         start();
@@ -1285,6 +1413,7 @@
         running = false;
         cancelAnimationFrame(raf);
         clearCountIn();
+        clearResults();
         panels.forEach((p) => p.destroy());
         stopBgm();
         duckLobbyMusic(false);
@@ -1312,12 +1441,16 @@
   global.GameJubeat = {
     mount,
     Panel,
-    WIN,
+    MAX_SCORE,
+    JUDGE_PROGRESS,
     DIFFICULTIES,
     APPROACH_MS: DIFFICULTIES.extreme.approachMs,
     JUDGE_MS,
     SONGS,
     chartFor,
     buildChart,
+    createScoreTracker,
+    rankForScore,
+    judgeForTap,
   };
 })(window);
