@@ -12,7 +12,8 @@ const context = {
   cancelAnimationFrame: () => {},
 };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8"), context);
+const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
+vm.runInContext(source, context);
 
 const game = context.window.GameJubeat;
 const assert = (condition, message) => {
@@ -20,6 +21,7 @@ const assert = (condition, message) => {
 };
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
+assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(game.judgeForTap(1000, 499, 1000).grade === "miss", "Early taps must miss below 50%");
 assert(game.judgeForTap(1000, 500, 1000).grade === "good", "The 50% boundary must be GOOD");
 assert(

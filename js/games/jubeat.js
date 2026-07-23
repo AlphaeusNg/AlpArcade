@@ -1022,7 +1022,10 @@
               <div class="jb-accuracy-timeline" id="jb-accuracy-timeline" role="img" aria-label="Timing accuracy by note"></div>
               <p class="jb-results-stats" id="jb-results-stats"></p>
               <p class="jb-results-arcade" id="jb-results-arcade"></p>
-              <button type="button" class="btn primary jb-results-continue" id="jb-results-continue" hidden>Continue</button>
+              <div class="jb-results-actions" id="jb-results-actions" hidden>
+                <button type="button" class="btn primary" id="jb-results-retry">Retry</button>
+                <button type="button" class="btn ghost" id="jb-results-continue">Continue</button>
+              </div>
             </section>
           </div>
           <p class="game-hint" id="jb-hint">1–4 QWER ASDF ZXCV</p>
@@ -1105,6 +1108,8 @@
     const resultsArcadeEl = root.querySelector("#jb-results-arcade");
     const resultsAccuracyEl = root.querySelector("#jb-results-accuracy");
     const accuracyTimelineEl = root.querySelector("#jb-accuracy-timeline");
+    const resultsActionsEl = root.querySelector("#jb-results-actions");
+    const resultsRetryBtn = root.querySelector("#jb-results-retry");
     const resultsContinueBtn = root.querySelector("#jb-results-continue");
     const resultAudioEl = root.querySelector("#jb-result-audio");
 
@@ -2126,7 +2131,7 @@
       renderAccuracyTimeline();
       resultsStatsEl.textContent = "";
       resultsArcadeEl.textContent = "";
-      resultsContinueBtn.hidden = true;
+      resultsActionsEl.hidden = true;
 
       const countStart = performance.now();
       const countDuration = 1150;
@@ -2145,7 +2150,7 @@
           announceRank(rank, fullCombo, () => {
             if (!resultsOpen) return;
             resultsEl.classList.add("is-ready");
-            resultsContinueBtn.hidden = false;
+            resultsActionsEl.hidden = false;
           });
         }, 1650),
         setTimeout(() => {
@@ -2154,9 +2159,9 @@
           resultsArcadeEl.textContent = unranked ? "CUSTOM PRACTICE · UNRANKED" : `ARCADE +${arcadePoints} PTS`;
         }, 2250),
         setTimeout(() => {
-          if (!resultsOpen || !resultsContinueBtn.hidden) return;
+          if (!resultsOpen || !resultsActionsEl.hidden) return;
           resultsEl.classList.add("is-ready");
-          resultsContinueBtn.hidden = false;
+          resultsActionsEl.hidden = false;
         }, 9000)
       );
     }
@@ -2526,6 +2531,13 @@
     editorSaveBtn.addEventListener("click", () => saveEditor());
     editorTestBtn.addEventListener("click", () => saveEditor({ test: true }));
     startBtn.addEventListener("click", start);
+    resultsRetryBtn.addEventListener("click", () => {
+      clearResults();
+      stopBgm();
+      startBtn.disabled = false;
+      startBtn.textContent = "Play again";
+      start();
+    });
     resultsContinueBtn.addEventListener("click", () => {
       clearResults();
       stopBgm();

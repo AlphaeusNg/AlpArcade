@@ -1199,7 +1199,7 @@
 .jb-results-arcade,
 .jb-results-accuracy,
 .jb-accuracy-timeline,
-.jb-results-continue {
+.jb-results-actions {
   opacity: 0;
   transform: translateY(0.4rem);
 }
@@ -1271,7 +1271,18 @@
   letter-spacing: 0.08em;
 }
 
-.jb-results.is-ready .jb-results-continue {
+.jb-results-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+
+.jb-results-actions[hidden] {
+  display: none;
+}
+
+.jb-results.is-ready .jb-results-actions {
   animation: jb-results-rise 0.32s ease-out forwards;
 }
 
