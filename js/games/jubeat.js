@@ -119,6 +119,8 @@
     el.style.setProperty("--jb-ring-scale", (1.9 - p * 0.9).toFixed(4));
     el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
     el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
+    el.style.setProperty("--jb-sweep-core-scale", (0.35 + p * 0.65).toFixed(4));
+    el.style.setProperty("--jb-sweep-core-opacity", Math.max(0, (p - 0.58) / 0.42).toFixed(4));
     const flowerP = Math.max(0, Math.min(1, (p - 0.34) / 0.66));
     const flowerTurn = -24 + flowerP * 24;
     el.style.setProperty("--jb-flower-opacity", Math.min(1, flowerP * 1.8).toFixed(4));
