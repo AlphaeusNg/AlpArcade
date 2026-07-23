@@ -45,6 +45,8 @@
   const RESULT_AUDIO_BASE = AUDIO_BASE + "results/";
   const MARKER_MODES = [
     { id: "iris", label: "Iris" },
+    { id: "flower", label: "Flower" },
+    { id: "shutter", label: "Shutter" },
     { id: "ring", label: "Neon ring" },
     { id: "sweep", label: "Cross sweep" },
     { id: "stealth", label: "Stealth" },
@@ -117,6 +119,14 @@
     el.style.setProperty("--jb-ring-scale", (1.9 - p * 0.9).toFixed(4));
     el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
     el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
+    const flowerP = Math.max(0, Math.min(1, (p - 0.34) / 0.66));
+    const flowerTurn = -24 + flowerP * 24;
+    el.style.setProperty("--jb-flower-opacity", Math.min(1, flowerP * 1.8).toFixed(4));
+    el.style.setProperty("--jb-flower-scale", (0.08 + flowerP * 0.92).toFixed(4));
+    el.style.setProperty("--jb-flower-turn", `${(Math.abs(flowerTurn) < 0.005 ? 0 : flowerTurn).toFixed(2)}deg`);
+    el.style.setProperty("--jb-flower-ring-scale", (0.35 + flowerP * 0.65).toFixed(4));
+    el.style.setProperty("--jb-flower-touch-opacity", Math.max(0, (flowerP - 0.72) / 0.28).toFixed(4));
+    el.style.setProperty("--jb-flower-core-scale", (0.2 + flowerP * 0.8).toFixed(4));
   }
 
   function judgeForTap(noteTime, time, approachMs) {
@@ -152,6 +162,37 @@
         <span class="jb-sweep-line jb-sweep-bottom"></span>
         <span class="jb-sweep-line jb-sweep-left"></span>
         <span class="jb-sweep-line jb-sweep-right"></span>
+      </span>
+      <span class="jb-flower-marker" aria-hidden="true">
+        <span class="jb-flower-guide jb-flower-guide-outer"></span>
+        <span class="jb-flower-guide jb-flower-guide-inner"></span>
+        <span class="jb-flower-head">
+          <span class="jb-flower-leaf" style="--flower-angle:45deg"></span>
+          <span class="jb-flower-leaf" style="--flower-angle:135deg"></span>
+          <span class="jb-flower-leaf" style="--flower-angle:225deg"></span>
+          <span class="jb-flower-leaf" style="--flower-angle:315deg"></span>
+          <span class="jb-flower-petal is-pink" style="--flower-angle:0deg"></span>
+          <span class="jb-flower-petal is-orange" style="--flower-angle:45deg"></span>
+          <span class="jb-flower-petal is-white" style="--flower-angle:90deg"></span>
+          <span class="jb-flower-petal is-pink" style="--flower-angle:135deg"></span>
+          <span class="jb-flower-petal is-orange" style="--flower-angle:180deg"></span>
+          <span class="jb-flower-petal is-white" style="--flower-angle:225deg"></span>
+          <span class="jb-flower-petal is-pink" style="--flower-angle:270deg"></span>
+          <span class="jb-flower-petal is-orange" style="--flower-angle:315deg"></span>
+          <span class="jb-flower-core"></span>
+        </span>
+        <span class="jb-flower-touch">TOUCH</span>
+      </span>
+      <span class="jb-original-shutter" aria-hidden="true">
+        <span class="jb-original-door jb-original-door-n"></span>
+        <span class="jb-original-door jb-original-door-s"></span>
+        <span class="jb-original-door jb-original-door-w"></span>
+        <span class="jb-original-door jb-original-door-e"></span>
+        <span class="jb-original-cross"></span>
+        <span class="jb-original-touch">
+          <span class="jb-original-touch-a">TOUCH</span>
+          <span class="jb-original-touch-b">TOUCH</span>
+        </span>
       </span>`;
   }
 
