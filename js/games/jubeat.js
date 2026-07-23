@@ -42,6 +42,13 @@
   };
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
+  const RESULT_AUDIO_BASE = AUDIO_BASE + "results/";
+  const MARKER_MODES = [
+    { id: "iris", label: "Iris" },
+    { id: "ring", label: "Neon ring" },
+    { id: "sweep", label: "Cross sweep" },
+    { id: "stealth", label: "Stealth" },
+  ];
 
   function note(t, panels) {
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
@@ -643,10 +650,12 @@
   function mount(root, { onScore }) {
     let songIndex = 0;
     let difficultyId = "easy";
+    let markerId = "iris";
 
     root.innerHTML = `
       <div class="jubeat-wrap">
         <div class="jb-difficulty" id="jb-difficulty" role="group" aria-label="Chart difficulty"></div>
+        <div class="jb-marker-mode" id="jb-marker-mode" role="group" aria-label="Shutter design"></div>
         <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
         <div class="game-hud">
           <div><span class="hud-label">Score</span><strong id="jb-score">0</strong></div>
@@ -663,6 +672,7 @@
             <p class="jb-results-kicker" id="jb-results-kicker">TRACK COMPLETE</p>
             <p class="jb-results-score" id="jb-results-score">0</p>
             <p class="jb-results-rank" id="jb-results-rank">RANK</p>
+            <p class="jb-results-combo" id="jb-results-combo"></p>
             <p class="jb-results-stats" id="jb-results-stats"></p>
             <p class="jb-results-arcade" id="jb-results-arcade"></p>
             <button type="button" class="btn primary jb-results-continue" id="jb-results-continue" hidden>Continue</button>
@@ -670,6 +680,7 @@
         </div>
         <div class="jb-music" id="jb-music">
           <audio id="jb-audio" class="jb-audio" preload="auto" playsinline></audio>
+          <audio id="jb-result-audio" class="jb-audio" preload="auto" playsinline></audio>
           <p class="jb-music-note mono" id="jb-music-note">Local BGM · hit when the shutter closes</p>
         </div>
         <p class="game-hint" id="jb-hint">Hit when the shutter closes on the beat · miss never fails the chart · 1–4 QWER ASDF ZXCV</p>
@@ -682,6 +693,7 @@
     const grid = root.querySelector("#jb-grid");
     const songsEl = root.querySelector("#jb-songs");
     const difficultyEl = root.querySelector("#jb-difficulty");
+    const markerModeEl = root.querySelector("#jb-marker-mode");
     const scoreEl = root.querySelector("#jb-score");
     const comboEl = root.querySelector("#jb-combo");
     const excEl = root.querySelector("#jb-exc");
@@ -696,9 +708,11 @@
     const resultsEl = root.querySelector("#jb-results");
     const resultsScoreEl = root.querySelector("#jb-results-score");
     const resultsRankEl = root.querySelector("#jb-results-rank");
+    const resultsComboEl = root.querySelector("#jb-results-combo");
     const resultsStatsEl = root.querySelector("#jb-results-stats");
     const resultsArcadeEl = root.querySelector("#jb-results-arcade");
     const resultsContinueBtn = root.querySelector("#jb-results-continue");
+    const resultAudioEl = root.querySelector("#jb-result-audio");
 
     /** @type {Panel[]} */
     const panels = [];
@@ -724,6 +738,13 @@
             <span class="jb-blade" style="--i:5"></span>
           </span>
           <span class="jb-touch"><span class="jb-touch-a">TOUCH</span><span class="jb-touch-b">TOUCH</span></span>
+        </span>
+        <span class="jb-alt-marker" aria-hidden="true">
+          <span class="jb-ring-marker"></span>
+          <span class="jb-sweep-line jb-sweep-top"></span>
+          <span class="jb-sweep-line jb-sweep-bottom"></span>
+          <span class="jb-sweep-line jb-sweep-left"></span>
+          <span class="jb-sweep-line jb-sweep-right"></span>
         </span>
         <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       grid.appendChild(btn);
@@ -755,6 +776,7 @@
     let resultsOpen = false;
     let resultRaf = 0;
     let resultTimers = [];
+    let announcementToken = 0;
 
     function song() {
       return SONGS[songIndex];
@@ -833,6 +855,24 @@
       });
     }
 
+    function paintMarkerModes() {
+      markerModeEl.innerHTML = MARKER_MODES.map(
+        (marker) =>
+          `<button type="button" class="jb-marker-btn${marker.id === markerId ? " is-active" : ""}" data-marker="${marker.id}" aria-pressed="${marker.id === markerId}" ${controlsLocked() ? "disabled" : ""}>${marker.label}</button>`
+      ).join("");
+      markerModeEl.querySelectorAll("[data-marker]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (controlsLocked()) return;
+          markerId = btn.dataset.marker;
+          grid.dataset.marker = markerId;
+          paintMarkerModes();
+          paintMeta();
+          global.ArcadeSFX?.click?.();
+        });
+      });
+      grid.dataset.marker = markerId;
+    }
+
     function paintMeta() {
       const s = song();
       const diff = difficulty();
@@ -841,7 +881,7 @@
         <span class="jb-diff ${difficultyId}">${diff.label} ${level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
-        <span class="jb-bgm">♪ Local BGM · Shutter</span>`;
+        <span class="jb-bgm">♪ Local BGM · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
     }
 
@@ -849,9 +889,70 @@
       useAudioClock = false;
       try {
         audioEl?.pause();
-        if (audioEl) audioEl.currentTime = 0;
+        if (audioEl) {
+          audioEl.currentTime = 0;
+          audioEl.loop = false;
+          audioEl.volume = 1;
+        }
       } catch {
         /* ignore */
+      }
+    }
+
+    function startPostGameLoop(s) {
+      useAudioClock = false;
+      if (!audioEl || !s?.audio) return;
+      const begin = () => {
+        if (destroyed || !resultsOpen) return;
+        try {
+          audioEl.loop = true;
+          audioEl.volume = 0.32;
+          if (audioEl.ended || audioEl.paused) {
+            audioEl.currentTime = Math.max(0, (s.audioOffsetMs || 0) / 1000);
+            audioEl.play()?.catch?.(() => {});
+          }
+          if (musicNoteEl) musicNoteEl.textContent = `Post-game loop · ${s.title}`;
+        } catch {
+          /* result screen remains usable if background audio cannot resume */
+        }
+      };
+      if (audioSrc === s.audio && audioEl.readyState >= 1) begin();
+      else loadAudio(s.audio).then((ok) => ok && begin());
+    }
+
+    function stopResultAudio() {
+      announcementToken += 1;
+      try {
+        if (resultAudioEl) {
+          resultAudioEl.onended = null;
+          resultAudioEl.onerror = null;
+          resultAudioEl.pause();
+          resultAudioEl.removeAttribute("src");
+          resultAudioEl.load();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function primeResultAudio() {
+      if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
+      try {
+        resultAudioEl.src = RESULT_AUDIO_BASE + "rank-a.mp3";
+        resultAudioEl.muted = false;
+        resultAudioEl.volume = 0;
+        const ready = resultAudioEl.play();
+        ready
+          ?.then?.(() => {
+            resultAudioEl.pause();
+            resultAudioEl.currentTime = 0;
+            resultAudioEl.volume = 1;
+          })
+          ?.catch?.(() => {
+            resultAudioEl.volume = 1;
+          });
+      } catch {
+        resultAudioEl.volume = 1;
       }
     }
 
@@ -919,6 +1020,7 @@
         try {
           audioEl.currentTime = 0;
           audioEl.volume = 1;
+          audioEl.loop = false;
           const p = audioEl.play();
           if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
           if (p?.then) {
@@ -1104,55 +1206,76 @@
       resultTimers.forEach((timer) => clearTimeout(timer));
       resultTimers = [];
       resultsOpen = false;
-      try {
-        global.speechSynthesis?.cancel?.();
-      } catch {
-        /* ignore */
-      }
+      stopResultAudio();
       if (resultsEl) {
         resultsEl.hidden = true;
         resultsEl.className = "jb-results";
       }
     }
 
-    function announceRank(rank) {
-      if (global.ArcadeSFX?.isMuted?.()) return;
+    function announceRank(rank, fullCombo, onComplete) {
+      const finish = () => {
+        if (audioEl) audioEl.volume = 0.32;
+        onComplete?.();
+      };
+      if (global.ArcadeSFX?.isMuted?.() || !resultAudioEl) {
+        finish();
+        return;
+      }
+
       if (rank === "FAIL") global.ArcadeSFX?.lose?.();
       else global.ArcadeSFX?.levelUp?.();
+      if (audioEl) audioEl.volume = 0.16;
 
-      const spoken = {
-        EXC: "Excellent",
-        SSS: "Triple S",
-        SS: "Double S",
-        S: "S",
-        A: "A",
-        B: "B",
-        C: "C",
-        D: "D",
-        FAIL: "Fail",
-      }[rank] || rank;
-      const speechTimer = setTimeout(() => {
-        try {
-          if (!global.speechSynthesis || !global.SpeechSynthesisUtterance) return;
-          const utterance = new global.SpeechSynthesisUtterance(`Rank ${spoken}`);
-          utterance.rate = 0.86;
-          utterance.pitch = rank === "FAIL" ? 0.78 : 1.12;
-          utterance.volume = 0.92;
-          global.speechSynthesis.speak(utterance);
-        } catch {
-          /* result animation remains usable without speech synthesis */
+      const rankFile = {
+        EXC: "rank-exc.mp3",
+        SSS: "rank-sss.mp3",
+        SS: "rank-ss.mp3",
+        S: "rank-s.mp3",
+        A: "rank-a.mp3",
+        B: "rank-b.mp3",
+        C: "rank-c.mp3",
+        D: "rank-d.mp3",
+        FAIL: "rank-fail.mp3",
+      }[rank] || "rank-fail.mp3";
+      const queue = [rankFile];
+      if (fullCombo) queue.push("full-combo.mp3");
+      const token = ++announcementToken;
+
+      const playNext = (index) => {
+        if (token !== announcementToken || !resultsOpen) return;
+        if (index >= queue.length) {
+          finish();
+          return;
         }
-      }, 140);
-      resultTimers.push(speechTimer);
+        try {
+          let advanced = false;
+          const advance = () => {
+            if (advanced) return;
+            advanced = true;
+            playNext(index + 1);
+          };
+          resultAudioEl.onended = advance;
+          resultAudioEl.onerror = advance;
+          resultAudioEl.src = RESULT_AUDIO_BASE + queue[index];
+          resultAudioEl.currentTime = 0;
+          resultAudioEl.volume = 1;
+          resultAudioEl.play()?.catch?.(advance);
+        } catch {
+          playNext(index + 1);
+        }
+      };
+      playNext(0);
     }
 
-    function showResults({ rank, arcadePoints, total }) {
+    function showResults({ rank, arcadePoints, total, fullCombo }) {
       if (!resultsEl) return;
       resultsOpen = true;
       resultsEl.hidden = false;
       resultsEl.className = "jb-results is-open";
       resultsScoreEl.textContent = "0";
       resultsRankEl.textContent = "RANK";
+      resultsComboEl.textContent = fullCombo ? "FULL COMBO" : "";
       resultsStatsEl.textContent = "";
       resultsArcadeEl.textContent = "";
       resultsContinueBtn.hidden = true;
@@ -1171,7 +1294,11 @@
         setTimeout(() => {
           resultsEl.classList.add("is-rank-visible");
           resultsRankEl.textContent = rank;
-          announceRank(rank);
+          announceRank(rank, fullCombo, () => {
+            if (!resultsOpen) return;
+            resultsEl.classList.add("is-ready");
+            resultsContinueBtn.hidden = false;
+          });
         }, 1650),
         setTimeout(() => {
           resultsEl.classList.add("is-stats-visible");
@@ -1179,9 +1306,10 @@
           resultsArcadeEl.textContent = `ARCADE +${arcadePoints} PTS`;
         }, 2250),
         setTimeout(() => {
+          if (!resultsOpen || !resultsContinueBtn.hidden) return;
           resultsEl.classList.add("is-ready");
           resultsContinueBtn.hidden = false;
-        }, 2850)
+        }, fullCombo ? 7600 : 5600)
       );
     }
 
@@ -1191,22 +1319,23 @@
       running = false;
       cancelAnimationFrame(raf);
       clearCountIn();
-      stopBgm();
-      duckLobbyMusic(false);
       panels.forEach((p) => p.reset());
       startBtn.disabled = true;
       startBtn.textContent = "Play again";
       const s = song();
       const total = counts.perfect + counts.excellent + counts.great + counts.good + counts.miss;
+      const fullCombo = total > 0 && counts.miss === 0;
       const rank = rankForScore(score);
       const arcadePoints =
         global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
       const cleared = rank !== "FAIL";
       hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · rank ${rank} · max combo ${bestCombo}`;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
-      showResults({ rank, arcadePoints, total });
+      showResults({ rank, arcadePoints, total, fullCombo });
+      startPostGameLoop(s);
       paintSongs();
       paintDifficulty();
+      paintMarkerModes();
       onScore?.({
         score,
         meta: {
@@ -1220,6 +1349,8 @@
           good: counts.good,
           miss: counts.miss,
           bestCombo,
+          fullCombo,
+          marker: markerId,
           cleared,
         },
       });
@@ -1344,6 +1475,7 @@
       panels.forEach((p) => p.reset());
       stopBgm();
       duckLobbyMusic(true);
+      primeResultAudio();
       const s = song();
       chart = chartFor(s, difficultyId);
       chartIndex = 0;
@@ -1365,6 +1497,7 @@
       startBtn.textContent = "Playing…";
       paintSongs();
       paintDifficulty();
+      paintMarkerModes();
       warmPanelMedia();
       const chartSeconds = chart.length ? chart[chart.length - 1].t / 1000 : s.durationSec || 100;
       const mins = Math.round(chartSeconds / 6) / 10;
@@ -1400,9 +1533,12 @@
     startBtn.addEventListener("click", start);
     resultsContinueBtn.addEventListener("click", () => {
       clearResults();
+      stopBgm();
+      duckLobbyMusic(false);
       startBtn.disabled = false;
       paintSongs();
       paintDifficulty();
+      paintMarkerModes();
       startBtn.focus({ preventScroll: true });
     });
 
@@ -1441,6 +1577,7 @@
     window.addEventListener("keydown", onKey);
 
     paintDifficulty();
+    paintMarkerModes();
     paintSongs();
     paintMeta();
     cuePreview(song());
@@ -1482,6 +1619,7 @@
     MAX_SCORE,
     JUDGE_PROGRESS,
     DIFFICULTIES,
+    MARKER_MODES,
     APPROACH_MS: DIFFICULTIES.extreme.approachMs,
     JUDGE_MS,
     SONGS,
