@@ -10,6 +10,7 @@
   const PLAYERS = "players";
   const PROGRESS = "progress";
   const GLOBAL_LIMIT = 25;
+  const GLOBAL_SCAN_LIMIT = 200;
   const GAME_IDS = [
     "tictactoe",
     "shooter",
@@ -155,6 +156,7 @@
 
   function mapScoreDoc(doc) {
     const d = doc.data() || {};
+    const normalized = Number(d.arcadePoints);
     return {
       id: doc.id,
       game: d.game,
@@ -162,7 +164,16 @@
       player: d.playerName || "Player",
       at: d.updatedAt?.toMillis?.() || d.clientAt || 0,
       userId: d.userId || null,
+      arcadePoints: Number.isFinite(normalized)
+        ? normalized
+        : global.ArcadeScores?.arcadePointsForRun?.(d.game, d.score) || 5,
     };
+  }
+
+  function rankGlobalRows(rows, limit = GLOBAL_LIMIT) {
+    return [...rows]
+      .sort((a, b) => Number(b.arcadePoints || 0) - Number(a.arcadePoints || 0))
+      .slice(0, limit);
   }
 
   async function init() {
@@ -267,7 +278,7 @@
     try {
       let q;
       if (leaderboardGame === "all") {
-        q = db.collection(SCORES).orderBy("rankScore", "desc").limit(GLOBAL_LIMIT);
+        q = db.collection(SCORES).limit(GLOBAL_SCAN_LIMIT);
       } else {
         q = db
           .collection(SCORES)
@@ -278,7 +289,8 @@
 
       unsub = q.onSnapshot(
         (snap) => {
-          leaderboard = snap.docs.map(mapScoreDoc);
+          const rows = snap.docs.map(mapScoreDoc);
+          leaderboard = leaderboardGame === "all" ? rankGlobalRows(rows) : rows;
           if (status !== "online") setStatus("online");
           else notify();
         },
@@ -442,7 +454,8 @@
     // Firestore rules accept number; keep finite plain numbers only
     const scoreVal = Math.round(num * 1000) / 1000;
     const rankVal = Number(rankScore(gameId, scoreVal));
-    if (!Number.isFinite(rankVal)) {
+    const arcadePoints = Number(global.ArcadeScores?.arcadePointsForRun?.(gameId, scoreVal, meta));
+    if (!Number.isFinite(rankVal) || !Number.isFinite(arcadePoints)) {
       return { ok: false, reason: "bad-score", message: "Invalid rank score" };
     }
 
@@ -492,6 +505,7 @@
         playerName: String(profile.username).trim().slice(0, 16),
         score: scoreVal,
         rankScore: rankVal,
+        arcadePoints,
         userId: uid,
         clientAt: now,
         timestamp: now,
@@ -755,10 +769,11 @@
       if (gameId && GAME_IDS.includes(gameId)) {
         q = db.collection(SCORES).where("game", "==", gameId).orderBy("rankScore", "desc").limit(limit);
       } else {
-        q = db.collection(SCORES).orderBy("rankScore", "desc").limit(limit);
+        q = db.collection(SCORES).limit(GLOBAL_SCAN_LIMIT);
       }
       const snap = await q.get();
-      return snap.docs.map(mapScoreDoc);
+      const rows = snap.docs.map(mapScoreDoc);
+      return gameId && GAME_IDS.includes(gameId) ? rows : rankGlobalRows(rows, limit);
     } catch (err) {
       console.warn("[ArcadeCloud] loadLeaderboard failed", err);
       setStatus("error", friendlyError(err));
@@ -891,6 +906,7 @@
             playerName: keptName,
             score: 0,
             rankScore: 0,
+            arcadePoints: 0,
             userId: uid,
             clientAt: Date.now(),
             timestamp: Date.now(),

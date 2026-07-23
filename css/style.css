@@ -1595,6 +1595,14 @@ body.salmon-mode .fun-fact-text {
   font-size: 0.8rem;
 }
 
+.hall-list .arcade-points {
+  display: block;
+  color: var(--violet);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
 .history-list li {
   grid-template-columns: 1.2fr auto auto auto;
 }

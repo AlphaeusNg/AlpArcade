@@ -21,6 +21,45 @@
     breaker: { label: "Circuit Breaker", higherIsBetter: true, unit: "pts" },
   };
 
+  const REWARD_SCALES = {
+    shooter: 900,
+    snake: 160,
+    memory: 300,
+    tapper: 300,
+    breaker: 900,
+  };
+
+  function clampArcadePoints(value) {
+    return Math.max(5, Math.min(100, Math.round(Number(value) || 0)));
+  }
+
+  function endlessGamePoints(score, scale) {
+    const nativeScore = Math.max(0, Number(score) || 0);
+    return clampArcadePoints(100 * (1 - Math.exp(-nativeScore / scale)));
+  }
+
+  /** Convert incomparable native game scores into a common 5–100 reward. */
+  function arcadePointsForRun(gameId, score, meta = {}) {
+    const nativeScore = Math.max(0, Number(score) || 0);
+    if (gameId === "tictactoe") {
+      if (meta.result === "loss") return 5;
+      if (meta.result === "draw") return 12;
+      const difficultyBonus = { easy: 0, medium: 10, hard: 20 }[meta.difficulty] || 0;
+      const streakBonus = Math.min(30, Math.max(0, (Number(meta.streak) || 1) - 1) * 5);
+      return clampArcadePoints(30 + difficultyBonus + streakBonus);
+    }
+    if (gameId === "reaction") {
+      return clampArcadePoints(10 + Math.max(0, 400 - nativeScore) * 0.3);
+    }
+    if (gameId === "jubeat") {
+      return clampArcadePoints(nativeScore / 10000);
+    }
+    if (REWARD_SCALES[gameId]) {
+      return endlessGamePoints(nativeScore, REWARD_SCALES[gameId]);
+    }
+    return clampArcadePoints(nativeScore / 10);
+  }
+
   function defaultState() {
     return {
       playerName: "Player",
@@ -66,7 +105,9 @@
           : 0,
         highScores,
         history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
-        hallOfFame: Array.isArray(data.hallOfFame) ? data.hallOfFame.slice(0, MAX_HALL) : [],
+        hallOfFame: Array.isArray(data.hallOfFame)
+          ? rankHall(data.hallOfFame).slice(0, MAX_HALL)
+          : [],
       };
     } catch {
       return defaultState();
@@ -98,7 +139,7 @@
    * @param {string} gameId
    * @param {number} score
    * @param {object} [meta]
-   * @returns {{ isHighScore: boolean, xpGained: number, state: object }}
+   * @returns {{ isHighScore: boolean, xpGained: number, arcadePoints: number, state: object }}
    */
   function submitScore(gameId, score, meta = {}) {
     const metaInfo = GAMES[gameId];
@@ -131,19 +172,8 @@
     }
     state.highScores[gameId] = hs;
 
-    // XP: scale by game
-    let xpGained = 0;
-    if (gameId === "tictactoe") {
-      xpGained = meta.result === "win" ? 25 : meta.result === "draw" ? 10 : 5;
-    } else if (gameId === "reaction") {
-      xpGained = Math.max(5, Math.round(80 - num / 10));
-    } else if (gameId === "jubeat") {
-      // Keep the million-point chart score for rankings; award its translated
-      // Arcade points as XP so a strong chart does not inflate account level.
-      xpGained = Math.max(5, Math.round(Number(meta.arcadePoints) || 0));
-    } else {
-      xpGained = Math.max(5, Math.round(num / 10));
-    }
+    const arcadePoints = arcadePointsForRun(gameId, num, meta);
+    const xpGained = arcadePoints;
     state.xp += xpGained;
     state.gamesPlayed += 1;
 
@@ -154,6 +184,7 @@
       at: Date.now(),
       meta,
       xp: xpGained,
+      arcadePoints,
     };
     state.history.unshift(entry);
     state.history = state.history.slice(0, MAX_HISTORY);
@@ -164,6 +195,7 @@
       score: num,
       player: state.playerName,
       at: Date.now(),
+      arcadePoints,
     });
     state.hallOfFame = rankHall(state.hallOfFame).slice(0, MAX_HALL);
 
@@ -171,16 +203,13 @@
 
     // Cloud save: guests opt-in via UI; signed-in users sync from app.js.
 
-    return { isHighScore, xpGained, state };
+    return { isHighScore, xpGained, arcadePoints, state };
   }
 
   function rankHall(list) {
     return [...list].sort((a, b) => {
-      const ga = GAMES[a.game];
-      const gb = GAMES[b.game];
-      // Prefer higher XP-like scores: normalize roughly
-      const scoreA = ga?.higherIsBetter === false ? 10000 - a.score : a.score;
-      const scoreB = gb?.higherIsBetter === false ? 10000 - b.score : b.score;
+      const scoreA = Number(a.arcadePoints) || arcadePointsForRun(a.game, a.score, a.meta);
+      const scoreB = Number(b.arcadePoints) || arcadePointsForRun(b.game, b.score, b.meta);
       return scoreB - scoreA;
     });
   }
@@ -346,6 +375,7 @@
     setPlayerName,
     mergeHighScores,
     submitScore,
+    arcadePointsForRun,
     formatScore,
     getLevel,
     resetAll,

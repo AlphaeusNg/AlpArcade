@@ -283,11 +283,15 @@
         hall.innerHTML = state.hallOfFame
           .map((e, i) => {
             const label = ArcadeScores.GAMES[e.game]?.label || e.game;
+            const arcadePoints =
+              Number(e.arcadePoints) || ArcadeScores.arcadePointsForRun?.(e.game, e.score, e.meta) || 5;
             return `<li>
               <span class="rank">#${i + 1}</span>
               <span class="who">${escapeHtml(e.player)}</span>
               <span class="what">${escapeHtml(label)}</span>
-              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
+              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}
+                <small class="arcade-points">${escapeHtml(String(arcadePoints))} AP</small>
+              </span>
             </li>`;
           })
           .join("");
@@ -458,7 +462,9 @@
           <span class="rank">#${i + 1}</span>
           <span class="who">${escapeHtml(e.player)}</span>
           ${showGame ? `<span class="what">${escapeHtml(gameLabel)}</span>` : ""}
-          <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
+          <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}
+            ${showGame ? `<small class="arcade-points">${escapeHtml(String(e.arcadePoints ?? 5))} AP</small>` : ""}
+          </span>
         </li>`;
       })
       .join("");

@@ -93,7 +93,7 @@
 
   function judgeForTap(noteTime, time, approachMs) {
     const progress = (time - (noteTime - approachMs)) / approachMs;
-    if (progress < JUDGE_PROGRESS.safeEarly) return null;
+    if (progress < JUDGE_PROGRESS.safeEarly) return { grade: "miss", label: "MISS", early: true, progress };
     if (progress < JUDGE_PROGRESS.good) return { grade: "good", label: "GOOD", progress };
     if (progress < JUDGE_PROGRESS.great) return { grade: "great", label: "GREAT", progress };
     if (progress < JUDGE_PROGRESS.excellent) return { grade: "excellent", label: "EXCELLENT", progress };
@@ -1059,7 +1059,7 @@
       const diff = difficulty();
       const judgment = panel.judgeTap(t, diff.approachMs);
       if (!judgment) {
-        // A tap before the shutter reaches 50% is only visual feedback.
+        // Truly empty panels stay harmless; an armed early note is judged MISS.
         panel.flashEmpty();
         global.ArcadeSFX?.tick?.();
         return;
@@ -1104,10 +1104,46 @@
       resultTimers.forEach((timer) => clearTimeout(timer));
       resultTimers = [];
       resultsOpen = false;
+      try {
+        global.speechSynthesis?.cancel?.();
+      } catch {
+        /* ignore */
+      }
       if (resultsEl) {
         resultsEl.hidden = true;
         resultsEl.className = "jb-results";
       }
+    }
+
+    function announceRank(rank) {
+      if (global.ArcadeSFX?.isMuted?.()) return;
+      if (rank === "FAIL") global.ArcadeSFX?.lose?.();
+      else global.ArcadeSFX?.levelUp?.();
+
+      const spoken = {
+        EXC: "Excellent",
+        SSS: "Triple S",
+        SS: "Double S",
+        S: "S",
+        A: "A",
+        B: "B",
+        C: "C",
+        D: "D",
+        FAIL: "Fail",
+      }[rank] || rank;
+      const speechTimer = setTimeout(() => {
+        try {
+          if (!global.speechSynthesis || !global.SpeechSynthesisUtterance) return;
+          const utterance = new global.SpeechSynthesisUtterance(`Rank ${spoken}`);
+          utterance.rate = 0.86;
+          utterance.pitch = rank === "FAIL" ? 0.78 : 1.12;
+          utterance.volume = 0.92;
+          global.speechSynthesis.speak(utterance);
+        } catch {
+          /* result animation remains usable without speech synthesis */
+        }
+      }, 140);
+      resultTimers.push(speechTimer);
     }
 
     function showResults({ rank, arcadePoints, total }) {
@@ -1135,16 +1171,17 @@
         setTimeout(() => {
           resultsEl.classList.add("is-rank-visible");
           resultsRankEl.textContent = rank;
-        }, 1250),
+          announceRank(rank);
+        }, 1650),
         setTimeout(() => {
           resultsEl.classList.add("is-stats-visible");
           resultsStatsEl.textContent = `P.EXC ${counts.perfect} · EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
           resultsArcadeEl.textContent = `ARCADE +${arcadePoints} PTS`;
-        }, 1700),
+        }, 2250),
         setTimeout(() => {
           resultsEl.classList.add("is-ready");
           resultsContinueBtn.hidden = false;
-        }, 2200)
+        }, 2850)
       );
     }
 
@@ -1162,7 +1199,8 @@
       const s = song();
       const total = counts.perfect + counts.excellent + counts.great + counts.good + counts.miss;
       const rank = rankForScore(score);
-      const arcadePoints = scoreTracker?.arcadePoints() || 0;
+      const arcadePoints =
+        global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
       const cleared = rank !== "FAIL";
       hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · rank ${rank} · max combo ${bestCombo}`;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
