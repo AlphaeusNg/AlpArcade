@@ -71,10 +71,14 @@ assert(
 );
 assert(
   game.FULL_COMBO_REVEAL_DELAY_MS === 1000 &&
-    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 1000,
-  "Full combo and EXC reveals must arrive one second apart"
+    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 4000,
+  "EXC must hold for four seconds after the Full Combo reveal"
 );
-assert(source.includes('rank === "EXC" ? 7600'), "EXC celebration must hold through its delayed finale");
+assert(
+  game.EXC_MINIMUM_CELEBRATION_MS === 11000 &&
+    source.includes('rank === "EXC" ? 14000 : 12000'),
+  "The delayed EXC celebration must retain its full animation and suspense"
+);
 assert(
   source.includes('rank === "EXC" && entry.grade === "excellent"') &&
     source.includes('class="jb-accuracy-timeline"') &&

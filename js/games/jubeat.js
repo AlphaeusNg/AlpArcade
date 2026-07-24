@@ -45,7 +45,8 @@
   /** Empty tap flash (wrong panel / early) */
   const EMPTY_TAP_MS = 90;
   const FULL_COMBO_REVEAL_DELAY_MS = 1000;
-  const EXC_REVEAL_DELAY_MS = 2000;
+  const EXC_REVEAL_DELAY_MS = FULL_COMBO_REVEAL_DELAY_MS + 4000;
+  const EXC_MINIMUM_CELEBRATION_MS = 11000;
 
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
@@ -2925,7 +2926,8 @@
           }
           announceRank(rank, fullCombo, () => {
             if (!resultsOpen) return;
-            const minimumCelebrationMs = rank === "EXC" ? 7600 : fullCombo ? 4200 : 0;
+            const minimumCelebrationMs =
+              rank === "EXC" ? EXC_MINIMUM_CELEBRATION_MS : fullCombo ? 4200 : 0;
             const remainingMs = Math.max(0, minimumCelebrationMs - (performance.now() - celebrationStartedAt));
             const revealActions = () => {
               if (!resultsOpen) return;
@@ -2945,7 +2947,7 @@
           if (!resultsOpen || !resultsActionsEl.hidden) return;
           resultsEl.classList.add("is-ready");
           resultsActionsEl.hidden = false;
-        }, 12000)
+        }, rank === "EXC" ? 14000 : 12000)
       );
     }
 
@@ -3486,5 +3488,6 @@
     bindSlideHits,
     FULL_COMBO_REVEAL_DELAY_MS,
     EXC_REVEAL_DELAY_MS,
+    EXC_MINIMUM_CELEBRATION_MS,
   };
 })(window);
