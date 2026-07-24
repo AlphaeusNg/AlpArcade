@@ -354,6 +354,7 @@
       this.judgeEl = el.querySelector(".jb-cell-judge");
       this.judgeUntil = 0;
       this.judgeTimer = null;
+      this.judgeAnimation = null;
       this.emptyTimer = null;
       /** @type {{ t: number, key: string }[]} notes waiting on this panel */
       this.queue = [];
@@ -424,6 +425,8 @@
         this.judgeEl.className = "jb-cell-judge";
       }
       this.judgeUntil = 0;
+      this.judgeAnimation?.cancel?.();
+      this.judgeAnimation = null;
       if (this.judgeTimer) {
         clearTimeout(this.judgeTimer);
         this.judgeTimer = null;
@@ -448,11 +451,20 @@
       }
 
       if (this.judgeEl) {
+        this.judgeAnimation?.cancel?.();
         this.judgeEl.hidden = false;
         this.judgeEl.textContent = text;
-        this.judgeEl.className = "jb-cell-judge";
-        void this.judgeEl.offsetWidth;
         this.judgeEl.className = "jb-cell-judge " + (cls || "");
+        if (typeof this.judgeEl.animate === "function") {
+          this.judgeAnimation = this.judgeEl.animate(
+            [
+              { offset: 0, opacity: 0, transform: "scale(0.75)" },
+              { offset: 0.25, opacity: 1, transform: "scale(1.06)" },
+              { offset: 1, opacity: 0, transform: "scale(1)" },
+            ],
+            { duration: holdMs, easing: "ease-out", fill: "forwards" }
+          );
+        }
       }
 
       this.judgeTimer = setTimeout(() => {
@@ -886,6 +898,7 @@
       notesHint: "arcade chart transcription",
       requiresLocalAudio: true,
       audioCutLabel: "1:42",
+      officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));
 
@@ -1086,6 +1099,7 @@
                     <span>ms</span>
                   </label>
                   <small id="jb-local-audio-status">Stays on this device</small>
+                  <a id="jb-local-audio-source" class="jb-local-audio-source" href="#" target="_blank" rel="noopener noreferrer" hidden>Official release ↗</a>
                 </div>
               </div>
             </section>
@@ -1236,7 +1250,7 @@
               </div>
               <div class="jb-tap-map" id="jb-tap-map" role="img" aria-label="Expected taps across the full song">
                 <div class="jb-tap-map-past" id="jb-tap-map-past" aria-hidden="true"></div>
-                <div class="jb-tap-map-notes" id="jb-tap-map-notes" aria-hidden="true"></div>
+                <canvas class="jb-tap-map-canvas" id="jb-tap-map-canvas" width="720" height="52" aria-hidden="true"></canvas>
                 <i class="jb-tap-map-playhead" id="jb-tap-map-playhead" aria-hidden="true"></i>
               </div>
             </section>
@@ -1270,7 +1284,7 @@
                 <span>ACCURACY</span>
                 <strong id="jb-results-accuracy">0.0%</strong>
               </div>
-              <div class="jb-accuracy-timeline" id="jb-accuracy-timeline" role="img" aria-label="Timing accuracy by note"></div>
+              <canvas class="jb-accuracy-timeline" id="jb-accuracy-timeline" width="720" height="28" role="img" aria-label="Timing accuracy by note"></canvas>
               <p class="jb-results-stats" id="jb-results-stats"></p>
               <p class="jb-results-arcade" id="jb-results-arcade"></p>
               <div class="jb-results-actions" id="jb-results-actions" hidden>
@@ -1306,6 +1320,7 @@
     const localAudioFileEl = root.querySelector("#jb-local-audio-file");
     const localAudioOffsetEl = root.querySelector("#jb-local-audio-offset");
     const localAudioStatusEl = root.querySelector("#jb-local-audio-status");
+    const localAudioSourceEl = root.querySelector("#jb-local-audio-source");
     const selectionTitleEl = root.querySelector("#jb-selection-title");
     const selectionHintEl = root.querySelector("#jb-selection-hint");
     const customNewBtn = root.querySelector("#jb-custom-new");
@@ -1362,7 +1377,7 @@
     const liveTapsEl = root.querySelector("#jb-live-taps");
     const tapMapEl = root.querySelector("#jb-tap-map");
     const tapMapPastEl = root.querySelector("#jb-tap-map-past");
-    const tapMapNotesEl = root.querySelector("#jb-tap-map-notes");
+    const tapMapCanvasEl = root.querySelector("#jb-tap-map-canvas");
     const tapMapPlayheadEl = root.querySelector("#jb-tap-map-playhead");
     const gridComboEl = root.querySelector("#jb-grid-combo");
     const gridComboValueEl = root.querySelector("#jb-grid-combo-value");
@@ -1444,8 +1459,15 @@
     let runDurationMs = 1000;
     let resolvedTapCount = 0;
     let liveHitCount = 0;
+    let tapMapContext = null;
+    let lastVisualPaintMs = -Infinity;
+    let lastProgressPercent = -1;
+    let lastProgressAria = -1;
+    let comboPulseAnimation = null;
+    let practiceLastPaintMs = -Infinity;
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
+    const phoneAnimationMedia = global.matchMedia?.("(max-width: 720px), (pointer: coarse)") || null;
 
     function allSongs() {
       return SONGS.concat(customSongs);
@@ -1537,6 +1559,7 @@
     function restartPractice() {
       practicePanel.reset();
       practiceCycleStart = performance.now();
+      practiceLastPaintMs = -Infinity;
       practiceJudgeEl.textContent = "TOUCH";
       practiceJudgeEl.removeAttribute("data-grade");
       practiceJudgeEl.classList.remove("is-centered");
@@ -2078,6 +2101,10 @@
         localAudioStatusEl.textContent = selected.audio
           ? `Loaded for this visit · ${selected.localAudioName || "local audio"}`
           : `Stays on this device · use the jubeat ${selected.audioCutLabel || "game"} cut`;
+        if (localAudioSourceEl) {
+          localAudioSourceEl.hidden = !selected.officialAudioUrl;
+          if (selected.officialAudioUrl) localAudioSourceEl.href = selected.officialAudioUrl;
+        }
       }
     }
 
@@ -2107,9 +2134,18 @@
 
     function animatePractice(now) {
       if (destroyed) return;
+      if (running || resultsOpen || setupEl.hidden) {
+        practiceRaf = requestAnimationFrame(animatePractice);
+        return;
+      }
+      if (phoneAnimationMedia?.matches && now - practiceLastPaintMs < 1000 / 30) {
+        practiceRaf = requestAnimationFrame(animatePractice);
+        return;
+      }
+      practiceLastPaintMs = now;
       const progress = practiceProgress(now);
       const showingJudge = now < practicePanel.judgeUntil;
-      if (!running && !resultsOpen && !setupEl.hidden && !showingJudge && progress != null) {
+      if (!showingJudge && progress != null) {
         practiceCellEl.classList.add("is-approach", "is-armed");
         setMarkerProgress(practiceCellEl, progress);
       } else {
@@ -2429,13 +2465,20 @@
       return n;
     }
 
-    function paintSongProgress(time) {
+    function paintSongProgress(time, force = false) {
       const percent = songProgressPercent(time, runDurationMs);
-      const width = `${percent.toFixed(3)}%`;
-      if (progEl) progEl.style.width = width;
-      if (tapMapPastEl) tapMapPastEl.style.width = width;
-      if (tapMapPlayheadEl) tapMapPlayheadEl.style.left = width;
-      if (progressBarEl) progressBarEl.setAttribute("aria-valuenow", percent.toFixed(1));
+      if (!force && Math.abs(percent - lastProgressPercent) < 0.025) return;
+      lastProgressPercent = percent;
+      const ratio = (percent / 100).toFixed(4);
+      const left = `${percent.toFixed(3)}%`;
+      if (progEl) progEl.style.transform = `scaleX(${ratio})`;
+      if (tapMapPastEl) tapMapPastEl.style.transform = `scaleX(${ratio})`;
+      if (tapMapPlayheadEl) tapMapPlayheadEl.style.left = left;
+      const ariaProgress = Math.round(percent);
+      if (progressBarEl && ariaProgress !== lastProgressAria) {
+        lastProgressAria = ariaProgress;
+        progressBarEl.setAttribute("aria-valuenow", String(ariaProgress));
+      }
     }
 
     function paintCombo() {
@@ -2444,10 +2487,16 @@
       if (!gridComboEl || !gridComboValueEl) return;
       gridComboValueEl.textContent = String(value);
       gridComboEl.classList.toggle("is-active", value > 0);
-      gridComboEl.classList.remove("is-pulse");
-      if (value > 0) {
-        void gridComboEl.offsetWidth;
-        gridComboEl.classList.add("is-pulse");
+      comboPulseAnimation?.cancel?.();
+      comboPulseAnimation = null;
+      if (value > 0 && !phoneAnimationMedia?.matches && typeof gridComboValueEl.animate === "function") {
+        comboPulseAnimation = gridComboValueEl.animate(
+          [
+            { opacity: 0.58, transform: "translateX(-0.05em) scale(1.08)" },
+            { opacity: 1, transform: "translateX(-0.05em) scale(1)" },
+          ],
+          { duration: 160, easing: "ease-out" }
+        );
       }
     }
 
@@ -2463,18 +2512,44 @@
       }
     }
 
+    function drawLiveTap(entry, grade = "expected") {
+      const context = tapMapContext;
+      if (!context || !tapMapCanvasEl || !entry) return;
+      const x = Math.round(
+        1 + (songProgressPercent(entry.noteTime, runDurationMs) / 100) * (tapMapCanvasEl.width - 2)
+      );
+      const y = 3 + (entry.mapLane || 0) * 12;
+      const missed = grade === "miss";
+      const expected = grade === "expected";
+      context.save();
+      context.fillStyle = expected
+        ? "rgba(96, 165, 250, 0.62)"
+        : missed
+          ? "rgba(251, 113, 133, 0.96)"
+          : grade === "good"
+            ? "rgba(253, 230, 138, 0.94)"
+            : grade === "great"
+              ? "rgba(245, 158, 11, 1)"
+              : "rgba(251, 191, 36, 1)";
+      if (!expected) {
+        context.shadowColor = missed ? "rgba(251, 113, 133, 0.8)" : "rgba(251, 191, 36, 0.82)";
+        context.shadowBlur = 4;
+      }
+      context.fillRect(x - (expected ? 1 : 2), y, expected ? 2 : 4, expected ? 7 : 9);
+      context.restore();
+    }
+
     function renderLiveTapMap() {
-      if (!tapMapNotesEl) return;
-      const fragment = document.createDocumentFragment();
-      accuracyTimeline.forEach((entry, index) => {
-        const tick = document.createElement("i");
-        tick.className = "jb-tap-tick is-expected";
-        tick.style.setProperty("--jb-tap-x", `${songProgressPercent(entry.noteTime, runDurationMs).toFixed(3)}%`);
-        tick.style.setProperty("--jb-tap-y", `${(0.13 + ((entry.panel + index) % 4) * 0.34).toFixed(2)}rem`);
-        entry.liveEl = tick;
-        fragment.appendChild(tick);
-      });
-      tapMapNotesEl.replaceChildren(fragment);
+      if (!tapMapCanvasEl) return;
+      try {
+        tapMapContext =
+          tapMapCanvasEl.getContext("2d", { alpha: true, desynchronized: true }) ||
+          tapMapCanvasEl.getContext("2d");
+      } catch {
+        tapMapContext = null;
+      }
+      tapMapContext?.clearRect(0, 0, tapMapCanvasEl.width, tapMapCanvasEl.height);
+      accuracyTimeline.forEach((entry) => drawLiveTap(entry));
       updateLiveTapSummary();
     }
 
@@ -2483,6 +2558,7 @@
       accuracyByKey = new Map();
       resolvedTapCount = 0;
       liveHitCount = 0;
+      let mapIndex = 0;
       events.forEach((event) => {
         event.panels.forEach((panel) => {
           const key = `${event.t}-${panel}`;
@@ -2490,11 +2566,12 @@
             key,
             noteTime: event.t,
             panel,
+            mapLane: (panel + mapIndex) % 4,
             grade: null,
             accuracy: null,
             deltaMs: null,
-            liveEl: null,
           };
+          mapIndex += 1;
           accuracyTimeline.push(entry);
           accuracyByKey.set(key, entry);
         });
@@ -2512,10 +2589,7 @@
         : 0;
       resolvedTapCount += 1;
       if (grade !== "miss") liveHitCount += 1;
-      if (entry.liveEl) {
-        entry.liveEl.classList.remove("is-expected");
-        entry.liveEl.classList.add(grade === "miss" ? "is-miss" : "is-hit", `is-${grade}`);
-      }
+      drawLiveTap(entry, grade);
       updateLiveTapSummary();
       return entry.accuracy;
     }
@@ -2526,21 +2600,43 @@
       return total / accuracyTimeline.length;
     }
 
-    function renderAccuracyTimeline() {
+    function renderAccuracyTimeline(rank) {
       if (!accuracyTimelineEl) return;
-      const fragment = document.createDocumentFragment();
-      accuracyTimeline.forEach((entry, index) => {
-        const box = document.createElement("span");
-        const accuracy = entry.accuracy ?? 0;
-        box.className = `jb-accuracy-box is-${entry.grade || "miss"}`;
-        box.style.opacity = String(0.38 + accuracy * 0.0062);
-        box.title = `Note ${index + 1}: ${accuracy.toFixed(1)}%${
-          entry.deltaMs == null ? " · missed" : ` · ${entry.deltaMs > 0 ? "+" : ""}${entry.deltaMs} ms`
-        }`;
-        box.setAttribute("aria-hidden", "true");
-        fragment.appendChild(box);
-      });
-      accuracyTimelineEl.replaceChildren(fragment);
+      let context = null;
+      try {
+        context =
+          accuracyTimelineEl.getContext("2d", { alpha: true, desynchronized: true }) ||
+          accuracyTimelineEl.getContext("2d");
+      } catch {
+        /* The numeric accuracy remains available to non-canvas browsers. */
+      }
+      if (context) {
+        const width = accuracyTimelineEl.width;
+        const height = accuracyTimelineEl.height;
+        const noteWidth = width / Math.max(1, accuracyTimeline.length);
+        context.clearRect(0, 0, width, height);
+        accuracyTimeline.forEach((entry, index) => {
+          const accuracy = entry.accuracy ?? 0;
+          context.globalAlpha = 0.38 + accuracy * 0.0062;
+          context.fillStyle =
+            rank === "EXC" && entry.grade === "excellent"
+              ? "#fbbf24"
+              : entry.grade === "excellent"
+                ? "#2dd4bf"
+                : entry.grade === "great"
+                  ? "#fbbf24"
+                  : entry.grade === "good"
+                    ? "#60a5fa"
+                    : "#fb7185";
+          context.fillRect(
+            Math.floor(index * noteWidth),
+            4,
+            Math.max(1, Math.ceil(noteWidth)),
+            height - 8
+          );
+        });
+        context.globalAlpha = 1;
+      }
       accuracyTimelineEl.setAttribute(
         "aria-label",
         `${overallAccuracy().toFixed(1)} percent timing accuracy across ${accuracyTimeline.length} notes`
@@ -2667,7 +2763,7 @@
       resultsRankEl.textContent = "RANK";
       resultsComboEl.textContent = "";
       resultsAccuracyEl.textContent = `${overallAccuracy().toFixed(1)}%`;
-      renderAccuracyTimeline();
+      renderAccuracyTimeline(rank);
       resultsStatsEl.textContent = "";
       resultsArcadeEl.textContent = "";
       resultsActionsEl.hidden = true;
@@ -2742,7 +2838,7 @@
       running = false;
       cancelAnimationFrame(raf);
       clearCountIn();
-      paintSongProgress(runDurationMs);
+      paintSongProgress(runDurationMs, true);
       panels.forEach((p) => p.reset());
       startBtn.disabled = true;
       startBtn.textContent = "Play again";
@@ -2789,6 +2885,10 @@
       if (!running || submitted) return;
       const t = nowMs();
       const ch = chart;
+      const visualInterval = phoneAnimationMedia?.matches ? 1000 / 30 : 0;
+      const paintVisuals =
+        visualInterval === 0 || t < lastVisualPaintMs || t - lastVisualPaintMs >= visualInterval;
+      if (paintVisuals) lastVisualPaintMs = t;
 
       while (chartIndex < ch.length && ch[chartIndex].t <= t + difficulty().approachMs) {
         const n = ch[chartIndex++];
@@ -2801,10 +2901,10 @@
       for (const panel of panels) {
         if (!running || submitted) break;
         panel.expireMisses(t, (n) => registerMiss(n, panel));
-        panel.syncMarker(t, difficulty().approachMs);
+        if (paintVisuals) panel.syncMarker(t, difficulty().approachMs);
       }
 
-      paintSongProgress(t);
+      if (paintVisuals) paintSongProgress(t);
 
       if (chartIndex >= ch.length && activeNoteCount() === 0 && t > runDurationMs) {
         finish();
@@ -2935,6 +3035,9 @@
       chart = runtimeChartFor(s, difficultyId);
       runDurationMs = songTimelineDuration(s, chart);
       resetAccuracyTimeline(chart);
+      lastVisualPaintMs = -Infinity;
+      lastProgressPercent = -1;
+      lastProgressAria = -1;
       chartIndex = 0;
       running = true;
       clockStarted = false;
@@ -2949,7 +3052,7 @@
       paintCombo();
       excEl.textContent = "0";
       missEl.textContent = "0";
-      paintSongProgress(0);
+      paintSongProgress(0, true);
       startBtn.disabled = true;
       setupEl.hidden = true;
       playfieldEl.hidden = false;
@@ -3155,6 +3258,9 @@
         cancelAnimationFrame(raf);
         cancelAnimationFrame(practiceRaf);
         cancelAnimationFrame(editorRecordRaf);
+        comboPulseAnimation?.cancel?.();
+        comboPulseAnimation = null;
+        tapMapContext = null;
         clearTimeout(editorPreviewTimer);
         clearEditorConflictFlashes();
         editorRecordToken += 1;

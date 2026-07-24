@@ -16,8 +16,10 @@ vm.createContext(context);
 const chartDataSource = fs.readFileSync(path.join(root, "js/games/jubeat-chart-data.js"), "utf8");
 const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
 const gameCss = fs.readFileSync(path.join(root, "css/games.css"), "utf8");
+const responsiveCss = fs.readFileSync(path.join(root, "css/responsive.css"), "utf8");
 const achievementsSource = fs.readFileSync(path.join(root, "js/features/achievements.js"), "utf8");
 const appSource = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const gameScreenSource = fs.readFileSync(path.join(root, "js/core/game-screen.js"), "utf8");
 vm.runInContext(chartDataSource, context);
 vm.runInContext(source, context);
 
@@ -25,6 +27,30 @@ const game = context.window.GameJubeat;
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
+
+const playViewFixture = {};
+const screenContext = {
+  window: {
+    matchMedia: () => ({ matches: true }),
+    requestAnimationFrame: () => 1,
+    cancelAnimationFrame() {},
+  },
+  document: { fullscreenElement: null, webkitFullscreenElement: null },
+};
+vm.createContext(screenContext);
+vm.runInContext(gameScreenSource, screenContext);
+const screenRootFixture = {
+  closest: (selector) => (selector === "#play-view" ? playViewFixture : null),
+};
+assert(
+  screenContext.window.ArcadeGameScreen.shouldUseDocumentScroll(screenRootFixture),
+  "Phone cabinet play must use the outer document scroller"
+);
+screenContext.document.fullscreenElement = playViewFixture;
+assert(
+  !screenContext.window.ArcadeGameScreen.shouldUseDocumentScroll(screenRootFixture),
+  "Fullscreen phone play must keep the stable cabinet lock"
+);
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
 assert(
@@ -44,7 +70,9 @@ assert(
 );
 assert(source.includes('rank === "EXC" ? 7600'), "EXC celebration must hold through its delayed finale");
 assert(
-  gameCss.includes(".jb-results.is-exc .jb-accuracy-box.is-excellent"),
+  source.includes('rank === "EXC" && entry.grade === "excellent"') &&
+    source.includes('class="jb-accuracy-timeline"') &&
+    !source.includes("jb-accuracy-box"),
   "All-Excellent result bars must turn gold"
 );
 assert(
@@ -60,10 +88,23 @@ assert(
   "The full-song tap map and progress rail must sit above the panel grid"
 );
 assert(
-  gameCss.includes(".jb-tap-tick.is-expected") &&
-    gameCss.includes(".jb-tap-tick.is-hit") &&
-    source.includes('entry.liveEl.classList.add(grade === "miss" ? "is-miss" : "is-hit"'),
-  "Expected taps must update from blue to hit or miss state in real time"
+  source.includes('id="jb-tap-map-canvas"') &&
+    source.includes('tapMapCanvasEl.getContext("2d"') &&
+    source.includes("drawLiveTap(entry, grade)") &&
+    !source.includes("jb-tap-tick"),
+  "Expected taps must update on one low-overhead canvas instead of hundreds of DOM nodes"
+);
+assert(
+  source.includes("1000 / 30") &&
+    source.includes("progEl.style.transform = `scaleX(${ratio})`") &&
+    !source.includes("offsetWidth"),
+  "Phone visuals must be frame-capped, compositor-driven, and free of forced layout"
+);
+assert(
+  gameScreenSource.includes("shouldUseDocumentScroll") &&
+    gameScreenSource.includes('root.classList.add("is-document-flow")') &&
+    responsiveCss.includes("calc(4rem + env(safe-area-inset-bottom))"),
+  "Phone cabinets must use document scrolling with safe bottom room"
 );
 assert(game.songProgressPercent(-20, 1000) === 0, "Song progress must clamp before the chart starts");
 assert(game.songProgressPercent(500, 1000) === 50, "Song progress and tap-map playhead must share one timeline");
@@ -226,6 +267,11 @@ assert(
   JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
     JSON.stringify(["imsosohappy", "onlymyrailgun"]),
   "Railgun and the mismatched extended Happy mix must request exact local game-cut audio"
+);
+assert(
+  game.SONGS.find((song) => song.id === "onlymyrailgun")?.officialAudioUrl ===
+    "https://lnk.to/onlymyrailgun",
+  "Railgun must link to its official audio distributor"
 );
 assert(
   source.includes("createObjectURL") && source.includes("revokeObjectURL"),

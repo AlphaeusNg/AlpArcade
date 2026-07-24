@@ -5,6 +5,14 @@
 (function (global) {
   "use strict";
 
+  function shouldUseDocumentScroll(root) {
+    const playView = root?.closest?.("#play-view");
+    return (
+      !!global.matchMedia?.("(max-width: 720px), (pointer: coarse)")?.matches &&
+      !isFullscreen(playView)
+    );
+  }
+
   function lock(root) {
     const layout = root?.closest(".play-layout");
     if (!root || !layout) return () => {};
@@ -13,6 +21,19 @@
     let frame = 0;
     const applyLock = () => {
       if (released || !root.isConnected || !layout.isConnected) return;
+      if (shouldUseDocumentScroll(root)) {
+        root.classList.remove("is-screen-locked");
+        layout.classList.remove("is-screen-locked");
+        root.classList.add("is-document-flow");
+        layout.classList.add("is-document-flow");
+        root.style.removeProperty("--cabinet-screen-height");
+        layout.style.removeProperty("--cabinet-play-height");
+        root.dataset.screenFlow = "document";
+        delete root.dataset.screenLocked;
+        return;
+      }
+      root.classList.remove("is-document-flow");
+      layout.classList.remove("is-document-flow");
       const viewportHeight = Math.round(global.visualViewport?.height || global.innerHeight);
       const layoutTop = Math.max(0, layout.getBoundingClientRect().top);
       const availableHeight = Math.max(320, viewportHeight - layoutTop - 12);
@@ -41,9 +62,12 @@
       global.cancelAnimationFrame(frame);
       root.classList.remove("is-screen-locked");
       layout.classList.remove("is-screen-locked");
+      root.classList.remove("is-document-flow");
+      layout.classList.remove("is-document-flow");
       root.style.removeProperty("--cabinet-screen-height");
       layout.style.removeProperty("--cabinet-play-height");
       delete root.dataset.screenLocked;
+      delete root.dataset.screenFlow;
     };
   }
 
@@ -137,5 +161,6 @@
     enterFullscreen,
     exitFullscreen,
     guardFullscreenGestures,
+    shouldUseDocumentScroll,
   });
 })(window);
