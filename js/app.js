@@ -495,9 +495,53 @@
     };
   }
 
+  const cloudErrorLog = {
+    message: "",
+    text: "",
+    source: "cloud",
+    minimized: false,
+    reportStatus: "",
+  };
+
+  function buildErrorLog(message, source = "cloud") {
+    return [
+      "AlpArcade error report",
+      `Time: ${new Date().toISOString()}`,
+      `Version: ${window.SITE_VERSION?.id || "unknown"}`,
+      `Source: ${source}`,
+      `Page: ${location.origin}${location.pathname}`,
+      `Connection: ${navigator.onLine ? "online" : "offline"}`,
+      "",
+      String(message || "Unknown error"),
+    ].join("\n");
+  }
+
+  function rememberCloudError(message, source = "cloud") {
+    const cleanMessage = String(message || "Cloud offline — local play still works").trim();
+    if (cloudErrorLog.message === cleanMessage && cloudErrorLog.source === source) return;
+
+    cloudErrorLog.message = cleanMessage;
+    cloudErrorLog.text = buildErrorLog(cleanMessage, source);
+    cloudErrorLog.source = source;
+    cloudErrorLog.minimized = false;
+    const report = window.ArcadeErrorReporter?.report?.({
+      message: cleanMessage,
+      source,
+    });
+    cloudErrorLog.reportStatus = report?.status === "sent"
+      ? "Anonymous diagnostic sent · no player or account details included"
+      : report?.status === "duplicate"
+        ? "Diagnostic already sent for this error during this visit"
+        : "Diagnostic queued · it will send automatically when reporting is available";
+  }
+
   function updateCloudChrome() {
     const statusEl = $("#cloud-status");
     const banner = $("#cloud-banner");
+    const errorDetails = $("#cloud-error-details");
+    const reportStatus = $("#cloud-report-status");
+    const copyBtn = $("#btn-cloud-copy");
+    const errorToggle = $("#btn-cloud-error-toggle");
     const shareBtn = $("#btn-share-cloud");
     const retryBtn = $("#btn-cloud-retry");
     const label = $("#global-hall-label");
@@ -507,9 +551,23 @@
     const s = cloudState();
     const status = s.status || "off";
     const err = s.lastError || window.ArcadeCloud?.getLastError?.() || "";
+    if (status === "error") {
+      rememberCloudError(err || "Cloud offline — local play still works");
+    } else if (cloudErrorLog.minimized) {
+      cloudErrorLog.message = "";
+      cloudErrorLog.text = "";
+      cloudErrorLog.reportStatus = "";
+      cloudErrorLog.minimized = false;
+    }
+    const expandedError = !!cloudErrorLog.message && !cloudErrorLog.minimized;
+    const minimizedError = !!cloudErrorLog.message && cloudErrorLog.minimized;
 
     let msg;
-    if (!s.configured) {
+    if (expandedError) {
+      msg = "Cloud error — local play still works";
+    } else if (minimizedError) {
+      msg = "Cloud error minimized — select Show error to reopen";
+    } else if (!s.configured) {
       msg = "Cloud disabled — set enabled:true in js/firebase-config.js";
     } else if (status === "connecting") {
       msg = "Cloud: connecting…";
@@ -524,10 +582,33 @@
     }
 
     if (statusEl) statusEl.textContent = msg;
+    if (errorDetails) {
+      errorDetails.textContent = cloudErrorLog.text;
+      errorDetails.hidden = !expandedError;
+    }
+    if (reportStatus) {
+      reportStatus.textContent = cloudErrorLog.reportStatus;
+      reportStatus.hidden = !expandedError || !cloudErrorLog.reportStatus;
+    }
+    if (copyBtn) copyBtn.hidden = !expandedError;
+    if (errorToggle) {
+      errorToggle.hidden = !cloudErrorLog.message;
+      errorToggle.textContent = expandedError ? "Minimize" : "Show error";
+      errorToggle.setAttribute("aria-expanded", expandedError ? "true" : "false");
+    }
     if (banner) {
-      banner.classList.remove("is-online", "is-error", "is-off", "is-connecting");
+      banner.classList.remove(
+        "is-online",
+        "is-error",
+        "is-off",
+        "is-connecting",
+        "is-error-expanded",
+        "is-error-minimized"
+      );
       banner.classList.add(
-        status === "online"
+        expandedError || minimizedError
+          ? "is-error"
+          : status === "online"
           ? "is-online"
           : status === "error"
             ? "is-error"
@@ -535,6 +616,9 @@
               ? "is-connecting"
               : "is-off"
       );
+      banner.classList.toggle("is-error-expanded", expandedError);
+      banner.classList.toggle("is-error-minimized", minimizedError);
+      banner.setAttribute("aria-live", expandedError ? "assertive" : "polite");
     }
 
     const filter = s.leaderboardGame || "all";
@@ -1374,6 +1458,29 @@
     });
   });
 
+  $("#btn-cloud-copy")?.addEventListener("click", async () => {
+    if (!cloudErrorLog.text) return;
+    try {
+      await navigator.clipboard.writeText(cloudErrorLog.text);
+      showToast("Error copied");
+    } catch {
+      const details = $("#cloud-error-details");
+      if (!details) return;
+      const range = document.createRange();
+      range.selectNodeContents(details);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      showToast("Error selected — copy it from the highlighted text");
+    }
+  });
+
+  $("#btn-cloud-error-toggle")?.addEventListener("click", () => {
+    if (!cloudErrorLog.message) return;
+    cloudErrorLog.minimized = !cloudErrorLog.minimized;
+    updateCloudChrome();
+  });
+
   $("#btn-cloud-retry")?.addEventListener("click", () => {
     retryCloudConnect().catch((err) => {
       console.warn(err);
@@ -1654,8 +1761,11 @@
   // Cloud init — read-only leaderboards without forcing Google sign-in
   function bootCloud() {
     if (!window.ArcadeCloud) {
-      const statusEl = $("#cloud-status");
-      if (statusEl) statusEl.textContent = "Cloud module failed to load — hard-refresh (Ctrl+Shift+R)";
+      rememberCloudError(
+        "Cloud module failed to load — hard-refresh (Ctrl+Shift+R)",
+        "cloud-module"
+      );
+      updateCloudChrome();
       return;
     }
     window.ArcadeCloud.onChange?.(() => {
@@ -1673,6 +1783,10 @@
           return;
         }
         showToast("Firebase SDK failed to load");
+        rememberCloudError(
+          "Firebase SDK failed to load — check the connection, then retry.",
+          "firebase-sdk"
+        );
         updateCloudChrome();
         return;
       }

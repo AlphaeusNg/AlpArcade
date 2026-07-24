@@ -52,6 +52,13 @@ See [`firebase/README.md`](./firebase/README.md).
 
 Players never must sign up to play. After a run they can **Save with Google**, pick a username once, and post.
 
+Cloud errors stay expanded until the player minimizes them. The diagnostic
+block is selectable and has a **Copy error** action. Each unique displayed
+error also sends one privacy-limited `exception` event to Firebase Analytics
+(or queues it locally while offline); view counts under **Firebase Console →
+Analytics → Events**. Reports omit player names, emails, scores, and URL query
+strings.
+
 ### Stack
 
 Zero-build static site: plain HTML/CSS/JS. No framework, no bundler. Works on GitHub Pages.

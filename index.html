@@ -286,8 +286,22 @@
         </p>
         <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
           <span class="cloud-dot" id="cloud-dot" aria-hidden="true"></span>
-          <span class="cloud-status" id="cloud-status">Checking cloud…</span>
-          <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry</button>
+          <div class="cloud-message">
+            <span class="cloud-status" id="cloud-status">Checking cloud…</span>
+            <pre class="cloud-error-details" id="cloud-error-details" tabindex="0" hidden></pre>
+            <small class="cloud-report-status mono" id="cloud-report-status" hidden></small>
+          </div>
+          <div class="cloud-actions">
+            <button type="button" class="btn small ghost" id="btn-cloud-copy" hidden>Copy error</button>
+            <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry</button>
+            <button
+              type="button"
+              class="btn small ghost"
+              id="btn-cloud-error-toggle"
+              aria-expanded="true"
+              hidden
+            >Minimize</button>
+          </div>
         </div>
         <div class="lb-filters" id="lb-filters" role="tablist" aria-label="Leaderboard game filter">
           <button type="button" class="lb-chip is-active" data-lb-game="all" role="tab" aria-selected="true">All</button>
@@ -418,6 +432,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js" defer></script>
   <!-- Core shell only; game modules lazy-load when a cabinet is opened -->
   <script src="js/version.js" defer></script>
   <script src="js/firebase-config.js" defer></script>
@@ -426,6 +441,7 @@
   <script src="js/core/scores.js" defer></script>
   <script src="js/features/achievements.js" defer></script>
   <script src="js/features/daily.js" defer></script>
+  <script src="js/services/error-reporter.js" defer></script>
   <script src="js/services/cloud-scores.js" defer></script>
   <script src="js/features/music.js" defer></script>
   <script src="js/app.js" defer></script>
