@@ -63,7 +63,7 @@
     S: Object.freeze({ rankMs: 2140, fullComboMs: 2280, fullComboRankMs: 3900 }),
     SS: Object.freeze({ rankMs: 2260, fullComboMs: 2200, fullComboRankMs: 3820 }),
     SSS: Object.freeze({ rankMs: 2080, fullComboMs: 2160, fullComboRankMs: 3740 }),
-    EXC: Object.freeze({ rankMs: 5080, fullComboMs: 220, fullComboRankMs: 4960 }),
+    EXC: Object.freeze({ rankMs: 5080, fullComboMs: 7120, fullComboRankMs: 5240 }),
   });
 
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
@@ -3031,8 +3031,15 @@
           const revealFullCombo = () => {
             if (!resultsOpen) return;
             resultsEl.classList.add("is-full-combo", "is-combo-visible");
-            resultsKickerEl.textContent = "FLAWLESS CHAIN";
-            resultsComboEl.textContent = "FULL COMBO";
+            if (rank === "EXC") {
+              resultsKickerEl.textContent = resultsEl.classList.contains("is-rank-visible")
+                ? "PERFECT PERFORMANCE"
+                : "FLAWLESS CHAIN";
+              resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
+            } else {
+              resultsKickerEl.textContent = "FLAWLESS CHAIN";
+              resultsComboEl.textContent = "FULL COMBO";
+            }
           };
           const revealRank = () => {
             if (!resultsOpen) return;
@@ -3041,7 +3048,9 @@
             if (rank === "EXC") {
               resultsEl.classList.add("is-exc");
               resultsKickerEl.textContent = "PERFECT PERFORMANCE";
-              resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
+              if (resultsEl.classList.contains("is-combo-visible")) {
+                resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
+              }
             }
           };
           announceRank(rank, fullCombo, {

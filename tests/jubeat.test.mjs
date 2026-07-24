@@ -83,17 +83,19 @@ assert(
 assert(
   game.resultAnnouncementCues("A", false).rankMs === 2140 &&
     game.resultAnnouncementCues("SSS", false).rankMs === 2080 &&
-    game.resultAnnouncementCues("EXC", true).comboMs === 220 &&
-    game.resultAnnouncementCues("EXC", true).rankMs === 4960,
+    game.resultAnnouncementCues("EXC", true).rankMs === 5240 &&
+    game.resultAnnouncementCues("EXC", true).comboMs === 7120,
   "Every result visual must use its measured spoken announcement cue"
 );
 assert(
   ["A", "B", "C", "D", "FAIL", "S", "SS", "SSS", "EXC"].every((rank) => {
     const standard = game.resultAnnouncementCues(rank, false);
     const fullCombo = game.resultAnnouncementCues(rank, true);
-    return standard.comboMs === null && standard.rankMs > 0 && fullCombo.comboMs >= 0 && fullCombo.rankMs > fullCombo.comboMs;
+    const spokenOrder =
+      rank === "EXC" ? fullCombo.comboMs > fullCombo.rankMs : fullCombo.rankMs > fullCombo.comboMs;
+    return standard.comboMs === null && standard.rankMs > 0 && fullCombo.comboMs >= 0 && spokenOrder;
   }),
-  "Every grade and Full Combo result must have valid synchronized media cues"
+  "Every grade and Full Combo result must follow its synchronized spoken order"
 );
 assert(
   source.includes("resultAudioEl.currentTime * 1000") &&
@@ -242,8 +244,8 @@ assert(
   crypto
     .createHash("sha256")
     .update(fs.readFileSync(path.join(root, "assets/jubeat/audio/results/final-exc-full-combo.mp4")))
-    .digest("hex") === "7dc8c6f9551d960afeb39c0b6a3b15cc01bcf4e8ca80be622379d4a5ce4be45d",
-  "EXCELLENT Full Combo must keep the excited female, chirp-free result mix"
+    .digest("hex") === "967dbce48b883f2804c6c19da00a10300451f62cd3b96c18dd6beb37886f2d91",
+  "EXCELLENT must announce Full Combo after the final result and grade"
 );
 const markerProperties = new Map();
 const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
