@@ -35,6 +35,8 @@
   const JUDGE_MS = { excellent: 280, great: 260, good: 240, miss: 180 };
   /** Empty tap flash (wrong panel / early) */
   const EMPTY_TAP_MS = 90;
+  const FULL_COMBO_REVEAL_DELAY_MS = 1000;
+  const EXC_REVEAL_DELAY_MS = 2000;
 
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
@@ -2409,11 +2411,10 @@
       resultsOpen = true;
       resultsEl.hidden = false;
       resultsEl.className = "jb-results is-open";
-      resultsKickerEl.textContent =
-        rank === "EXC" ? "PERFECT PERFORMANCE" : fullCombo ? "FLAWLESS CHAIN" : "TRACK COMPLETE";
+      resultsKickerEl.textContent = "TRACK COMPLETE";
       resultsScoreEl.textContent = "0";
       resultsRankEl.textContent = "RANK";
-      resultsComboEl.textContent = rank === "EXC" ? "ALL EXCELLENT · FULL COMBO" : fullCombo ? "FULL COMBO" : "";
+      resultsComboEl.textContent = "";
       resultsAccuracyEl.textContent = `${overallAccuracy().toFixed(1)}%`;
       renderAccuracyTimeline();
       resultsStatsEl.textContent = "";
@@ -2432,14 +2433,35 @@
 
       resultTimers.push(
         setTimeout(() => {
-          if (fullCombo) resultsEl.classList.add("is-full-combo");
-          if (rank === "EXC") resultsEl.classList.add("is-exc");
-          resultsEl.classList.add("is-rank-visible");
-          resultsRankEl.textContent = rank;
           const celebrationStartedAt = performance.now();
+          if (rank !== "EXC") {
+            resultsEl.classList.add("is-rank-visible");
+            resultsRankEl.textContent = rank;
+          }
+          if (fullCombo) {
+            resultTimers.push(
+              setTimeout(() => {
+                if (!resultsOpen) return;
+                resultsEl.classList.add("is-full-combo", "is-combo-visible");
+                resultsKickerEl.textContent = "FLAWLESS CHAIN";
+                resultsComboEl.textContent = "FULL COMBO";
+              }, FULL_COMBO_REVEAL_DELAY_MS)
+            );
+          }
+          if (rank === "EXC") {
+            resultTimers.push(
+              setTimeout(() => {
+                if (!resultsOpen) return;
+                resultsEl.classList.add("is-exc", "is-rank-visible");
+                resultsKickerEl.textContent = "PERFECT PERFORMANCE";
+                resultsRankEl.textContent = rank;
+                resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
+              }, EXC_REVEAL_DELAY_MS)
+            );
+          }
           announceRank(rank, fullCombo, () => {
             if (!resultsOpen) return;
-            const minimumCelebrationMs = rank === "EXC" ? 5600 : fullCombo ? 3200 : 0;
+            const minimumCelebrationMs = rank === "EXC" ? 7600 : fullCombo ? 4200 : 0;
             const remainingMs = Math.max(0, minimumCelebrationMs - (performance.now() - celebrationStartedAt));
             const revealActions = () => {
               if (!resultsOpen) return;
@@ -2459,7 +2481,7 @@
           if (!resultsOpen || !resultsActionsEl.hidden) return;
           resultsEl.classList.add("is-ready");
           resultsActionsEl.hidden = false;
-        }, 9000)
+        }, 12000)
       );
     }
 
@@ -2971,5 +2993,7 @@
     timingAccuracy,
     setMarkerProgress,
     bindSlideHits,
+    FULL_COMBO_REVEAL_DELAY_MS,
+    EXC_REVEAL_DELAY_MS,
   };
 })(window);

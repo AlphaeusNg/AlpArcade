@@ -1410,8 +1410,8 @@
   opacity: 0;
 }
 
-.jb-results.is-rank-visible .jb-results-combo {
-  animation: jb-results-rise 0.32s 0.18s ease-out forwards;
+.jb-results.is-combo-visible .jb-results-combo {
+  animation: jb-results-rise 0.32s ease-out forwards;
 }
 
 .jb-results-stats,

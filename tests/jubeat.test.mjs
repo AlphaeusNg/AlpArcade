@@ -24,11 +24,16 @@ const assert = (condition, message) => {
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(
-  source.includes('resultsEl.classList.add("is-full-combo")') &&
-    source.includes('resultsEl.classList.add("is-exc")'),
+  source.includes('resultsEl.classList.add("is-full-combo", "is-combo-visible")') &&
+    source.includes('resultsEl.classList.add("is-exc", "is-rank-visible")'),
   "Pulse Grid must distinguish full-combo and EXC result celebrations"
 );
-assert(source.includes('rank === "EXC" ? 5600'), "EXC celebration must hold longer than a full combo");
+assert(
+  game.FULL_COMBO_REVEAL_DELAY_MS === 1000 &&
+    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 1000,
+  "Full combo and EXC reveals must arrive one second apart"
+);
+assert(source.includes('rank === "EXC" ? 7600'), "EXC celebration must hold through its delayed finale");
 assert(
   gameCss.includes(".jb-results.is-exc .jb-accuracy-box.is-excellent"),
   "All-Excellent result bars must turn gold"
