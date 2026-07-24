@@ -36,17 +36,6 @@
   /** Empty tap flash (wrong panel / early) */
   const EMPTY_TAP_MS = 90;
 
-  const PANEL_ART = {
-    excellent: "assets/jubeat/panel-excellent.jpg",
-    great: "assets/jubeat/panel-great.jpg",
-    good: "assets/jubeat/panel-good.jpg",
-    miss: "assets/jubeat/panel-miss.jpg",
-  };
-  const PANEL_VID = {
-    excellent: "assets/jubeat/panel-excellent.mp4",
-    great: "assets/jubeat/panel-great.mp4",
-    good: "assets/jubeat/panel-good.mp4",
-  };
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
   const JACKET_BASE = "assets/jubeat/jackets/";
@@ -170,18 +159,27 @@
     el.style.setProperty("--jb-marker-opacity", (0.25 + p * 0.75).toFixed(4));
     el.style.setProperty("--jb-touch-opacity", Math.max(0, (p - 0.5) / 0.5).toFixed(4));
     el.style.setProperty("--jb-touch-gap", `${((1 - p) * 2.8).toFixed(3)}em`);
-    el.style.setProperty("--jb-ring-opacity", (0.28 + p * 0.72).toFixed(4));
-    el.style.setProperty("--jb-ring-scale", (1.9 - p * 0.9).toFixed(4));
+    const ringP = Math.min(1, p / JUDGE_PROGRESS.great);
+    const ringReadyP = p >= JUDGE_PROGRESS.great ? 1 : 0;
+    el.style.setProperty("--jb-ring-opacity", (0.42 + ringP * 0.58).toFixed(4));
+    el.style.setProperty("--jb-ring-scale", (1.9 - ringP * 0.9).toFixed(4));
     el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
+    el.style.setProperty("--jb-ring-ready-opacity", ringReadyP.toFixed(4));
+    el.style.setProperty("--jb-ring-ready-scale", (0.72 + ringReadyP * 0.28).toFixed(4));
     el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
     el.style.setProperty("--jb-sweep-core-scale", (0.35 + p * 0.65).toFixed(4));
     el.style.setProperty("--jb-sweep-core-opacity", Math.max(0, (p - 0.58) / 0.42).toFixed(4));
     const flowerP = Math.max(0, Math.min(1, (p - 0.34) / 0.66));
-    const flowerTurn = -24 + flowerP * 24;
+    const flowerTurn = -150 + flowerP * 150;
     el.style.setProperty("--jb-flower-opacity", Math.min(1, flowerP * 1.8).toFixed(4));
-    el.style.setProperty("--jb-flower-scale", (0.08 + flowerP * 0.92).toFixed(4));
+    el.style.setProperty("--jb-flower-scale", (0.12 + flowerP * 0.88).toFixed(4));
     el.style.setProperty("--jb-flower-turn", `${(Math.abs(flowerTurn) < 0.005 ? 0 : flowerTurn).toFixed(2)}deg`);
     el.style.setProperty("--jb-flower-ring-scale", (0.35 + flowerP * 0.65).toFixed(4));
+    el.style.setProperty("--jb-flower-guide-turn", `${((1 - flowerP) * 210).toFixed(2)}deg`);
+    el.style.setProperty("--jb-flower-guide-inner-turn", `${((1 - flowerP) * -284).toFixed(2)}deg`);
+    el.style.setProperty("--jb-flower-petal-turn", `${((1 - flowerP) * -38).toFixed(2)}deg`);
+    el.style.setProperty("--jb-flower-petal-rise", `${((1 - flowerP) * 28).toFixed(2)}%`);
+    el.style.setProperty("--jb-flower-petal-scale", (0.38 + flowerP * 0.62).toFixed(4));
     el.style.setProperty("--jb-flower-touch-opacity", Math.max(0, (flowerP - 0.72) / 0.28).toFixed(4));
     el.style.setProperty("--jb-flower-core-scale", (0.2 + flowerP * 0.8).toFixed(4));
   }
@@ -292,7 +290,6 @@
     constructor(index, el, onTap) {
       this.index = index;
       this.el = el;
-      this.vid = el.querySelector(".jb-cell-vid");
       this.judgeEl = el.querySelector(".jb-cell-judge");
       this.judgeUntil = 0;
       this.judgeTimer = null;
@@ -357,19 +354,6 @@
       setMarkerProgress(this.el, p);
     }
 
-    stopVid() {
-      const vid = this.vid;
-      if (!vid) return;
-      try {
-        vid.pause();
-        vid.removeAttribute("src");
-        vid.load?.();
-        vid.classList.remove("is-playing");
-      } catch {
-        /* ignore */
-      }
-    }
-
     clearJudgeVisual() {
       JUDGE_CLASSES.forEach((c) => this.el.classList.remove(c));
       this.el.classList.remove("is-miss", "is-hit");
@@ -378,7 +362,6 @@
         this.judgeEl.textContent = "";
         this.judgeEl.className = "jb-cell-judge";
       }
-      this.stopVid();
       this.judgeUntil = 0;
       if (this.judgeTimer) {
         clearTimeout(this.judgeTimer);
@@ -392,7 +375,6 @@
       const holdMs = JUDGE_MS[key] ?? JUDGE_MS.good;
 
       if (this.judgeTimer) clearTimeout(this.judgeTimer);
-      this.stopVid();
       JUDGE_CLASSES.forEach((c) => this.el.classList.remove(c));
       this.el.classList.remove("is-miss", "is-hit");
       this.el.classList.add(`is-judge-${key}`);
@@ -406,18 +388,6 @@
         this.judgeEl.className = "jb-cell-judge";
         void this.judgeEl.offsetWidth;
         this.judgeEl.className = "jb-cell-judge " + (cls || "");
-      }
-
-      if (this.vid && PANEL_VID[key] && key !== "miss") {
-        try {
-          if (this.vid.getAttribute("src") !== PANEL_VID[key]) this.vid.src = PANEL_VID[key];
-          this.vid.currentTime = 0;
-          this.vid.classList.add("is-playing");
-          const p = this.vid.play();
-          if (p?.catch) p.catch(() => {});
-        } catch {
-          /* still image via CSS */
-        }
       }
 
       this.judgeTimer = setTimeout(() => {
@@ -1135,7 +1105,6 @@
               <div class="jb-practice-row">
                 <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
                   <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
-                    <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
                     ${markerLayersMarkup()}
                     <span class="jb-cell-judge" hidden aria-hidden="true"></span>
                   </button>
@@ -1300,7 +1269,6 @@
       btn.dataset.i = String(i);
       btn.setAttribute("aria-label", `Panel ${i + 1}`);
       btn.innerHTML = `
-        <video class="jb-cell-vid" muted playsinline preload="none" aria-hidden="true"></video>
         ${markerLayersMarkup()}
         <span class="jb-cell-judge" hidden aria-hidden="true"></span>`;
       grid.appendChild(btn);
@@ -2583,13 +2551,6 @@
       raf = requestAnimationFrame(frame);
     }
 
-    function warmPanelMedia() {
-      Object.values(PANEL_ART).forEach((src) => {
-        const img = new Image();
-        img.src = src;
-      });
-    }
-
     function setStartSequence(stage, s) {
       startSequenceEl.hidden = false;
       startSequenceEl.className = `jb-start-sequence is-${stage.toLowerCase()}`;
@@ -2735,7 +2696,6 @@
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
-      warmPanelMedia();
       const chartSeconds = chart.length ? chart[chart.length - 1].t / 1000 : s.durationSec || 100;
       const mins = Math.round(chartSeconds / 6) / 10;
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);

@@ -1396,10 +1396,6 @@
   --jb-panel-idle:
     radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.035), transparent 44%),
     linear-gradient(145deg, #15191d 0%, #0d1013 48%, #080a0d 100%);
-  --jb-panel-excellent: url("../assets/jubeat/panel-excellent.jpg");
-  --jb-panel-great: url("../assets/jubeat/panel-great.jpg");
-  --jb-panel-good: url("../assets/jubeat/panel-good.jpg");
-  --jb-panel-miss: url("../assets/jubeat/panel-miss.jpg");
   position: relative;
   border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 6px;
@@ -1417,23 +1413,6 @@
     inset 0 0 0 1px rgba(15, 23, 42, 0.38),
     0 2px 8px rgba(0, 0, 0, 0.42);
   transition: background-image 0.05s linear, box-shadow 0.12s ease, transform 0.08s ease;
-}
-
-/* Flash video layer (hit / miss) */
-.jb-cell-vid {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 0.08s ease;
-}
-
-.jb-cell-vid.is-playing {
-  opacity: 1;
 }
 
 /*
@@ -1517,14 +1496,20 @@
   border: 3px solid rgba(255, 132, 52, 0.92);
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(255, 104, 39, 0.72);
-  transform: scale(var(--jb-flower-ring-scale, 0.35));
+  transform: rotate(var(--jb-flower-guide-turn, 210deg)) scale(var(--jb-flower-ring-scale, 0.35));
+}
+
+.jb-flower-guide-outer {
+  border-style: dashed;
 }
 
 .jb-flower-guide-inner {
   inset: 22%;
   border-width: 2px;
   border-color: rgba(255, 214, 92, 0.9);
-  transform: scale(var(--jb-flower-core-scale, 0.2));
+  border-style: dotted;
+  transform: rotate(var(--jb-flower-guide-inner-turn, -284deg))
+    scale(var(--jb-flower-core-scale, 0.2));
 }
 
 .jb-flower-head {
@@ -1539,7 +1524,11 @@
   position: absolute;
   left: 50%;
   bottom: 50%;
-  transform: translateX(-50%) rotate(var(--flower-angle, 0deg));
+  transform:
+    translateX(-50%)
+    rotate(calc(var(--flower-angle, 0deg) + var(--jb-flower-petal-turn, -38deg)))
+    translateY(var(--jb-flower-petal-rise, 28%))
+    scaleX(var(--jb-flower-petal-scale, 0.38));
   transform-origin: 50% 100%;
 }
 
@@ -1573,6 +1562,11 @@
   border-radius: 70% 30% 70% 30%;
   background: linear-gradient(165deg, #d9ff67 0%, #54c544 48%, #08794c 100%);
   box-shadow: 0 0 7px rgba(78, 220, 79, 0.68);
+  transform:
+    translateX(-50%)
+    rotate(calc(var(--flower-angle, 0deg) - var(--jb-flower-petal-turn, -38deg)))
+    translateY(var(--jb-flower-petal-rise, 28%))
+    scale(var(--jb-flower-petal-scale, 0.38));
 }
 
 .jb-flower-core {
@@ -1711,7 +1705,7 @@
 .jb-ring-marker {
   position: absolute;
   inset: 13%;
-  border: 4px solid #67e8f9;
+  border: 4px solid #22d3ee;
   border-radius: 50%;
   box-shadow:
     0 0 10px rgba(34, 211, 238, 0.95),
@@ -1724,15 +1718,40 @@
 .jb-ring-marker::after {
   content: "";
   position: absolute;
-  inset: 20%;
-  border: 2px dashed rgba(255, 255, 255, 0.9);
+  inset: -8px;
+  border: 2px dashed rgba(103, 232, 249, 0.75);
   border-radius: 50%;
 }
 
 .jb-ring-marker::after {
-  inset: 40%;
-  border-style: solid;
-  background: rgba(255, 255, 255, 0.2);
+  display: none;
+}
+
+.jb-marker-surface[data-marker="ring"] .jb-alt-marker::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 50%;
+  box-shadow:
+    0 0 7px rgba(255, 255, 255, 0.6),
+    inset 0 0 8px rgba(34, 211, 238, 0.32);
+}
+
+.jb-marker-surface[data-marker="ring"] .jb-alt-marker::after {
+  content: "PRESS";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  color: #fff;
+  font: 900 0.68rem/1 var(--mono);
+  letter-spacing: 0.08em;
+  opacity: var(--jb-ring-ready-opacity, 0);
+  text-shadow:
+    0 0 6px #22d3ee,
+    0 0 12px rgba(34, 211, 238, 0.95);
+  transform: translate(-50%, -50%) scale(var(--jb-ring-ready-scale, 0.72));
 }
 
 .jb-marker-surface[data-marker="ring"] .jb-sweep-line,
@@ -2032,30 +2051,38 @@
   opacity: 0 !important;
 }
 
-/* Judge face swaps (still frames) */
+/* Judgments tint the same dark face; no legacy brown panel art or videos. */
 .jb-cell.is-judge-excellent {
-  background-image: var(--jb-panel-excellent);
+  background-image:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.32), rgba(45, 212, 191, 0.14) 48%, transparent 72%),
+    var(--jb-panel-idle);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.35),
     0 0 18px rgba(255, 255, 255, 0.35);
 }
 
 .jb-cell.is-judge-great {
-  background-image: var(--jb-panel-great);
+  background-image:
+    radial-gradient(circle at center, rgba(251, 191, 36, 0.28), transparent 70%),
+    var(--jb-panel-idle);
   box-shadow:
     inset 0 0 0 1px rgba(251, 191, 36, 0.45),
     0 0 16px rgba(251, 191, 36, 0.4);
 }
 
 .jb-cell.is-judge-good {
-  background-image: var(--jb-panel-good);
+  background-image:
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.25), transparent 70%),
+    var(--jb-panel-idle);
   box-shadow:
     inset 0 0 0 1px rgba(56, 189, 248, 0.4),
     0 0 14px rgba(56, 189, 248, 0.35);
 }
 
 .jb-cell.is-judge-miss {
-  background-image: var(--jb-panel-miss);
+  background-image:
+    radial-gradient(circle at center, rgba(251, 113, 133, 0.23), transparent 70%),
+    var(--jb-panel-idle);
   box-shadow:
     inset 0 0 0 1px rgba(251, 113, 133, 0.45),
     0 0 14px rgba(251, 113, 133, 0.35);

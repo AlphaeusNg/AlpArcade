@@ -13,6 +13,7 @@ const context = {
 };
 vm.createContext(context);
 const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
+const gameCss = fs.readFileSync(path.join(root, "css/games.css"), "utf8");
 vm.runInContext(source, context);
 
 const game = context.window.GameJubeat;
@@ -22,7 +23,19 @@ const assert = (condition, message) => {
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
-assert(!source.includes('idle: "assets/jubeat/panel-idle.jpg"'), "Pulse Grid must not preload the old brown idle face");
+assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
+assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
+assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
+const markerProperties = new Map();
+const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
+game.setMarkerProgress(markerFixture, 0.899);
+assert(markerProperties.get("--jb-ring-ready-opacity") === "0.0000", "Neon Ring press cue must wait for Excellent");
+game.setMarkerProgress(markerFixture, 0.9);
+assert(
+  markerProperties.get("--jb-ring-scale") === "1.0000" &&
+    markerProperties.get("--jb-ring-ready-opacity") === "1.0000",
+  "Neon Ring must meet its target and show PRESS when Excellent begins"
+);
 assert(game.judgeForTap(1000, 499, 1000).grade === "miss", "Early taps must miss below 50%");
 assert(game.judgeForTap(1000, 500, 1000).grade === "good", "The 50% boundary must be GOOD");
 assert(
