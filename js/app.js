@@ -9,6 +9,7 @@
   const lobby = $("#lobby");
   const playView = $("#play-view");
   const playTitle = $("#play-title");
+  const playTitleBlock = $(".play-title-block");
   let activeGame = null;
   let activeGameId = null;
   let lastCabinet = null;
@@ -171,6 +172,130 @@
       }, 260);
     }, 2400);
   }
+
+  // ----- Achievement notice (separate from generic gameplay toasts) -----
+  const achievementToast = $("#achievement-toast");
+  const achievementToastIcon = $("#achievement-toast-icon");
+  const achievementToastTitle = $("#achievement-toast-title");
+  const achievementToastDetail = $("#achievement-toast-detail");
+  const achievementToastClose = $("#achievement-toast-close");
+  const achievementToastQueue = [];
+  let activeAchievementToast = null;
+  let achievementToastBusy = false;
+  let achievementToastDismissing = false;
+  let achievementToastTimer;
+  let achievementToastHideTimer;
+
+  function achievementToastIsFullscreen() {
+    return (
+      !playView?.hidden
+      && !!window.ArcadeGameScreen?.isFullscreen?.(playView)
+    );
+  }
+
+  function clearAchievementToastPlacement() {
+    playTitleBlock?.classList.remove("has-achievement-toast");
+    playTitleBlock?.closest(".play-bar")?.classList.remove("has-achievement-toast");
+    achievementToast?.classList.remove("in-play-bar");
+  }
+
+  function placeAchievementToast() {
+    if (!achievementToast) return false;
+    const inPlayChrome = !!playView && !playView.hidden;
+    if (inPlayChrome && achievementToastIsFullscreen()) return false;
+    clearAchievementToastPlacement();
+    if (inPlayChrome && playTitleBlock) {
+      playTitleBlock.appendChild(achievementToast);
+      playTitleBlock.classList.add("has-achievement-toast");
+      playTitleBlock.closest(".play-bar")?.classList.add("has-achievement-toast");
+      achievementToast.classList.add("in-play-bar");
+    } else {
+      document.body.appendChild(achievementToast);
+    }
+    return true;
+  }
+
+  function finishAchievementToast() {
+    if (!achievementToast) return;
+    achievementToast.hidden = true;
+    achievementToastBusy = false;
+    achievementToastDismissing = false;
+    activeAchievementToast = null;
+    clearAchievementToastPlacement();
+    drainAchievementToast();
+  }
+
+  function dismissAchievementToast({ immediate = false } = {}) {
+    if (!achievementToastBusy || !achievementToast) return false;
+    clearTimeout(achievementToastTimer);
+    clearTimeout(achievementToastHideTimer);
+    achievementToastDismissing = true;
+    achievementToast.classList.remove("show");
+    if (immediate) finishAchievementToast();
+    else achievementToastHideTimer = setTimeout(finishAchievementToast, 180);
+    return true;
+  }
+
+  function suspendAchievementToastForFullscreen() {
+    if (!achievementToastBusy || !activeAchievementToast || !achievementToast) return;
+    clearTimeout(achievementToastTimer);
+    clearTimeout(achievementToastHideTimer);
+    if (achievementToastDismissing) {
+      finishAchievementToast();
+      return;
+    }
+    achievementToast.classList.remove("show");
+    achievementToast.hidden = true;
+    achievementToastQueue.unshift(activeAchievementToast);
+    activeAchievementToast = null;
+    achievementToastBusy = false;
+    clearAchievementToastPlacement();
+  }
+
+  function drainAchievementToast() {
+    if (
+      achievementToastBusy
+      || !achievementToastQueue.length
+      || achievementToastIsFullscreen()
+      || !achievementToast
+    ) return;
+    activeAchievementToast = achievementToastQueue.shift();
+    achievementToastBusy = true;
+    achievementToastDismissing = false;
+    if (!placeAchievementToast()) {
+      achievementToastQueue.unshift(activeAchievementToast);
+      activeAchievementToast = null;
+      achievementToastBusy = false;
+      return;
+    }
+    const achievement = activeAchievementToast;
+    if (achievementToastIcon) achievementToastIcon.textContent = achievement.icon || "🏅";
+    if (achievementToastTitle) achievementToastTitle.textContent = achievement.title || "Achievement";
+    if (achievementToastDetail) {
+      achievementToastDetail.textContent = achievement.detail || achievement.blurb || "";
+      achievementToastDetail.hidden = !achievementToastDetail.textContent;
+    }
+    achievementToast.hidden = false;
+    requestAnimationFrame(() => achievementToast.classList.add("show"));
+    clearTimeout(achievementToastTimer);
+    achievementToastTimer = setTimeout(dismissAchievementToast, 3000);
+  }
+
+  function showAchievementToast(achievement) {
+    if (!achievementToast || !achievement?.title) return;
+    achievementToastQueue.push({
+      id: achievement.id || "",
+      icon: achievement.icon || "🏅",
+      title: String(achievement.title),
+      blurb: String(achievement.blurb || ""),
+      detail: String(achievement.detail || ""),
+    });
+    drainAchievementToast();
+  }
+
+  achievementToastClose?.addEventListener("click", () => {
+    dismissAchievementToast();
+  });
 
   /** Hard gate: level-locked cabinets never open for under-leveled players. */
   function cabinetIsLocked(id) {
@@ -822,14 +947,17 @@
   function notifyAchievements(list) {
     if (!list?.length) return;
     for (const a of list) {
-      showToast(`${a.icon || "🏅"} ${a.title}`);
       // Celebrate cabinet unlocks tied to this achievement
       const unlocks = Object.entries(window.ArcadeAchievements?.UNLOCKS || {}).filter(
         ([, g]) => g.requireAchievement === a.id
       );
-      for (const [, g] of unlocks) {
-        showToast(`${g.icon || "🎁"} Unlocked: ${g.label}`);
-      }
+      const unlockedLabels = unlocks.map(([, game]) => game.label).filter(Boolean);
+      showAchievementToast({
+        ...a,
+        detail: unlockedLabels.length
+          ? `New cabinet${unlockedLabels.length === 1 ? "" : "s"}: ${unlockedLabels.join(", ")}`
+          : a.blurb,
+      });
     }
     paintAchievements();
     paintCabinetBests();
@@ -914,6 +1042,7 @@
 
       lobby.hidden = true;
       playView.hidden = false;
+      if (achievementToastBusy) placeAchievementToast();
       playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
       gameMount.innerHTML = `<div class="game-loading" role="status" aria-live="polite"><span class="game-loading-spin" aria-hidden="true"></span><span>Loading cabinet…</span></div>`;
 
@@ -1004,6 +1133,7 @@
     gameMount.innerHTML = "";
     playView.hidden = true;
     lobby.hidden = false;
+    if (achievementToastBusy) placeAchievementToast();
     if (location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
     }
@@ -1090,6 +1220,12 @@
       fullscreenButton.title = active ? "Exit fullscreen" : "Enter fullscreen";
     }
     lockActiveCabinetScreen();
+    if (active) {
+      suspendAchievementToastForFullscreen();
+    } else {
+      if (achievementToastBusy) placeAchievementToast();
+      drainAchievementToast();
+    }
   }
 
   fullscreenButton?.addEventListener("click", () => {
@@ -1127,6 +1263,11 @@
     if (modal && !modal.hidden) {
       e.preventDefault();
       closeCloudSaveModal();
+      return;
+    }
+    if (achievementToastBusy && !achievementToast?.hidden) {
+      e.preventDefault();
+      dismissAchievementToast();
       return;
     }
     if (playView?.hidden) return;

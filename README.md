@@ -14,6 +14,7 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 
 - **Daily challenge** — one seeded target per **Singapore (SGT)** calendar day (local completion flag).
 - **Achievements** — unlocks stored in `localStorage` (no account required).
+- **Unlock notice** — dismissible three-second achievement banner stays in play chrome, never over the game surface.
 
 ### Scoreboard
 
