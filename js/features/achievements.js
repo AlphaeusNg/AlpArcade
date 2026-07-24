@@ -27,7 +27,7 @@
     { id: "jubeat-5k", title: "Panel Poet", blurb: "Score 500,000+ on a Pulse Grid chart", icon: "🎹" },
     { id: "jubeat-20k", title: "Jubeat Heart", blurb: "Score 900,000+ on EXTREME", icon: "💜" },
     { id: "jubeat-exc", title: "All Excellent-ish", blurb: "100+ EXCELLENT judges in one chart", icon: "✨" },
-    { id: "jubeat-perfect-timing", title: "Perfect Pulse", blurb: "Land a 100.0% Pulse Grid hit in practice or a song", icon: "💯" },
+    { id: "jubeat-perfect-timing", title: "Perfect Pulse", blurb: "Land a 100.0% Pulse Grid hit", icon: "💯" },
     { id: "breaker-800", title: "Brick Layer", blurb: "Score 800+ in Circuit Breaker", icon: "🧱" },
     { id: "five-games", title: "Tour the Floor", blurb: "Play 5 different cabinets", icon: "🕹️" },
     { id: "streak-10", title: "On a Roll", blurb: "Complete 10 runs total", icon: "🔥" },
