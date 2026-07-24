@@ -71,12 +71,12 @@ assert(
 );
 assert(
   game.FULL_COMBO_REVEAL_DELAY_MS === 1000 &&
-    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 2000,
-  "EXC must wait two seconds after the Full Combo reveal"
+    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 4000,
+  "EXC must wait four seconds after the Full Combo reveal"
 );
 assert(
-  game.EXC_MINIMUM_CELEBRATION_MS === 9000 &&
-    !source.includes('rank === "EXC" ? 14000 : 12000'),
+  game.EXC_MINIMUM_CELEBRATION_MS === 11000 &&
+    source.includes('rank === "EXC" ? 14000 : 12000'),
   "The delayed EXC celebration must retain its full animation and suspense"
 );
 assert(
@@ -206,8 +206,8 @@ assert(
   crypto
     .createHash("sha256")
     .update(fs.readFileSync(path.join(root, "assets/jubeat/audio/results/final-exc-full-combo.mp4")))
-    .digest("hex") === "ea7121fb35351915d90b2bacca1a77a688fa896e0196fd32af9ed57ad4227add",
-  "EXCELLENT Full Combo must keep the female-first, chirp-free result mix"
+    .digest("hex") === "7dc8c6f9551d960afeb39c0b6a3b15cc01bcf4e8ca80be622379d4a5ce4be45d",
+  "EXCELLENT Full Combo must keep the excited female, chirp-free result mix"
 );
 const markerProperties = new Map();
 const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
