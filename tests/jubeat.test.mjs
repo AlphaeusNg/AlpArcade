@@ -64,6 +64,12 @@ assert(
   "Pulse Grid must distinguish full-combo and EXC result celebrations"
 );
 assert(
+  source.includes("hintEl.hidden = true;") &&
+    source.includes("hintEl.hidden = false;") &&
+    !source.includes('hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"}'),
+  "The result display must not repeat its summary in the hint below"
+);
+assert(
   game.FULL_COMBO_REVEAL_DELAY_MS === 1000 &&
     game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 1000,
   "Full combo and EXC reveals must arrive one second apart"

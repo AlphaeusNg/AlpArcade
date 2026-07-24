@@ -2968,7 +2968,7 @@
         ? 0
         : global.ArcadeScores?.arcadePointsForRun?.("jubeat", score) ?? scoreTracker?.arcadePoints() ?? 0;
       const cleared = rank !== "FAIL";
-      hintEl.textContent = `${s.title} ${cleared ? "cleared" : "finished"} · score ${formatScore(score)} · ${accuracy.toFixed(1)}% accuracy · rank ${rank}`;
+      hintEl.hidden = true;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
       showResults({ rank, arcadePoints, total, fullCombo, unranked: s.custom });
       startPostGameLoop(s);
@@ -3180,6 +3180,7 @@
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
       const diff = difficulty();
       const level = levelFor(s);
+      hintEl.hidden = false;
       hintEl.textContent = `${s.title} · ${diff.label} ${level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;
       runStartSequence(s);
     }
