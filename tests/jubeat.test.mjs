@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import crypto from "node:crypto";
 
 const root = path.resolve(import.meta.dirname, "..");
 const context = {
@@ -12,10 +13,12 @@ const context = {
   cancelAnimationFrame: () => {},
 };
 vm.createContext(context);
+const chartDataSource = fs.readFileSync(path.join(root, "js/games/jubeat-chart-data.js"), "utf8");
 const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
 const gameCss = fs.readFileSync(path.join(root, "css/games.css"), "utf8");
 const achievementsSource = fs.readFileSync(path.join(root, "js/features/achievements.js"), "utf8");
 const appSource = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+vm.runInContext(chartDataSource, context);
 vm.runInContext(source, context);
 
 const game = context.window.GameJubeat;
@@ -24,6 +27,10 @@ const assert = (condition, message) => {
 };
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
+assert(
+  JSON.stringify(Object.keys(game.DIFFICULTIES)) === JSON.stringify(["easy", "medium", "extreme"]),
+  "Pulse Grid must expose Easy, Medium, and Extreme"
+);
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(
   source.includes('resultsEl.classList.add("is-full-combo", "is-combo-visible")') &&
@@ -73,6 +80,15 @@ assert(
   "Extreme song charts must remain unique"
 );
 assert(
+  appSource.includes('jubeat: ["js/games/jubeat-chart-data.js"]'),
+  "Exact chart data must lazy-load before the Pulse Grid engine"
+);
+assert(
+  source.includes("if (this.soonest())") &&
+    gameCss.includes(".jb-cell.is-judge-excellent:not(.is-approach) .jb-shutter"),
+  "A dense repeat marker must remain visible beneath the previous judgment"
+);
+assert(
   game.SONGS.every(
     (song) =>
       /^assets\/jubeat\/jackets\/[a-z0-9-]+\.webp$/.test(song.jacket) &&
@@ -109,20 +125,103 @@ assert(JSON.stringify(slideHits) === JSON.stringify([1, 2]), "Touch slides must 
 stopSlideHits();
 assert(slideListeners.size === 0, "Touch slide listeners must clean up with the game");
 
+const expectedCharts = {
+  imsosohappy: { bpm: 181, levels: [4, 8, 10.2], notes: [265, 529, 806], first: [331, 0, 0], last: [92818, 92818, 92818] },
+  albida: { bpm: 185, levels: [5, 7, 10.1], notes: [332, 584, 731], first: [0, 0, 0], last: [107676, 107676, 107676] },
+  flower: { bpm: 173, levels: [6, 9.7, 10.5], notes: [477, 828, 939], first: [0, 0, 0], last: [118873, 119133, 119133] },
+  evans: { bpm: 185, levels: [6, 8, 10.6], notes: [414, 491, 805], first: [0, 0, 0], last: [101189, 101189, 101189] },
+  onlymyrailgun: { bpm: 143, levels: [3, 6, 8], notes: [219, 392, 558], first: [0, 0, 0], last: [93776, 93776, 93776] },
+};
+const expectedChartHashes = {
+  "imsosohappy.easy": "2a61221f3ca490ba87739b5d5c9d8e487e3c876c84646fd4ec2cf0c31591f117",
+  "imsosohappy.medium": "8b0798c3de21f87552a10cccac4e8c32be02f0ae1b1cb4ecb676fb754c12ae57",
+  "imsosohappy.extreme": "9a2720bfff02fc8a1aa4ab01eca0c6f414f473ac3028b429f6defe6bc079a544",
+  "albida.easy": "a0e8e29edf630857a0ddf78dfb9677dd9512dc70946774ff827796f4eb36050d",
+  "albida.medium": "5b2bb59facef305a8d3eda250435ee7fc42b23be20de9e5a2a5f59a7d7a0a5e2",
+  "albida.extreme": "bfceb00ed70faed45794ca914ab4239b5959ce426ae080c37a6ebc6d54ebb8ca",
+  "flower.easy": "9df73867b6dfd27e8f2f2a0af868616c521295d8c2cfaf0b0f4791d111162df9",
+  "flower.medium": "7bee717023b785c59356fbe5eb40165440358f84c6063105ceff9942290a88f2",
+  "flower.extreme": "f59151db4d3a4dc064472636e96e1c9ede7862d09babc992771e8554f65cdec2",
+  "evans.easy": "30876cac7f180eb01933dd734b6bcc68ac57548a1db112e0085ac54b730a0d2b",
+  "evans.medium": "5e6e32ecb0459aa038c576bb54aabad62ff071d1a5c6c3167c7f94003432f240",
+  "evans.extreme": "463386fa4a5282011395385bd8741351d5ada7454390da3401f0966cff6c7e32",
+  "onlymyrailgun.easy": "c468bf1e5ed035f16d15359aa72c2b11e81e8fc6aba866f0a76ffb0528df30c2",
+  "onlymyrailgun.medium": "c064b8df63be789c7c15b2cb3d6be947ba5e258f7aa90ea7031b4fde181ad660",
+  "onlymyrailgun.extreme": "082d9eef7a4d2dd9668b349f336a2418489514ad8f07cc845c9d92fe45a82296",
+};
+const difficultyIds = ["easy", "medium", "extreme"];
+assert(game.SONGS.length === 5, "Pulse Grid must contain the four originals plus only my railgun");
 for (const song of game.SONGS) {
-  for (const difficultyId of ["easy", "extreme"]) {
+  const expected = expectedCharts[song.id];
+  assert(expected && song.bpm === expected.bpm, `${song.id} BPM must match the arcade chart`);
+  difficultyIds.forEach((difficultyId, index) => {
+    const official = context.window.JubeatChartData.songs[song.id].charts[difficultyId];
+    const chart = game.chartFor(song, difficultyId);
+    const totalNotes = chart.reduce((sum, event) => sum + event.panels.length, 0);
     assert(
-      !game.hasPanelOverlaps(game.chartFor(song, difficultyId), game.DIFFICULTIES[difficultyId].approachMs),
-      `${song.id} ${difficultyId} chart must not overlap notes on one panel`
+      JSON.stringify(game.buildChart(song, difficultyId)) === JSON.stringify(chart),
+      `${song.id} ${difficultyId} must not use the legacy procedural fallback`
     );
-  }
-  const extremeChart = game.chartFor(song, "extreme");
-  const tracker = game.createScoreTracker(extremeChart);
-  for (let streak = 1; streak <= tracker.totalNotes; streak += 1) {
-    tracker.register("excellent", streak);
-  }
-  assert(tracker.score() === 1000000, `${song.id} all-EXCELLENT score must be 1,000,000`);
+    assert(song.levels[difficultyId] === expected.levels[index], `${song.id} ${difficultyId} level changed`);
+    assert(totalNotes === expected.notes[index], `${song.id} ${difficultyId} note count changed`);
+    assert(totalNotes === official.noteCount, `${song.id} ${difficultyId} packed data count is invalid`);
+    assert(
+      chart[0].t === expected.first[index] && chart.at(-1).t === expected.last[index],
+      `${song.id} ${difficultyId} audio-origin landmarks changed`
+    );
+    assert(
+      crypto.createHash("sha256").update(JSON.stringify(chart)).digest("hex") ===
+        expectedChartHashes[`${song.id}.${difficultyId}`],
+      `${song.id} ${difficultyId} chart snapshot changed`
+    );
+    assert(
+      chart.every(
+        (event, eventIndex) =>
+          Number.isInteger(event.t) &&
+          event.t >= 0 &&
+          (!eventIndex || event.t > chart[eventIndex - 1].t) &&
+          event.panels.length > 0 &&
+          new Set(event.panels).size === event.panels.length &&
+          event.panels.every((panel) => Number.isInteger(panel) && panel >= 0 && panel < 16)
+      ),
+      `${song.id} ${difficultyId} chart must be sorted and use valid unique panels`
+    );
+    assert(
+      chart.at(-1).t <= song.durationSec * 1000 - (song.audioOffsetMs || 0),
+      `${song.id} ${difficultyId} chart must finish within its documented song cut`
+    );
+    const tracker = game.createScoreTracker(chart);
+    for (let streak = 1; streak <= tracker.totalNotes; streak += 1) {
+      tracker.register("excellent", streak);
+    }
+    assert(tracker.score() === 1000000, `${song.id} ${difficultyId} all-EXCELLENT score must be 1,000,000`);
+  });
 }
+assert(
+  JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
+    JSON.stringify(["imsosohappy", "onlymyrailgun"]),
+  "Railgun and the mismatched extended Happy mix must request exact local game-cut audio"
+);
+assert(
+  source.includes("createObjectURL") && source.includes("revokeObjectURL"),
+  "Local game-cut audio must stay in-browser and release its temporary URL"
+);
+assert(
+  game.SONGS.some((song) =>
+    difficultyIds.some((difficultyId) => {
+      const chart = game.chartFor(song, difficultyId);
+      const lastByPanel = Array(16).fill(-Infinity);
+      return chart.some((event) =>
+        event.panels.some((panel) => {
+          const dense = event.t - lastByPanel[panel] < game.DIFFICULTIES[difficultyId].approachMs;
+          lastByPanel[panel] = event.t;
+          return dense;
+        })
+      );
+    })
+  ),
+  "Authentic dense repeat notes must not be culled by the marker approach window"
+);
 
 const customDefinition = {
   id: "test-chart",
@@ -147,7 +246,7 @@ assert(
   "Custom chart chords must preserve simultaneous panels"
 );
 assert(
-  Math.abs(customChart[1].t - customChart[0].t - (60000 / 180) * 1) <= 1,
+  Math.abs(customChart[1].t - customChart[0].t - (60000 / 185) * 1) <= 1,
   "Custom chart step timing must follow the base track BPM"
 );
 
@@ -169,7 +268,7 @@ const recordedDefinition = {
 };
 const recordedChart = game.buildCustomChart(recordedDefinition);
 assert(recordedChart[0].t === 0, "Recorded first-beat taps must remain aligned to chart time zero");
-assert(recordedChart[1].t === Math.round((60000 / 180) * 0.5), "Recorded taps must retain quantized beat timing");
+assert(recordedChart[1].t === Math.round((60000 / 185) * 0.5), "Recorded taps must retain quantized beat timing");
 const recordedSong = game.customSongFromDefinition(recordedDefinition);
 const runtimeChart = game.runtimeChartFor(recordedSong, "custom");
 assert(game.customRuntimeLeadMs(recordedSong.difficulty.approachMs) === 96, "Level 6 custom charts need a 96ms lead");

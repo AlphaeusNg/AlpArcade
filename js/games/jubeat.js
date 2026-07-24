@@ -22,8 +22,13 @@
   const DIFFICULTIES = {
     easy: {
       label: "EASY",
-      shortLabel: "Easy practice",
+      shortLabel: "Basic",
       approachMs: 1400,
+    },
+    medium: {
+      label: "MEDIUM",
+      shortLabel: "Advanced",
+      approachMs: 1200,
     },
     extreme: {
       label: "EXTREME",
@@ -53,6 +58,29 @@
 
   function note(t, panels) {
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
+  }
+
+  function panelsFromMask(mask) {
+    const panels = [];
+    for (let panel = 0; panel < CELLS; panel += 1) {
+      if (mask & (1 << panel)) panels.push(panel);
+    }
+    return panels;
+  }
+
+  function unpackOfficialChart(song, difficultyId) {
+    const catalog = global.JubeatChartData;
+    const packed = catalog?.songs?.[song.id]?.charts?.[difficultyId]?.packed;
+    const ticksPerBeat = Number(catalog?.TICKS_PER_BEAT);
+    if (!packed || !Number.isFinite(ticksPerBeat) || ticksPerBeat <= 0) return [];
+    const beatMs = 60000 / song.bpm;
+    let tick = -Math.round((Number(catalog.MEMO_PREROLL_BEATS) || 0) * ticksPerBeat);
+    return packed.split(".").map((token) => {
+      const [deltaToken, maskToken] = token.split("-");
+      tick += parseInt(deltaToken, 36);
+      const mask = parseInt(maskToken, 36);
+      return note(Math.round((tick / ticksPerBeat) * beatMs), panelsFromMask(mask));
+    });
   }
 
   function withoutPanelOverlaps(chart, minimumGapMs) {
@@ -397,9 +425,13 @@
       JUDGE_CLASSES.forEach((c) => this.el.classList.remove(c));
       this.el.classList.remove("is-miss", "is-hit");
       this.el.classList.add(`is-judge-${key}`);
-      this.el.classList.remove("is-approach", "is-armed");
-      setMarkerProgress(this.el, 0);
       this.judgeUntil = performance.now() + holdMs;
+      if (this.soonest()) {
+        this.syncMarker(nowMsFn(), approachMs);
+      } else {
+        this.el.classList.remove("is-approach", "is-armed");
+        setMarkerProgress(this.el, 0);
+      }
 
       if (this.judgeEl) {
         this.judgeEl.hidden = false;
@@ -542,6 +574,9 @@
   }
 
   function buildChart(song, difficultyId = "extreme") {
+    if (global.JubeatChartData?.songs?.[song?.id]?.charts?.[difficultyId]) {
+      return unpackOfficialChart(song, difficultyId);
+    }
     if (difficultyId === "easy") return buildEasyChart(song);
     const bpm = song.bpm;
     const beatMs = 60000 / bpm;
@@ -771,59 +806,72 @@
       id: "imsosohappy",
       title: "I'm so Happy",
       artist: "Ryu☆",
-      level: 9,
-      easyLevel: 2,
-      bpm: 183,
+      levels: { easy: 4, medium: 8, extreme: 10.2 },
+      bpm: 181,
       // Chart length (s); audio file may be longer — chart stops when notes end
-      durationSec: 105,
-      // Intro silence trimmed so bar 0 ≈ first audible beat
+      durationSec: 100,
+      // Audio position of chart beat zero (the first musical downbeat).
       audioOffsetMs: 580,
       color: "#f472b6",
-      audio: AUDIO_BASE + "imsosohappy.mp3",
+      audio: "",
       jacket: JACKET_BASE + "imsosohappy.webp",
-      notesHint: "beat chart",
+      notesHint: "arcade chart transcription",
+      requiresLocalAudio: true,
+      audioCutLabel: "1:40",
     },
     {
       id: "albida",
-      title: "Albida",
+      title: "ALBIDA",
       artist: "DJ YOSHITAKA",
-      level: 9,
-      easyLevel: 3,
+      levels: { easy: 5, medium: 7, extreme: 10.1 },
       bpm: 185,
       durationSec: 116,
       audioOffsetMs: 890,
       color: "#38bdf8",
       audio: AUDIO_BASE + "albida.mp3",
       jacket: JACKET_BASE + "albida.webp",
-      notesHint: "columns",
+      notesHint: "arcade chart transcription",
     },
     {
       id: "flower",
-      title: "Flower",
+      title: "FLOWER",
       artist: "DJ YOSHITAKA",
-      level: 8,
-      easyLevel: 2,
+      levels: { easy: 6, medium: 9.7, extreme: 10.5 },
       bpm: 173,
       durationSec: 124,
       audioOffsetMs: 390,
       color: "#c084fc",
       audio: AUDIO_BASE + "flower.mp3",
       jacket: JACKET_BASE + "flower.webp",
-      notesHint: "petals",
+      notesHint: "arcade chart transcription",
     },
     {
       id: "evans",
       title: "Evans",
       artist: "DJ YOSHITAKA",
-      level: 9,
-      easyLevel: 3,
-      bpm: 180,
+      levels: { easy: 6, medium: 8, extreme: 10.6 },
+      bpm: 185,
       durationSec: 109,
       audioOffsetMs: 530,
       color: "#fbbf24",
       audio: AUDIO_BASE + "evans.mp3",
       jacket: JACKET_BASE + "evans.webp",
-      notesHint: "shuffle",
+      notesHint: "arcade chart transcription",
+    },
+    {
+      id: "onlymyrailgun",
+      title: "only my railgun",
+      artist: "fripSide",
+      levels: { easy: 3, medium: 6, extreme: 8 },
+      bpm: 143,
+      durationSec: 102,
+      audioOffsetMs: 0,
+      color: "#60a5fa",
+      audio: "",
+      jacket: JACKET_BASE + "only-my-railgun.webp",
+      notesHint: "arcade chart transcription",
+      requiresLocalAudio: true,
+      audioCutLabel: "1:42",
     },
   ].map((s) => ({ ...s, charts: {} }));
 
@@ -943,10 +991,7 @@
       return withoutPanelOverlaps(song.charts.custom || [], song.difficulty?.approachMs);
     }
     if (!song.charts[difficultyId]) {
-      song.charts[difficultyId] = withoutPanelOverlaps(
-        buildChart(song, difficultyId),
-        DIFFICULTIES[difficultyId]?.approachMs
-      );
+      song.charts[difficultyId] = unpackOfficialChart(song, difficultyId);
     }
     return song.charts[difficultyId];
   }
@@ -992,6 +1037,7 @@
     let editorRecordAnchorAudioMs = 0;
     let editorRecordAnchorPerf = 0;
     const editorConflictTimers = new Map();
+    const localAudioUrls = new Map();
 
     root.innerHTML = `
       <div class="jubeat-wrap">
@@ -1015,6 +1061,18 @@
                   <div><dt>Total taps</dt><dd id="jb-song-detail-taps"></dd></div>
                   <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
                 </dl>
+                <div class="jb-local-audio" id="jb-local-audio" hidden>
+                  <label class="btn ghost small jb-local-audio-pick">
+                    <span id="jb-local-audio-pick-label">Load exact song audio</span>
+                    <input id="jb-local-audio-file" type="file" accept="audio/*" hidden>
+                  </label>
+                  <label class="jb-local-audio-offset">
+                    <span>FIRST BEAT</span>
+                    <input id="jb-local-audio-offset" type="number" min="0" max="10000" step="10" value="0" inputmode="numeric">
+                    <span>ms</span>
+                  </label>
+                  <small id="jb-local-audio-status">Stays on this device</small>
+                </div>
               </div>
             </section>
           </div>
@@ -1206,6 +1264,11 @@
     const songDetailBestEl = root.querySelector("#jb-song-detail-best");
     const songDetailTapsEl = root.querySelector("#jb-song-detail-taps");
     const songDetailBpmEl = root.querySelector("#jb-song-detail-bpm");
+    const localAudioEl = root.querySelector("#jb-local-audio");
+    const localAudioPickLabelEl = root.querySelector("#jb-local-audio-pick-label");
+    const localAudioFileEl = root.querySelector("#jb-local-audio-file");
+    const localAudioOffsetEl = root.querySelector("#jb-local-audio-offset");
+    const localAudioStatusEl = root.querySelector("#jb-local-audio-status");
     const selectionTitleEl = root.querySelector("#jb-selection-title");
     const selectionHintEl = root.querySelector("#jb-selection-hint");
     const customNewBtn = root.querySelector("#jb-custom-new");
@@ -1349,7 +1412,7 @@
     }
 
     function levelFor(s = song()) {
-      return s.custom ? s.level : difficultyId === "easy" ? s.easyLevel : s.level;
+      return s.custom ? s.level : s.levels?.[difficultyId] ?? 1;
     }
 
     function controlsLocked() {
@@ -1955,10 +2018,19 @@
       songDetailTitleEl.style.color = selected.color;
       songDetailDifficultyEl.textContent = selected.custom
         ? `CUSTOM ${selected.level} · UNRANKED`
-        : `EASY ${selected.easyLevel} / EXTREME ${selected.level} · ${difficulty().label} selected`;
+        : `EASY ${selected.levels.easy} / MEDIUM ${selected.levels.medium} / EXTREME ${selected.levels.extreme} · ${difficulty().label} selected`;
       songDetailBestEl.textContent = selected.custom ? "Unranked" : best ? formatScore(best) : "No score yet";
       songDetailTapsEl.textContent = selectedChartTotal().toLocaleString();
       songDetailBpmEl.textContent = `${selected.bpm} BPM`;
+      const needsLocalAudio = !selected.custom && !!selected.requiresLocalAudio;
+      localAudioEl.hidden = !needsLocalAudio;
+      if (needsLocalAudio) {
+        localAudioPickLabelEl.textContent = `Load your ${selected.audioCutLabel || "exact"} audio`;
+        localAudioOffsetEl.value = String(Math.max(0, Number(selected.audioOffsetMs) || 0));
+        localAudioStatusEl.textContent = selected.audio
+          ? `Loaded for this visit · ${selected.localAudioName || "local audio"}`
+          : `Stays on this device · use the jubeat ${selected.audioCutLabel || "game"} cut`;
+      }
     }
 
     function paintMeta() {
@@ -1972,7 +2044,7 @@
         <span class="jb-diff ${difficultyId}">${diff.label} ${level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
-        <span class="jb-bgm">♪ Local BGM · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
+        <span class="jb-bgm">${s.requiresLocalAudio && !s.audio ? "♪ Load local audio" : "♪ Local BGM"} · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
       playfieldEl.style.setProperty("--jb-accent", s.color);
       paintSongDetail();
@@ -2142,7 +2214,13 @@
     }
 
     function cuePreview(s, autoplay = false) {
-      if (!s?.audio) return;
+      if (!s?.audio) {
+        if (musicNoteEl && s?.requiresLocalAudio) {
+          musicNoteEl.textContent = `♪ ${s.title} · load your local ${s.audioCutLabel || "game-cut"} audio to hear the track`;
+        }
+        duckLobbyMusic(false);
+        return;
+      }
       loadAudio(s.audio).then((ok) => {
         if (ok && autoplay && !destroyed && !controlsLocked() && !setupEl.hidden) {
           try {
@@ -2166,6 +2244,44 @@
               : `${s.title} · ${s.artist} · ready`
             : `♪ ${s.title} · audio missing (chart still playable)`;
         }
+      });
+    }
+
+    function loadSelectedLocalAudio(file) {
+      const selected = song();
+      if (!selected?.requiresLocalAudio || !file) return;
+      if (file.type && !file.type.startsWith("audio/")) {
+        localAudioStatusEl.textContent = "Choose an audio file.";
+        return;
+      }
+      stopBgm();
+      const previousUrl = localAudioUrls.get(selected.id);
+      if (previousUrl) global.URL?.revokeObjectURL?.(previousUrl);
+      const objectUrl = global.URL?.createObjectURL?.(file);
+      if (!objectUrl) {
+        localAudioStatusEl.textContent = "This browser could not open the local file.";
+        return;
+      }
+      localAudioUrls.set(selected.id, objectUrl);
+      selected.audio = objectUrl;
+      selected.localAudioName = file.name;
+      selected.audioOffsetMs = Math.max(0, Number(localAudioOffsetEl.value) || 0);
+      localAudioStatusEl.textContent = `Loading ${file.name}…`;
+      paintMeta();
+      loadAudio(objectUrl).then((ok) => {
+        if (!ok || destroyed || song().id !== selected.id) {
+          localAudioStatusEl.textContent = ok ? `Loaded · ${file.name}` : "Could not decode this audio file.";
+          return;
+        }
+        const duration = Number(audioEl?.duration);
+        const lengthLabel = Number.isFinite(duration)
+          ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, "0")}`
+          : "unknown length";
+        localAudioStatusEl.textContent =
+          Number.isFinite(duration) && Math.abs(duration - selected.durationSec) > 5
+            ? `Loaded ${lengthLabel} · chart expects the ${selected.audioCutLabel || "game"} jubeat cut`
+            : `Loaded ${lengthLabel} · stays on this device`;
+        cuePreview(selected, true);
       });
     }
 
@@ -2656,50 +2772,27 @@
     function launchChart(s, audioReady) {
       if (!running || destroyed || clockStarted) return;
       clearCountIn();
-      if (s.custom) {
-        const leadInMs = difficulty().approachMs;
-        beginChartClock(false, leadInMs);
-        if (!audioReady || !audioEl) return;
-        countInTimers.push(
-          setTimeout(() => {
-            if (!running || destroyed || submitted) return;
-            try {
-              audioEl.currentTime = songOffsetMs() / 1000;
-              audioEl.volume = 1;
-              audioEl.loop = false;
-              const playback = audioEl.play();
-              if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
-              if (playback?.then) playback.then(anchorChartToAudio).catch(() => {});
-              else anchorChartToAudio();
-            } catch {
-              /* The performance clock keeps the custom chart playable without audio. */
-            }
-          }, leadInMs)
-        );
-        return;
-      }
-      if (!audioReady || !audioEl) {
-        beginChartClock(false);
-        return;
-      }
-      try {
-        audioEl.currentTime = songOffsetMs() / 1000;
-        audioEl.volume = 1;
-        audioEl.loop = false;
-        const playback = audioEl.play();
-        if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
-        if (playback?.then) {
-          playback.then(() => beginChartClock(true)).catch(() => {
-            stopBgm();
-            beginChartClock(false);
-          });
-        } else {
-          beginChartClock(true);
-        }
-      } catch {
-        stopBgm();
-        beginChartClock(false);
-      }
+      // Authentic charts can hit on audio beat zero. Run one silent approach
+      // window first so those opening markers animate from 0% to the downbeat.
+      const leadInMs = difficulty().approachMs;
+      beginChartClock(false, leadInMs);
+      if (!audioReady || !audioEl) return;
+      countInTimers.push(
+        setTimeout(() => {
+          if (!running || destroyed || submitted) return;
+          try {
+            audioEl.currentTime = songOffsetMs() / 1000;
+            audioEl.volume = 1;
+            audioEl.loop = false;
+            const playback = audioEl.play();
+            if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
+            if (playback?.then) playback.then(anchorChartToAudio).catch(() => {});
+            else anchorChartToAudio();
+          } catch {
+            /* The performance clock keeps every chart playable without audio. */
+          }
+        }, leadInMs)
+      );
     }
 
     function runStartSequence(s) {
@@ -2768,6 +2861,17 @@
       runStartSequence(s);
     }
 
+    localAudioFileEl.addEventListener("change", () => {
+      loadSelectedLocalAudio(localAudioFileEl.files?.[0]);
+      localAudioFileEl.value = "";
+    });
+    localAudioOffsetEl.addEventListener("change", () => {
+      const selected = song();
+      if (!selected?.requiresLocalAudio) return;
+      selected.audioOffsetMs = Math.max(0, Number(localAudioOffsetEl.value) || 0);
+      localAudioOffsetEl.value = String(selected.audioOffsetMs);
+      if (selected.audio) cuePreview(selected, true);
+    });
     customNewBtn.addEventListener("click", () => openEditor());
     customEditBtn.addEventListener("click", () => {
       const definition = customDefinitions.find((item) => item.id === song().customId);
@@ -2956,6 +3060,15 @@
         practicePanel.destroy();
         stopSlideHits();
         stopBgm();
+        localAudioUrls.forEach((url, songId) => {
+          global.URL?.revokeObjectURL?.(url);
+          const localSong = SONGS.find((item) => item.id === songId);
+          if (localSong) {
+            localSong.audio = "";
+            delete localSong.localAudioName;
+          }
+        });
+        localAudioUrls.clear();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
         document.removeEventListener("fullscreenchange", onJubeatFullscreenChange);

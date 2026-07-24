@@ -435,7 +435,7 @@
 
 .jb-difficulty {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.25rem;
   width: 100%;
   padding: 0.2rem;
@@ -642,6 +642,52 @@
   overflow-wrap: anywhere;
   color: var(--text);
   font: 700 0.66rem/1.3 var(--mono);
+}
+
+.jb-local-audio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
+.jb-local-audio[hidden] {
+  display: none;
+}
+
+.jb-local-audio-pick {
+  justify-content: center;
+  cursor: pointer;
+}
+
+.jb-local-audio-offset {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 2rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  font: 700 0.5rem var(--mono);
+}
+
+.jb-local-audio-offset input {
+  width: 3.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 700 0.62rem var(--mono);
+  text-align: right;
+}
+
+.jb-local-audio small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font: 0.54rem/1.4 var(--mono);
 }
 
 .jb-custom-actions {
@@ -1081,6 +1127,10 @@
 
 .jb-meta .jb-diff.easy {
   color: var(--teal);
+}
+
+.jb-meta .jb-diff.medium {
+  color: var(--cyan);
 }
 
 .jb-stage {
@@ -2388,22 +2438,22 @@
   transform: scale(0.96);
 }
 
-.jb-cell.is-judge-excellent .jb-shutter,
-.jb-cell.is-judge-great .jb-shutter,
-.jb-cell.is-judge-good .jb-shutter,
-.jb-cell.is-judge-miss .jb-shutter,
-.jb-cell.is-judge-excellent .jb-alt-marker,
-.jb-cell.is-judge-great .jb-alt-marker,
-.jb-cell.is-judge-good .jb-alt-marker,
-.jb-cell.is-judge-miss .jb-alt-marker,
-.jb-cell.is-judge-excellent .jb-flower-marker,
-.jb-cell.is-judge-great .jb-flower-marker,
-.jb-cell.is-judge-good .jb-flower-marker,
-.jb-cell.is-judge-miss .jb-flower-marker,
-.jb-cell.is-judge-excellent .jb-original-shutter,
-.jb-cell.is-judge-great .jb-original-shutter,
-.jb-cell.is-judge-good .jb-original-shutter,
-.jb-cell.is-judge-miss .jb-original-shutter {
+.jb-cell.is-judge-excellent:not(.is-approach) .jb-shutter,
+.jb-cell.is-judge-great:not(.is-approach) .jb-shutter,
+.jb-cell.is-judge-good:not(.is-approach) .jb-shutter,
+.jb-cell.is-judge-miss:not(.is-approach) .jb-shutter,
+.jb-cell.is-judge-excellent:not(.is-approach) .jb-alt-marker,
+.jb-cell.is-judge-great:not(.is-approach) .jb-alt-marker,
+.jb-cell.is-judge-good:not(.is-approach) .jb-alt-marker,
+.jb-cell.is-judge-miss:not(.is-approach) .jb-alt-marker,
+.jb-cell.is-judge-excellent:not(.is-approach) .jb-flower-marker,
+.jb-cell.is-judge-great:not(.is-approach) .jb-flower-marker,
+.jb-cell.is-judge-good:not(.is-approach) .jb-flower-marker,
+.jb-cell.is-judge-miss:not(.is-approach) .jb-flower-marker,
+.jb-cell.is-judge-excellent:not(.is-approach) .jb-original-shutter,
+.jb-cell.is-judge-great:not(.is-approach) .jb-original-shutter,
+.jb-cell.is-judge-good:not(.is-approach) .jb-original-shutter,
+.jb-cell.is-judge-miss:not(.is-approach) .jb-original-shutter {
   opacity: 0 !important;
 }
 
@@ -2592,6 +2642,14 @@
   .jb-song-detail-copy dl {
     gap: 0.5rem 0.4rem;
     margin-top: 0.7rem;
+  }
+
+  .jb-local-audio {
+    grid-template-columns: 1fr;
+  }
+
+  .jb-local-audio small {
+    grid-column: 1;
   }
 
   .jb-marker-btn {

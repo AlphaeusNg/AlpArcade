@@ -48,6 +48,9 @@
     jubeat: "js/games/jubeat.js",
     breaker: "js/games/breaker.js",
   };
+  const GAME_DEPENDENCIES = {
+    jubeat: ["js/games/jubeat-chart-data.js"],
+  };
 
   const GAME_CONTROLS = {
     tictactoe: "Click a cell · change AI difficulty anytime",
@@ -56,7 +59,7 @@
     reaction: "Click / tap the pad · wait for green",
     memory: "Tap cards to match pairs · hearts are lives",
     tapper: "Tap glowing cells · keys 1–9 · three lives",
-    jubeat: "Easy practice + Extreme · real BGM · 1–4 QWER ASDF ZXCV",
+    jubeat: "Easy + Medium + Extreme · exact arcade charts · 1–4 QWER ASDF ZXCV",
     breaker: "Drag paddle · tap to start · endless brick rows",
   };
 
@@ -132,6 +135,9 @@
     if (api) return api;
     const src = GAME_SCRIPTS[id];
     if (!src) return null;
+    for (const dependency of GAME_DEPENDENCIES[id] || []) {
+      await loadScript(dependency);
+    }
     await loadScript(src);
     return GAME_LOADERS[id]?.() || null;
   }
@@ -1032,7 +1038,13 @@
     // Prefetch only if unlocked (don’t warm locked bundles)
     const prefetch = () => {
       if (cabinetIsLocked(id)) return;
-      if (GAME_SCRIPTS[id]) loadScript(GAME_SCRIPTS[id]).catch(() => {});
+      if (!GAME_SCRIPTS[id]) return;
+      (async () => {
+        for (const dependency of GAME_DEPENDENCIES[id] || []) {
+          await loadScript(dependency);
+        }
+        await loadScript(GAME_SCRIPTS[id]);
+      })().catch(() => {});
     };
     card.addEventListener("pointerenter", prefetch, { once: true });
     card.addEventListener("focus", prefetch, { once: true });
