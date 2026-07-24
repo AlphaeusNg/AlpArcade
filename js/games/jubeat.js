@@ -37,7 +37,6 @@
   const EMPTY_TAP_MS = 90;
 
   const PANEL_ART = {
-    idle: "assets/jubeat/panel-idle.jpg",
     excellent: "assets/jubeat/panel-excellent.jpg",
     great: "assets/jubeat/panel-great.jpg",
     good: "assets/jubeat/panel-good.jpg",
@@ -451,6 +450,53 @@
     destroy() {
       this.reset();
     }
+  }
+
+  /**
+   * Let touch players glide across the grid. Pointer capture on touchscreens
+   * keeps move events attached to the starting cell, so resolve the panel at
+   * the finger coordinates instead of relying on event.target.
+   */
+  function bindSlideHits(gridEl, onHit) {
+    const activeTouches = new Map();
+
+    const panelAt = (event) => {
+      const hit = gridEl.ownerDocument?.elementFromPoint?.(event.clientX, event.clientY);
+      const cell = hit?.closest?.(".jb-cell[data-i]");
+      if (!cell || !gridEl.contains(cell)) return null;
+      const index = Number(cell.dataset.i);
+      return Number.isInteger(index) && index >= 0 && index < CELLS ? index : null;
+    };
+
+    const onPointerDown = (event) => {
+      if (event.pointerType !== "touch") return;
+      activeTouches.set(event.pointerId, panelAt(event));
+    };
+    const onPointerMove = (event) => {
+      if (!activeTouches.has(event.pointerId)) return;
+      event.preventDefault();
+      const index = panelAt(event);
+      const previous = activeTouches.get(event.pointerId);
+      if (index === previous) return;
+      activeTouches.set(event.pointerId, index);
+      if (index !== null) onHit(index);
+    };
+    const endPointer = (event) => activeTouches.delete(event.pointerId);
+
+    gridEl.addEventListener("pointerdown", onPointerDown);
+    gridEl.addEventListener("pointermove", onPointerMove);
+    gridEl.addEventListener("pointerup", endPointer);
+    gridEl.addEventListener("pointercancel", endPointer);
+    gridEl.addEventListener("lostpointercapture", endPointer);
+
+    return () => {
+      activeTouches.clear();
+      gridEl.removeEventListener("pointerdown", onPointerDown);
+      gridEl.removeEventListener("pointermove", onPointerMove);
+      gridEl.removeEventListener("pointerup", endPointer);
+      gridEl.removeEventListener("pointercancel", endPointer);
+      gridEl.removeEventListener("lostpointercapture", endPointer);
+    };
   }
 
   function buildEasyChart(song) {
@@ -1260,6 +1306,7 @@
       grid.appendChild(btn);
       panels.push(new Panel(i, btn, (idx) => onPanel(idx)));
     }
+    const stopSlideHits = bindSlideHits(grid, (index) => onPanel(index));
     const practicePanel = new Panel(-1, practiceCellEl, practiceTap);
     setMarkerProgress(practiceCellEl, 0);
 
@@ -2884,6 +2931,7 @@
         clearResults();
         panels.forEach((p) => p.destroy());
         practicePanel.destroy();
+        stopSlideHits();
         stopBgm();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
@@ -2941,5 +2989,6 @@
     judgeForTap,
     timingAccuracy,
     setMarkerProgress,
+    bindSlideHits,
   };
 })(window);

@@ -22,6 +22,7 @@ const assert = (condition, message) => {
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
+assert(!source.includes('idle: "assets/jubeat/panel-idle.jpg"'), "Pulse Grid must not preload the old brown idle face");
 assert(game.judgeForTap(1000, 499, 1000).grade === "miss", "Early taps must miss below 50%");
 assert(game.judgeForTap(1000, 500, 1000).grade === "good", "The 50% boundary must be GOOD");
 assert(
@@ -37,6 +38,33 @@ assert(
   "Every built-in song must use a local jacket asset"
 );
 assert(new Set(game.SONGS.map((song) => song.jacket)).size === game.SONGS.length, "Song jackets must remain unique");
+
+const slideListeners = new Map();
+const slideCells = Array.from({ length: 4 }, (_, index) => ({
+  dataset: { i: String(index) },
+  closest: () => slideCells[index],
+}));
+const slideGrid = {
+  ownerDocument: {
+    elementFromPoint: (x) => slideCells[Math.floor(x / 100)] || null,
+  },
+  contains: (cell) => slideCells.includes(cell),
+  addEventListener: (type, listener) => slideListeners.set(type, listener),
+  removeEventListener: (type, listener) => {
+    if (slideListeners.get(type) === listener) slideListeners.delete(type);
+  },
+};
+const slideHits = [];
+const stopSlideHits = game.bindSlideHits(slideGrid, (index) => slideHits.push(index));
+slideListeners.get("pointerdown")({ pointerType: "touch", pointerId: 7, clientX: 20, clientY: 20 });
+slideListeners.get("pointermove")({ pointerId: 7, clientX: 40, clientY: 20, preventDefault() {} });
+slideListeners.get("pointermove")({ pointerId: 7, clientX: 120, clientY: 20, preventDefault() {} });
+slideListeners.get("pointermove")({ pointerId: 7, clientX: 220, clientY: 20, preventDefault() {} });
+slideListeners.get("pointerup")({ pointerId: 7 });
+slideListeners.get("pointermove")({ pointerId: 7, clientX: 320, clientY: 20, preventDefault() {} });
+assert(JSON.stringify(slideHits) === JSON.stringify([1, 2]), "Touch slides must hit each newly entered panel once");
+stopSlideHits();
+assert(slideListeners.size === 0, "Touch slide listeners must clean up with the game");
 
 for (const song of game.SONGS) {
   for (const difficultyId of ["easy", "extreme"]) {

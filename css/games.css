@@ -1387,20 +1387,23 @@
   gap: 0.45rem;
   width: 100%;
   aspect-ratio: 1;
+  touch-action: none;
   --jb-accent: #fbbf24;
 }
 
-/* Classic brown jubeat panel faces (assets/jubeat/) */
+/* Near-black idle faces keep incoming markers vivid without losing the 4×4 grid. */
 .jb-cell {
-  --jb-panel-idle: url("../assets/jubeat/panel-idle.jpg");
+  --jb-panel-idle:
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.035), transparent 44%),
+    linear-gradient(145deg, #15191d 0%, #0d1013 48%, #080a0d 100%);
   --jb-panel-excellent: url("../assets/jubeat/panel-excellent.jpg");
   --jb-panel-great: url("../assets/jubeat/panel-great.jpg");
   --jb-panel-good: url("../assets/jubeat/panel-good.jpg");
   --jb-panel-miss: url("../assets/jubeat/panel-miss.jpg");
   position: relative;
-  border: 1px solid rgba(80, 50, 30, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 6px;
-  background-color: #2a1c12;
+  background-color: #090b0e;
   background-image: var(--jb-panel-idle);
   background-size: cover;
   background-position: center;
@@ -1410,8 +1413,9 @@
   touch-action: manipulation;
   overflow: hidden;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 220, 160, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.38),
+    0 2px 8px rgba(0, 0, 0, 0.42);
   transition: background-image 0.05s linear, box-shadow 0.12s ease, transform 0.08s ease;
 }
 
