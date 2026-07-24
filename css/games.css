@@ -1139,6 +1139,153 @@
   margin: 0 auto;
 }
 
+.jb-live-track {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  margin-bottom: 0.48rem;
+  padding: 0.42rem 0.48rem 0.48rem;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.055), transparent 70%),
+    rgba(3, 8, 16, 0.92);
+  box-shadow: inset 0 0 18px rgba(37, 99, 235, 0.055);
+}
+
+.jb-live-track-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  color: var(--muted);
+  font: 700 0.55rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.jb-live-track-head > strong {
+  color: #dbeafe;
+  font-size: 0.6rem;
+}
+
+.jb-live-track-count b {
+  color: #fde68a;
+  font-size: 0.62rem;
+}
+
+.jb-live-track-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.jb-live-track-legend i {
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.18rem;
+  margin-left: 0.16rem;
+  border-radius: 1px;
+}
+
+.jb-live-track-legend .is-expected {
+  background: #60a5fa;
+  box-shadow: 0 0 4px rgba(96, 165, 250, 0.72);
+}
+
+.jb-live-track-legend .is-hit {
+  background: #fbbf24;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.78);
+}
+
+.jb-tap-map {
+  position: relative;
+  width: 100%;
+  height: 1.62rem;
+  overflow: hidden;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(12.5% - 1px),
+      rgba(148, 163, 184, 0.08) calc(12.5% - 1px) 12.5%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(96, 165, 250, 0.025) 0 24%,
+      rgba(96, 165, 250, 0.08) 24% 25%
+    ),
+    rgba(2, 6, 14, 0.96);
+}
+
+.jb-tap-map-past {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(45, 212, 191, 0.13));
+}
+
+.jb-tap-map-notes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.jb-tap-tick {
+  position: absolute;
+  left: var(--jb-tap-x, 0%);
+  top: var(--jb-tap-y, 0.13rem);
+  width: 2px;
+  height: 0.3rem;
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+
+.jb-tap-tick.is-expected {
+  background: #60a5fa;
+  box-shadow: 0 0 3px rgba(96, 165, 250, 0.68);
+  opacity: 0.58;
+}
+
+.jb-tap-tick.is-hit {
+  z-index: 2;
+  background: #fbbf24;
+  box-shadow:
+    0 0 3px rgba(255, 255, 255, 0.8),
+    0 0 6px rgba(251, 191, 36, 0.88);
+  opacity: 1;
+}
+
+.jb-tap-tick.is-hit.is-great {
+  background: #f59e0b;
+}
+
+.jb-tap-tick.is-hit.is-good {
+  background: #fde68a;
+  opacity: 0.78;
+}
+
+.jb-tap-tick.is-miss {
+  z-index: 2;
+  background: #fb7185;
+  box-shadow: 0 0 5px rgba(251, 113, 133, 0.8);
+  opacity: 0.9;
+}
+
+.jb-tap-map-playhead {
+  position: absolute;
+  inset: -1px auto -1px 0%;
+  z-index: 4;
+  width: 2px;
+  background: #e0f2fe;
+  box-shadow:
+    0 0 4px #38bdf8,
+    0 0 9px rgba(45, 212, 191, 0.9);
+  transform: translateX(-1px);
+}
+
 .jb-start-sequence {
   position: absolute;
   inset: 0;
@@ -1787,14 +1934,68 @@
   }
 }
 
+.jb-grid-shell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
 .jb-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.45rem;
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
   touch-action: none;
   --jb-accent: #fbbf24;
+}
+
+.jb-grid-combo {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  pointer-events: none;
+  color: rgba(224, 242, 254, 0.1);
+  opacity: 0.62;
+  text-align: center;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(56, 189, 248, 0.35);
+}
+
+.jb-grid-combo strong {
+  font: 900 clamp(4rem, 21vw, 6rem) / 0.78 var(--mono);
+  letter-spacing: -0.1em;
+  transform: translateX(-0.05em);
+}
+
+.jb-grid-combo span {
+  margin-top: 0.62rem;
+  font: 900 0.78rem/1 var(--mono);
+  letter-spacing: 0.28em;
+}
+
+.jb-grid-combo.is-active {
+  color: rgba(224, 242, 254, 0.18);
+  opacity: 1;
+}
+
+.jb-grid-combo.is-pulse strong {
+  animation: jb-grid-combo-pulse 0.16s ease-out;
+}
+
+@keyframes jb-grid-combo-pulse {
+  from {
+    opacity: 0.58;
+    transform: translateX(-0.05em) scale(1.08);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-0.05em) scale(1);
+  }
 }
 
 /* Near-black idle faces keep incoming markers vivid without losing the 4×4 grid. */
@@ -2576,19 +2777,19 @@
 }
 
 .jb-progress {
-  margin-top: 0.55rem;
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(96, 165, 250, 0.1);
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.12);
 }
 
 .jb-progress-fill {
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--jb-accent, #fbbf24), #2dd4bf);
-  transition: width 0.08s linear;
+  background: linear-gradient(90deg, #2563eb 0%, #38bdf8 58%, #fbbf24 100%);
+  box-shadow: 0 0 7px rgba(56, 189, 248, 0.62);
 }
 
 .jb-audio {

@@ -47,6 +47,31 @@ assert(
   gameCss.includes(".jb-results.is-exc .jb-accuracy-box.is-excellent"),
   "All-Excellent result bars must turn gold"
 );
+assert(
+  source.includes('id="jb-grid-combo"') &&
+    source.includes('id="jb-grid-combo-value"') &&
+    gameCss.includes(".jb-grid-combo.is-active"),
+  "The live combo tracker must span the 4 by 4 panel background"
+);
+assert(
+  source.includes('id="jb-tap-map"') &&
+    source.includes('id="jb-tap-map-playhead"') &&
+    source.indexOf('id="jb-progress"') < source.indexOf('id="jb-grid"'),
+  "The full-song tap map and progress rail must sit above the panel grid"
+);
+assert(
+  gameCss.includes(".jb-tap-tick.is-expected") &&
+    gameCss.includes(".jb-tap-tick.is-hit") &&
+    source.includes('entry.liveEl.classList.add(grade === "miss" ? "is-miss" : "is-hit"'),
+  "Expected taps must update from blue to hit or miss state in real time"
+);
+assert(game.songProgressPercent(-20, 1000) === 0, "Song progress must clamp before the chart starts");
+assert(game.songProgressPercent(500, 1000) === 50, "Song progress and tap-map playhead must share one timeline");
+assert(game.songProgressPercent(1200, 1000) === 100, "Song progress must clamp after the song ends");
+assert(
+  game.songTimelineDuration({ durationSec: 10, audioOffsetMs: 500 }, [{ t: 8000 }]) === 9500,
+  "The live song map must cover the documented full song cut"
+);
 assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
 assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");

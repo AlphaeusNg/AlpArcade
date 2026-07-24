@@ -179,6 +179,20 @@
     return Math.max(0, Math.min(100, 100 - (Math.abs(time - noteTime) / approachMs) * 100));
   }
 
+  function songTimelineDuration(song, events) {
+    const chart = Array.isArray(events) ? events : [];
+    const chartTailMs = chart.length ? Number(chart[chart.length - 1].t) + 800 : 0;
+    const documentedSongMs =
+      Math.max(0, Number(song?.durationSec) || 0) * 1000 -
+      Math.max(0, Number(song?.audioOffsetMs) || 0);
+    return Math.max(1000, chartTailMs, documentedSongMs);
+  }
+
+  function songProgressPercent(time, durationMs) {
+    const duration = Math.max(1, Number(durationMs) || 1);
+    return Math.max(0, Math.min(100, ((Number(time) || 0) / duration) * 100));
+  }
+
   function isDisplayedPerfectAccuracy(accuracy) {
     return Number.isFinite(accuracy) && Number(accuracy.toFixed(1)) === 100;
   }
@@ -1208,9 +1222,32 @@
           </div>
           <div class="jb-meta mono" id="jb-meta"></div>
           <div class="jb-stage">
-            <div class="jb-grid jb-marker-surface" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
-            <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
-            <div class="jb-progress"><div class="jb-progress-fill" id="jb-progress"></div></div>
+            <section class="jb-live-track" id="jb-live-track" aria-labelledby="jb-live-track-label">
+              <div class="jb-live-track-head">
+                <strong id="jb-live-track-label">SONG MAP</strong>
+                <span class="jb-live-track-legend" aria-hidden="true">
+                  <i class="is-expected"></i> EXPECTED
+                  <i class="is-hit"></i> HIT
+                </span>
+                <span class="jb-live-track-count">HITS <b id="jb-live-taps">0 / 0</b></span>
+              </div>
+              <div class="jb-progress" role="progressbar" aria-label="Song progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="jb-progress-fill" id="jb-progress"></div>
+              </div>
+              <div class="jb-tap-map" id="jb-tap-map" role="img" aria-label="Expected taps across the full song">
+                <div class="jb-tap-map-past" id="jb-tap-map-past" aria-hidden="true"></div>
+                <div class="jb-tap-map-notes" id="jb-tap-map-notes" aria-hidden="true"></div>
+                <i class="jb-tap-map-playhead" id="jb-tap-map-playhead" aria-hidden="true"></i>
+              </div>
+            </section>
+            <div class="jb-grid-shell">
+              <div class="jb-grid jb-marker-surface" id="jb-grid" role="grid" aria-label="jubeat 4 by 4"></div>
+              <div class="jb-grid-combo" id="jb-grid-combo" aria-hidden="true">
+                <strong id="jb-grid-combo-value">0</strong>
+                <span>COMBO</span>
+              </div>
+              <div class="jb-sr-judge" id="jb-sr-judge" aria-live="polite"></div>
+            </div>
             <section class="jb-start-sequence" id="jb-start-sequence" hidden aria-live="assertive">
               <div class="jb-loading-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
               <p id="jb-start-sequence-label">LOADING</p>
@@ -1321,6 +1358,14 @@
     const hintEl = root.querySelector("#jb-hint");
     const srJudgeEl = root.querySelector("#jb-sr-judge");
     const progEl = root.querySelector("#jb-progress");
+    const progressBarEl = progEl?.parentElement;
+    const liveTapsEl = root.querySelector("#jb-live-taps");
+    const tapMapEl = root.querySelector("#jb-tap-map");
+    const tapMapPastEl = root.querySelector("#jb-tap-map-past");
+    const tapMapNotesEl = root.querySelector("#jb-tap-map-notes");
+    const tapMapPlayheadEl = root.querySelector("#jb-tap-map-playhead");
+    const gridComboEl = root.querySelector("#jb-grid-combo");
+    const gridComboValueEl = root.querySelector("#jb-grid-combo-value");
     const startBtn = root.querySelector("#jb-start");
     const musicNoteEl = root.querySelector("#jb-music-note");
     const audioEl = root.querySelector("#jb-audio");
@@ -1396,6 +1441,9 @@
     let announcementToken = 0;
     let accuracyTimeline = [];
     let accuracyByKey = new Map();
+    let runDurationMs = 1000;
+    let resolvedTapCount = 0;
+    let liveHitCount = 0;
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
 
@@ -2381,17 +2429,77 @@
       return n;
     }
 
+    function paintSongProgress(time) {
+      const percent = songProgressPercent(time, runDurationMs);
+      const width = `${percent.toFixed(3)}%`;
+      if (progEl) progEl.style.width = width;
+      if (tapMapPastEl) tapMapPastEl.style.width = width;
+      if (tapMapPlayheadEl) tapMapPlayheadEl.style.left = width;
+      if (progressBarEl) progressBarEl.setAttribute("aria-valuenow", percent.toFixed(1));
+    }
+
+    function paintCombo() {
+      const value = Math.max(0, combo);
+      comboEl.textContent = String(value);
+      if (!gridComboEl || !gridComboValueEl) return;
+      gridComboValueEl.textContent = String(value);
+      gridComboEl.classList.toggle("is-active", value > 0);
+      gridComboEl.classList.remove("is-pulse");
+      if (value > 0) {
+        void gridComboEl.offsetWidth;
+        gridComboEl.classList.add("is-pulse");
+      }
+    }
+
+    function updateLiveTapSummary() {
+      if (liveTapsEl) liveTapsEl.textContent = `${liveHitCount} / ${accuracyTimeline.length}`;
+      if (tapMapEl) {
+        tapMapEl.setAttribute(
+          "aria-label",
+          `${accuracyTimeline.length} expected taps across the full song; ${liveHitCount} hit and ${
+            resolvedTapCount - liveHitCount
+          } missed so far`
+        );
+      }
+    }
+
+    function renderLiveTapMap() {
+      if (!tapMapNotesEl) return;
+      const fragment = document.createDocumentFragment();
+      accuracyTimeline.forEach((entry, index) => {
+        const tick = document.createElement("i");
+        tick.className = "jb-tap-tick is-expected";
+        tick.style.setProperty("--jb-tap-x", `${songProgressPercent(entry.noteTime, runDurationMs).toFixed(3)}%`);
+        tick.style.setProperty("--jb-tap-y", `${(0.13 + ((entry.panel + index) % 4) * 0.34).toFixed(2)}rem`);
+        entry.liveEl = tick;
+        fragment.appendChild(tick);
+      });
+      tapMapNotesEl.replaceChildren(fragment);
+      updateLiveTapSummary();
+    }
+
     function resetAccuracyTimeline(events) {
       accuracyTimeline = [];
       accuracyByKey = new Map();
+      resolvedTapCount = 0;
+      liveHitCount = 0;
       events.forEach((event) => {
         event.panels.forEach((panel) => {
           const key = `${event.t}-${panel}`;
-          const entry = { key, noteTime: event.t, panel, grade: null, accuracy: null, deltaMs: null };
+          const entry = {
+            key,
+            noteTime: event.t,
+            panel,
+            grade: null,
+            accuracy: null,
+            deltaMs: null,
+            liveEl: null,
+          };
           accuracyTimeline.push(entry);
           accuracyByKey.set(key, entry);
         });
       });
+      renderLiveTapMap();
     }
 
     function recordAccuracy(n, grade, tapTime = null) {
@@ -2402,6 +2510,13 @@
       entry.accuracy = Number.isFinite(tapTime)
         ? timingAccuracy(n.t, tapTime, difficulty().approachMs)
         : 0;
+      resolvedTapCount += 1;
+      if (grade !== "miss") liveHitCount += 1;
+      if (entry.liveEl) {
+        entry.liveEl.classList.remove("is-expected");
+        entry.liveEl.classList.add(grade === "miss" ? "is-miss" : "is-hit", `is-${grade}`);
+      }
+      updateLiveTapSummary();
       return entry.accuracy;
     }
 
@@ -2438,7 +2553,7 @@
       counts.miss += 1;
       missEl.textContent = String(counts.miss);
       combo = 0;
-      comboEl.textContent = "0";
+      paintCombo();
       panel.setJudge("MISS", "miss", nowMs, difficulty().approachMs);
       if (srJudgeEl) srJudgeEl.textContent = "MISS";
       global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
@@ -2487,7 +2602,7 @@
       if (combo > bestCombo) bestCombo = combo;
       score = scoreTracker?.register(grade, combo) || 0;
       scoreEl.textContent = formatScore(score);
-      comboEl.textContent = String(combo);
+      paintCombo();
       excEl.textContent = String(counts.excellent);
       panel.removeNote(best.key);
       panel.setJudge(label, grade, nowMs, diff.approachMs);
@@ -2627,6 +2742,7 @@
       running = false;
       cancelAnimationFrame(raf);
       clearCountIn();
+      paintSongProgress(runDurationMs);
       panels.forEach((p) => p.reset());
       startBtn.disabled = true;
       startBtn.textContent = "Play again";
@@ -2673,7 +2789,6 @@
       if (!running || submitted) return;
       const t = nowMs();
       const ch = chart;
-      const duration = ch.length ? ch[ch.length - 1].t + 800 : 1000;
 
       while (chartIndex < ch.length && ch[chartIndex].t <= t + difficulty().approachMs) {
         const n = ch[chartIndex++];
@@ -2689,20 +2804,9 @@
         panel.syncMarker(t, difficulty().approachMs);
       }
 
-      if (progEl) progEl.style.width = `${Math.max(0, Math.min(100, (t / duration) * 100))}%`;
+      paintSongProgress(t);
 
-      if (chartIndex >= ch.length && activeNoteCount() === 0 && t > duration) {
-        finish();
-        return;
-      }
-      // End when audio finishes and notes are done
-      if (
-        useAudioClock &&
-        audioEl &&
-        audioEl.ended &&
-        chartIndex >= ch.length &&
-        activeNoteCount() === 0
-      ) {
+      if (chartIndex >= ch.length && activeNoteCount() === 0 && t > runDurationMs) {
         finish();
         return;
       }
@@ -2829,6 +2933,7 @@
       primeResultAudio();
       const s = song();
       chart = runtimeChartFor(s, difficultyId);
+      runDurationMs = songTimelineDuration(s, chart);
       resetAccuracyTimeline(chart);
       chartIndex = 0;
       running = true;
@@ -2841,10 +2946,10 @@
       counts = { excellent: 0, great: 0, good: 0, miss: 0 };
       scoreTracker = createScoreTracker(chart);
       scoreEl.textContent = "0";
-      comboEl.textContent = "0";
+      paintCombo();
       excEl.textContent = "0";
       missEl.textContent = "0";
-      if (progEl) progEl.style.width = "0%";
+      paintSongProgress(0);
       startBtn.disabled = true;
       setupEl.hidden = true;
       playfieldEl.hidden = false;
@@ -2852,7 +2957,7 @@
       paintSongs();
       paintDifficulty();
       paintMarkerModes();
-      const chartSeconds = chart.length ? chart[chart.length - 1].t / 1000 : s.durationSec || 100;
+      const chartSeconds = runDurationMs / 1000;
       const mins = Math.round(chartSeconds / 6) / 10;
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
       const diff = difficulty();
@@ -3124,6 +3229,8 @@
     rankForScore,
     judgeForTap,
     timingAccuracy,
+    songTimelineDuration,
+    songProgressPercent,
     isDisplayedPerfectAccuracy,
     setMarkerProgress,
     bindSlideHits,
