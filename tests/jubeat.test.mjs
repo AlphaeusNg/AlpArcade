@@ -57,6 +57,16 @@ assert(
   JSON.stringify(Object.keys(game.DIFFICULTIES)) === JSON.stringify(["easy", "medium", "extreme"]),
   "Pulse Grid must expose Easy, Medium, and Extreme"
 );
+assert(
+  JSON.stringify(Object.values(game.DIFFICULTIES).map((difficulty) => difficulty.symbol)) ===
+    JSON.stringify(["E", "M", "EX"]) &&
+    source.includes('difficultyEl.classList.toggle("is-custom", !!song().custom)') &&
+    gameCss.includes('grid-template-columns: repeat(3, 2rem)') &&
+    gameCss.includes('.jb-difficulty-btn[data-difficulty="easy"]') &&
+    gameCss.includes('.jb-difficulty-btn[data-difficulty="medium"]') &&
+    gameCss.includes('.jb-difficulty-btn[data-difficulty="extreme"]'),
+  "Difficulty controls must remain one compact E/M/EX row with stable color coding"
+);
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(
   source.includes('resultsEl.classList.add("is-full-combo", "is-combo-visible")') &&

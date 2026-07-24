@@ -26,16 +26,19 @@
   const DIFFICULTIES = {
     easy: {
       label: "EASY",
+      symbol: "E",
       shortLabel: "Basic",
       approachMs: 1400,
     },
     medium: {
       label: "MEDIUM",
+      symbol: "M",
       shortLabel: "Advanced",
       approachMs: 1200,
     },
     extreme: {
       label: "EXTREME",
+      symbol: "EX",
       shortLabel: "Extreme",
       approachMs: 1000,
     },
@@ -2146,11 +2149,11 @@
 
     function paintDifficulty() {
       const choices = song().custom ? [["custom", song().difficulty]] : Object.entries(DIFFICULTIES);
-      difficultyEl.classList.toggle("is-custom", song().custom);
+      difficultyEl.classList.toggle("is-custom", !!song().custom);
       difficultyEl.innerHTML = choices
         .map(
           ([id, diff]) =>
-            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" aria-pressed="${id === difficultyId}" ${controlsLocked() ? "disabled" : ""}>${diff.label}</button>`
+            `<button type="button" class="jb-difficulty-btn${id === difficultyId ? " is-active" : ""}" data-difficulty="${id}" aria-label="${diff.label}" title="${diff.label}" aria-pressed="${id === difficultyId}" ${controlsLocked() ? "disabled" : ""}>${diff.symbol || diff.label}</button>`
         )
         .join("");
       difficultyEl.querySelectorAll("[data-difficulty]").forEach((btn) => {
@@ -2222,7 +2225,7 @@
       songDetailTitleEl.style.color = selected.color;
       songDetailDifficultyEl.textContent = selected.custom
         ? `CUSTOM ${selected.level} · UNRANKED`
-        : `EASY ${selected.levels.easy} / MEDIUM ${selected.levels.medium} / EXTREME ${selected.levels.extreme} · ${difficulty().label} selected`;
+        : `E ${selected.levels.easy} · M ${selected.levels.medium} · EX ${selected.levels.extreme}`;
       songDetailBestEl.textContent = selected.custom ? "Unranked" : best ? formatScore(best) : "No score yet";
       songDetailTapsEl.textContent = selectedChartTotal().toLocaleString();
       songDetailBpmEl.textContent = `${selected.bpm} BPM`;
