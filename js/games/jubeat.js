@@ -9,6 +9,9 @@
   const CELLS = 16;
   const MAX_SCORE = 1000000;
   const CUSTOM_CHART_STORAGE_KEY = "alparcade-jubeat-custom-charts-v1";
+  const TIMING_OFFSET_STORAGE_KEY = "alparcade-jubeat-timing-offsets-v1";
+  const TIMING_OFFSET_LIMIT_MS = 400;
+  const TIMING_OFFSET_STEP_MS = 25;
   const CUSTOM_STEP_BEATS = [1, 0.5, 0.25];
   const CUSTOM_START_BEATS = 4;
   const CUSTOM_MAX_STEPS = 2048;
@@ -894,6 +897,7 @@
       audio: AUDIO_BASE + "only-my-railgun.mp3",
       jacket: JACKET_BASE + "only-my-railgun.webp",
       notesHint: "arcade chart transcription",
+      defaultTimingOffsetMs: 100,
       officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));
@@ -976,6 +980,7 @@
       id: `custom-${definition.id}`,
       customId: definition.id,
       custom: true,
+      timingSourceId: baseSong.id,
       title: definition.name,
       artist: `CUSTOM · ${baseSong.title}`,
       level: definition.level,
@@ -1009,6 +1014,49 @@
     return definitions;
   }
 
+  function clampTimingOffset(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    const stepped = Math.round(numeric / TIMING_OFFSET_STEP_MS) * TIMING_OFFSET_STEP_MS;
+    return Math.max(-TIMING_OFFSET_LIMIT_MS, Math.min(TIMING_OFFSET_LIMIT_MS, stepped));
+  }
+
+  function loadTimingOffsets(storage) {
+    try {
+      const parsed = JSON.parse(storage?.getItem?.(TIMING_OFFSET_STORAGE_KEY) || "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed)
+          .filter(([key]) => /^[a-zA-Z0-9_-]+$/.test(key))
+          .map(([key, value]) => [key, clampTimingOffset(value)])
+      );
+    } catch {
+      return {};
+    }
+  }
+
+  function saveTimingOffsets(storage, values) {
+    const normalized = Object.fromEntries(
+      Object.entries(values || {})
+        .filter(([key]) => /^[a-zA-Z0-9_-]+$/.test(key))
+        .map(([key, value]) => [key, clampTimingOffset(value)])
+    );
+    try {
+      storage?.setItem?.(TIMING_OFFSET_STORAGE_KEY, JSON.stringify(normalized));
+    } catch {
+      /* Timing calibration still works for the current visit. */
+    }
+    return normalized;
+  }
+
+  function applyTimingOffset(chart, offsetMs) {
+    const leadMs = clampTimingOffset(offsetMs);
+    if (!leadMs) return chart;
+    return (Array.isArray(chart) ? chart : []).map((event) =>
+      note(Math.max(0, Math.round(event.t - leadMs)), [...event.panels])
+    );
+  }
+
   function chartFor(song, difficultyId = "extreme") {
     if (song.custom) {
       return withoutPanelOverlaps(song.charts.custom || [], song.difficulty?.approachMs);
@@ -1024,18 +1072,19 @@
     return Math.max(CUSTOM_RUNTIME_LEAD_MIN_MS, Math.min(CUSTOM_RUNTIME_LEAD_MAX_MS, estimated));
   }
 
-  function runtimeChartFor(song, difficultyId = "extreme") {
+  function runtimeChartFor(song, difficultyId = "extreme", timingOffsetMs = 0) {
     const source = chartFor(song, difficultyId);
-    if (!song.custom) return source;
-    const leadMs = customRuntimeLeadMs(song.difficulty?.approachMs);
-    const rampMs = leadMs * 4;
-    return withoutPanelOverlaps(
+    if (!song.custom) return applyTimingOffset(source, timingOffsetMs);
+    const customLeadMs = customRuntimeLeadMs(song.difficulty?.approachMs);
+    const rampMs = customLeadMs * 4;
+    const adjusted = withoutPanelOverlaps(
       source.map((event) => {
-        const appliedLead = leadMs * Math.min(1, Math.max(0, event.t) / rampMs);
+        const appliedLead = customLeadMs * Math.min(1, Math.max(0, event.t) / rampMs);
         return note(Math.max(0, Math.round(event.t - appliedLead)), [...event.panels]);
       }),
       song.difficulty?.approachMs
     );
+    return applyTimingOffset(adjusted, timingOffsetMs);
   }
 
   function mount(root, { onScore }) {
@@ -1048,6 +1097,7 @@
     } catch {
       /* Storage access can be blocked in sandboxed browsing contexts. */
     }
+    let timingOffsets = loadTimingOffsets(chartStorage);
     let customDefinitions = loadCustomChartDefinitions(chartStorage);
     let customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
     let editorDraft = null;
@@ -1084,6 +1134,19 @@
                   <div><dt>Total taps</dt><dd id="jb-song-detail-taps"></dd></div>
                   <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
                 </dl>
+                <section class="jb-timing-calibration" aria-labelledby="jb-timing-label">
+                  <div class="jb-timing-head">
+                    <span id="jb-timing-label">TAP TIMING</span>
+                    <output id="jb-timing-output" for="jb-timing-offset">ON CHART</output>
+                  </div>
+                  <input id="jb-timing-offset" type="range" min="-400" max="400" step="25" value="0" aria-label="Tap timing offset">
+                  <div class="jb-timing-actions">
+                    <button type="button" class="btn ghost small" id="jb-timing-later">Later</button>
+                    <button type="button" class="btn ghost small" id="jb-timing-reset">Reset</button>
+                    <button type="button" class="btn ghost small" id="jb-timing-earlier">Earlier</button>
+                  </div>
+                  <small>Move earlier when markers trail the music.</small>
+                </section>
                 <div class="jb-local-audio" id="jb-local-audio" hidden>
                   <label class="btn ghost small jb-local-audio-pick">
                     <span id="jb-local-audio-pick-label">Load exact song audio</span>
@@ -1311,6 +1374,11 @@
     const songDetailBestEl = root.querySelector("#jb-song-detail-best");
     const songDetailTapsEl = root.querySelector("#jb-song-detail-taps");
     const songDetailBpmEl = root.querySelector("#jb-song-detail-bpm");
+    const timingOffsetEl = root.querySelector("#jb-timing-offset");
+    const timingOutputEl = root.querySelector("#jb-timing-output");
+    const timingLaterBtn = root.querySelector("#jb-timing-later");
+    const timingResetBtn = root.querySelector("#jb-timing-reset");
+    const timingEarlierBtn = root.querySelector("#jb-timing-earlier");
     const localAudioEl = root.querySelector("#jb-local-audio");
     const localAudioPickLabelEl = root.querySelector("#jb-local-audio-pick-label");
     const localAudioFileEl = root.querySelector("#jb-local-audio-file");
@@ -1475,6 +1543,37 @@
 
     function difficulty() {
       return song().custom ? song().difficulty : DIFFICULTIES[difficultyId] || DIFFICULTIES.easy;
+    }
+
+    function timingKeyFor(selected = song()) {
+      return selected.timingSourceId || selected.id;
+    }
+
+    function timingOffsetFor(selected = song()) {
+      const key = timingKeyFor(selected);
+      if (Object.prototype.hasOwnProperty.call(timingOffsets, key)) {
+        return clampTimingOffset(timingOffsets[key]);
+      }
+      return clampTimingOffset(selected.defaultTimingOffsetMs || 0);
+    }
+
+    function formatTimingOffset(value) {
+      const offset = clampTimingOffset(value);
+      if (offset > 0) return `${offset} MS EARLIER`;
+      if (offset < 0) return `${Math.abs(offset)} MS LATER`;
+      return "ON CHART";
+    }
+
+    function setTimingOffset(selected, value) {
+      timingOffsets[timingKeyFor(selected)] = clampTimingOffset(value);
+      timingOffsets = saveTimingOffsets(chartStorage, timingOffsets);
+      paintMeta();
+    }
+
+    function resetTimingOffset(selected) {
+      delete timingOffsets[timingKeyFor(selected)];
+      timingOffsets = saveTimingOffsets(chartStorage, timingOffsets);
+      paintMeta();
     }
 
     function levelFor(s = song()) {
@@ -2089,6 +2188,13 @@
       songDetailBestEl.textContent = selected.custom ? "Unranked" : best ? formatScore(best) : "No score yet";
       songDetailTapsEl.textContent = selectedChartTotal().toLocaleString();
       songDetailBpmEl.textContent = `${selected.bpm} BPM`;
+      const timingOffset = timingOffsetFor(selected);
+      timingOffsetEl.value = String(timingOffset);
+      timingOffsetEl.disabled = controlsLocked();
+      timingOutputEl.value = formatTimingOffset(timingOffset);
+      timingLaterBtn.disabled = controlsLocked() || timingOffset <= -TIMING_OFFSET_LIMIT_MS;
+      timingResetBtn.disabled = controlsLocked();
+      timingEarlierBtn.disabled = controlsLocked() || timingOffset >= TIMING_OFFSET_LIMIT_MS;
       const needsLocalAudio = !selected.custom && !!selected.requiresLocalAudio;
       localAudioEl.hidden = !needsLocalAudio;
       if (needsLocalAudio) {
@@ -2108,13 +2214,15 @@
       const s = song();
       const diff = difficulty();
       const level = levelFor(s);
+      const timingOffset = timingOffsetFor(s);
       selectionTitleEl.textContent = s.title;
       selectionTitleEl.style.color = s.color;
-      selectionHintEl.textContent = `${s.artist} · ${diff.label} ${level} · ${s.bpm} BPM · ${s.notesHint}`;
+      selectionHintEl.textContent = `${s.artist} · ${diff.label} ${level} · ${s.bpm} BPM · ${s.notesHint} · ${formatTimingOffset(timingOffset).toLowerCase()}`;
       metaEl.innerHTML = `<span style="color:${s.color}">${escapeHtml(s.title)}</span>
         <span class="jb-diff ${difficultyId}">${diff.label} ${level}</span>
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
+        <span class="jb-timing-meta">${formatTimingOffset(timingOffset)}</span>
         <span class="jb-bgm">${s.requiresLocalAudio && !s.audio ? "♪ Load local audio" : "♪ Local BGM"} · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
       playfieldEl.style.setProperty("--jb-accent", s.color);
@@ -3028,7 +3136,7 @@
       duckLobbyMusic(true);
       primeResultAudio();
       const s = song();
-      chart = runtimeChartFor(s, difficultyId);
+      chart = runtimeChartFor(s, difficultyId, timingOffsetFor(s));
       runDurationMs = songTimelineDuration(s, chart);
       resetAccuracyTimeline(chart);
       lastVisualPaintMs = -Infinity;
@@ -3065,6 +3173,25 @@
       runStartSequence(s);
     }
 
+    timingOffsetEl.addEventListener("input", () => {
+      timingOutputEl.value = formatTimingOffset(timingOffsetEl.value);
+    });
+    timingOffsetEl.addEventListener("change", () => {
+      if (controlsLocked()) return;
+      setTimingOffset(song(), timingOffsetEl.value);
+    });
+    timingLaterBtn.addEventListener("click", () => {
+      if (controlsLocked()) return;
+      setTimingOffset(song(), timingOffsetFor(song()) - TIMING_OFFSET_STEP_MS);
+    });
+    timingResetBtn.addEventListener("click", () => {
+      if (controlsLocked()) return;
+      resetTimingOffset(song());
+    });
+    timingEarlierBtn.addEventListener("click", () => {
+      if (controlsLocked()) return;
+      setTimingOffset(song(), timingOffsetFor(song()) + TIMING_OFFSET_STEP_MS);
+    });
     localAudioFileEl.addEventListener("change", () => {
       loadSelectedLocalAudio(localAudioFileEl.files?.[0]);
       localAudioFileEl.value = "";
@@ -3321,12 +3448,19 @@
     customRuntimeLeadMs,
     buildChart,
     CUSTOM_CHART_STORAGE_KEY,
+    TIMING_OFFSET_STORAGE_KEY,
+    TIMING_OFFSET_LIMIT_MS,
+    TIMING_OFFSET_STEP_MS,
     normalizeCustomChartDefinition,
     customStepIndexForTime,
     buildCustomChart,
     customSongFromDefinition,
     loadCustomChartDefinitions,
     saveCustomChartDefinitions,
+    clampTimingOffset,
+    loadTimingOffsets,
+    saveTimingOffsets,
+    applyTimingOffset,
     createScoreTracker,
     rankForScore,
     judgeForTap,

@@ -113,6 +113,21 @@ assert(
   game.songTimelineDuration({ durationSec: 10, audioOffsetMs: 500 }, [{ t: 8000 }]) === 9500,
   "The live song map must cover the documented full song cut"
 );
+assert(
+  source.includes('id="jb-timing-offset"') &&
+    source.includes('id="jb-timing-earlier"') &&
+    source.includes('id="jb-timing-later"') &&
+    source.includes("runtimeChartFor(s, difficultyId, timingOffsetFor(s))") &&
+    gameCss.includes(".jb-timing-calibration"),
+  "Each song must expose editable earlier/later tap calibration"
+);
+assert(game.clampTimingOffset(438) === 400, "Tap calibration must clamp unsafe large offsets");
+assert(game.clampTimingOffset(112) === 100, "Tap calibration must snap to 25 ms steps");
+assert(
+  JSON.stringify(game.applyTimingOffset([{ t: 0, panels: [0] }, { t: 500, panels: [1] }], 100)) ===
+    JSON.stringify([{ t: 0, panels: [0] }, { t: 400, panels: [1] }]),
+  "A positive timing offset must move runtime taps earlier without creating negative time"
+);
 assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
 assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
@@ -224,6 +239,10 @@ const expectedChartHashes = {
 };
 const difficultyIds = ["easy", "medium", "extreme"];
 assert(game.SONGS.length === 5, "Pulse Grid must contain the four originals plus only my railgun");
+assert(
+  game.SONGS.find((song) => song.id === "onlymyrailgun")?.defaultTimingOffsetMs === 100,
+  "Railgun must start with taps calibrated 100 ms earlier"
+);
 for (const song of game.SONGS) {
   const expected = expectedCharts[song.id];
   assert(expected && song.bpm === expected.bpm, `${song.id} BPM must match the arcade chart`);
@@ -426,5 +445,16 @@ const storage = {
 game.saveCustomChartDefinitions(storage, [customDefinition, { broken: true }]);
 const restored = game.loadCustomChartDefinitions(storage);
 assert(restored.length === 1 && restored[0].id === "test-chart", "Valid custom charts must persist locally");
+
+const timingStored = new Map();
+const timingStorage = {
+  getItem: (key) => timingStored.get(key) ?? null,
+  setItem: (key, value) => timingStored.set(key, value),
+};
+game.saveTimingOffsets(timingStorage, { onlymyrailgun: 175, "../../bad": 300 });
+assert(
+  JSON.stringify(game.loadTimingOffsets(timingStorage)) === JSON.stringify({ onlymyrailgun: 175 }),
+  "Per-song timing calibration must persist safely"
+);
 
 console.log("Pulse Grid timing, chart uniqueness, custom charts, and score cap passed.");
