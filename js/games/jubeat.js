@@ -65,6 +65,11 @@
     return { t, panels: Array.isArray(panels) ? panels : [panels] };
   }
 
+  function resultAudioUrl(filename) {
+    const version = encodeURIComponent(String(global.SITE_VERSION?.id || "latest"));
+    return `${RESULT_AUDIO_BASE}${filename}?v=${version}`;
+  }
+
   function panelsFromMask(mask) {
     const panels = [];
     for (let panel = 0; panel < CELLS; panel += 1) {
@@ -2366,7 +2371,7 @@
     function primeResultAudio() {
       if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
       try {
-        resultAudioEl.src = RESULT_AUDIO_BASE + "final-a.mp4";
+        resultAudioEl.src = resultAudioUrl("final-a.mp4");
         resultAudioEl.muted = global.ArcadeSFX?.isMuted?.() ?? false;
         resultAudioEl.volume = 0;
         const ready = resultAudioEl.play();
@@ -2862,7 +2867,7 @@
       try {
         resultAudioEl.onended = complete;
         resultAudioEl.onerror = complete;
-        resultAudioEl.src = `${RESULT_AUDIO_BASE}final-${rankId}${comboSuffix}.mp4`;
+        resultAudioEl.src = resultAudioUrl(`final-${rankId}${comboSuffix}.mp4`);
         resultAudioEl.currentTime = 0;
         resultAudioEl.volume = 1;
         resultAudioEl.play()?.catch?.(complete);
@@ -3483,6 +3488,7 @@
     songTimelineDuration,
     songProgressPercent,
     liveSequenceGrade,
+    resultAudioUrl,
     isDisplayedPerfectAccuracy,
     setMarkerProgress,
     bindSlideHits,

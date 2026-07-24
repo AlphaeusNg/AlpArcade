@@ -180,8 +180,27 @@ assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use l
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
 assert(
   source.includes('const comboSuffix = fullCombo ? "-full-combo" : "";') &&
-    source.includes('`${RESULT_AUDIO_BASE}final-${rankId}${comboSuffix}.mp4`'),
+    source.includes('resultAudioUrl(`final-${rankId}${comboSuffix}.mp4`)') &&
+    game.resultAudioUrl("final-s-full-combo.mp4") ===
+      "assets/jubeat/audio/results/final-s-full-combo.mp4?v=latest",
   "Full combos must keep their dedicated spoken result"
+);
+const excitedResultFiles = ["s", "ss", "sss"].flatMap((rank) => [
+  `assets/jubeat/audio/results/final-${rank}.mp4`,
+  `assets/jubeat/audio/results/final-${rank}-full-combo.mp4`,
+]);
+assert(
+  excitedResultFiles.every(
+    (relativePath) =>
+      fs.existsSync(path.join(root, relativePath)) &&
+      fs.statSync(path.join(root, relativePath)).size > 25000
+  ),
+  "S through SSS must keep their energetic voice and musical result stings"
+);
+assert(
+  fs.statSync(path.join(root, "assets/jubeat/audio/results/final-exc.mp4")).size > 100000 &&
+    fs.statSync(path.join(root, "assets/jubeat/audio/results/final-exc-full-combo.mp4")).size > 100000,
+  "EXCELLENT must keep its extended celebratory voice and victory music"
 );
 const markerProperties = new Map();
 const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
