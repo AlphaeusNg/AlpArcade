@@ -151,6 +151,23 @@
     return Math.max(0, Math.min(100, 100 - (Math.abs(time - noteTime) / approachMs) * 100));
   }
 
+  function isDisplayedPerfectAccuracy(accuracy) {
+    return Number.isFinite(accuracy) && Number(accuracy.toFixed(1)) === 100;
+  }
+
+  function unlockPerfectTimingAchievement(accuracy) {
+    if (!isDisplayedPerfectAccuracy(accuracy)) return null;
+    const achievement = global.ArcadeAchievements?.unlock?.("jubeat-perfect-timing");
+    if (
+      achievement &&
+      typeof global.CustomEvent === "function" &&
+      typeof global.dispatchEvent === "function"
+    ) {
+      global.dispatchEvent(new global.CustomEvent("arcade:achievement-unlocked", { detail: achievement }));
+    }
+    return achievement || null;
+  }
+
   function setMarkerProgress(el, progress) {
     if (!el) return;
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
@@ -1999,6 +2016,7 @@
       practiceJudgeEl.dataset.grade = judgment.grade;
       practiceJudgeEl.classList.toggle("is-centered", !!judgment.perfect);
       practiceAccuracyEl.textContent = `${accuracy.toFixed(1)}%`;
+      unlockPerfectTimingAchievement(accuracy);
       practicePanel.setJudge(judgment.label, judgment.grade, () => 0, approachMs);
       practiceCycleStart = now + (JUDGE_MS[judgment.grade] || JUDGE_MS.good) + 120;
       if (judgment.grade === "miss") global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
@@ -2262,12 +2280,13 @@
 
     function recordAccuracy(n, grade, tapTime = null) {
       const entry = accuracyByKey.get(n?.key);
-      if (!entry || entry.grade != null) return;
+      if (!entry || entry.grade != null) return null;
       entry.grade = grade;
       entry.deltaMs = Number.isFinite(tapTime) ? Math.round(tapTime - n.t) : null;
       entry.accuracy = Number.isFinite(tapTime)
         ? timingAccuracy(n.t, tapTime, difficulty().approachMs)
         : 0;
+      return entry.accuracy;
     }
 
     function overallAccuracy() {
@@ -2347,7 +2366,8 @@
       }
 
       combo += 1;
-      recordAccuracy(best, grade, t);
+      const accuracy = recordAccuracy(best, grade, t);
+      unlockPerfectTimingAchievement(accuracy);
       if (combo > bestCombo) bestCombo = combo;
       score = scoreTracker?.register(grade, combo) || 0;
       scoreEl.textContent = formatScore(score);
@@ -2991,6 +3011,7 @@
     rankForScore,
     judgeForTap,
     timingAccuracy,
+    isDisplayedPerfectAccuracy,
     setMarkerProgress,
     bindSlideHits,
     FULL_COMBO_REVEAL_DELAY_MS,

@@ -829,6 +829,10 @@
     paintCabinetBests();
   }
 
+  window.addEventListener("arcade:achievement-unlocked", (event) => {
+    if (event.detail?.id) notifyAchievements([event.detail]);
+  });
+
   function paintAchievements() {
     const host = $("#achievements-list");
     const countEl = $("#achievements-count");

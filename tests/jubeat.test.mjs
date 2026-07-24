@@ -14,6 +14,8 @@ const context = {
 vm.createContext(context);
 const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
 const gameCss = fs.readFileSync(path.join(root, "css/games.css"), "utf8");
+const achievementsSource = fs.readFileSync(path.join(root, "js/features/achievements.js"), "utf8");
+const appSource = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 vm.runInContext(source, context);
 
 const game = context.window.GameJubeat;
@@ -58,6 +60,14 @@ assert(
 );
 assert(game.judgeForTap(1000, 499, 1000).grade === "miss", "Early taps must miss below 50%");
 assert(game.judgeForTap(1000, 500, 1000).grade === "good", "The 50% boundary must be GOOD");
+assert(!game.isDisplayedPerfectAccuracy(99.949), "99.9% display hits must not unlock Perfect Pulse");
+assert(game.isDisplayedPerfectAccuracy(99.95), "A displayed 100.0% hit must unlock Perfect Pulse");
+assert(
+  achievementsSource.includes('id: "jubeat-perfect-timing"') &&
+    source.includes('unlockPerfectTimingAchievement(accuracy)') &&
+    appSource.includes('"arcade:achievement-unlocked"'),
+  "Perfect Pulse must unlock and notify from practice or song timing"
+);
 assert(
   new Set(game.SONGS.map((song) => JSON.stringify(game.chartFor(song, "extreme")))).size === game.SONGS.length,
   "Extreme song charts must remain unique"
