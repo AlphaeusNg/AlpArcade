@@ -21,3 +21,6 @@ Thumbs.db
 .env.*
 *-firebase-adminsdk-*.json
 serviceAccount*.json
+
+# Keep lossless rhythm-game audio masters local; deploy compressed browser cuts only.
+assets/jubeat/audio/*.flac

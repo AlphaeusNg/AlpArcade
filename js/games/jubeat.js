@@ -891,11 +891,9 @@
       durationSec: 102,
       audioOffsetMs: 0,
       color: "#60a5fa",
-      audio: "",
+      audio: AUDIO_BASE + "only-my-railgun.mp3",
       jacket: JACKET_BASE + "only-my-railgun.webp",
       notesHint: "arcade chart transcription",
-      requiresLocalAudio: true,
-      audioCutLabel: "1:42",
       officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));

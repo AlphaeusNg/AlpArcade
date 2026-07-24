@@ -272,8 +272,8 @@ for (const song of game.SONGS) {
 }
 assert(
   JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
-    JSON.stringify(["onlymyrailgun"]),
-  "Only Railgun must request exact local game-cut audio"
+    JSON.stringify([]),
+  "Every built-in song must now have bundled audio"
 );
 assert(
   game.SONGS.find((song) => song.id === "imsosohappy")?.audio ===
@@ -284,6 +284,12 @@ assert(
   game.SONGS.find((song) => song.id === "onlymyrailgun")?.officialAudioUrl ===
     "https://lnk.to/onlymyrailgun",
   "Railgun must link to its official audio distributor"
+);
+assert(
+  game.SONGS.find((song) => song.id === "onlymyrailgun")?.audio ===
+    "assets/jubeat/audio/only-my-railgun.mp3" &&
+    fs.statSync(path.join(root, "assets/jubeat/audio/only-my-railgun.mp3")).size < 1_500_000,
+  "Railgun must use the compressed phone-friendly game cut"
 );
 assert(
   source.includes("createObjectURL") && source.includes("revokeObjectURL"),
