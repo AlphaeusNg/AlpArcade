@@ -2360,7 +2360,7 @@
       }
     }
 
-    function announceRank(rank, fullCombo, onComplete) {
+    function announceRank(rank, onComplete) {
       const finish = () => {
         if (audioEl) audioEl.volume = 0.32;
         onComplete?.();
@@ -2382,11 +2382,10 @@
         finish();
       };
       const rankId = rank.toLowerCase();
-      const comboSuffix = fullCombo ? "-full-combo" : "";
       try {
         resultAudioEl.onended = complete;
         resultAudioEl.onerror = complete;
-        resultAudioEl.src = `${RESULT_AUDIO_BASE}final-${rankId}${comboSuffix}.mp4`;
+        resultAudioEl.src = `${RESULT_AUDIO_BASE}final-${rankId}.mp4`;
         resultAudioEl.currentTime = 0;
         resultAudioEl.volume = 1;
         resultAudioEl.play()?.catch?.(complete);
@@ -2423,7 +2422,7 @@
         setTimeout(() => {
           resultsEl.classList.add("is-rank-visible");
           resultsRankEl.textContent = rank;
-          announceRank(rank, fullCombo, () => {
+          announceRank(rank, () => {
             if (!resultsOpen) return;
             resultsEl.classList.add("is-ready");
             resultsActionsEl.hidden = false;
