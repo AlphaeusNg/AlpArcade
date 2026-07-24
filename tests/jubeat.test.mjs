@@ -26,10 +26,10 @@ assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer 
 assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
 assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
-assert(!source.includes('comboSuffix'), "Final voice must announce only the result rank");
 assert(
-  source.includes('`${RESULT_AUDIO_BASE}final-${rankId}.mp4`'),
-  "Every result must use the concise final-results rank voice"
+  source.includes('const comboSuffix = fullCombo ? "-full-combo" : "";') &&
+    source.includes('`${RESULT_AUDIO_BASE}final-${rankId}${comboSuffix}.mp4`'),
+  "Full combos must keep their dedicated spoken result"
 );
 const markerProperties = new Map();
 const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
