@@ -121,6 +121,27 @@ assert(
     gameCss.includes(".jb-timing-calibration"),
   "Each song must expose editable earlier/later tap calibration"
 );
+const practiceMarkupIndex = source.indexOf('class="jb-practice-row jb-song-practice"');
+const timingMarkupIndex = source.indexOf('class="jb-timing-calibration"');
+const setupControlsMarkupIndex = source.indexOf('class="jb-setup-controls"');
+assert(
+  practiceMarkupIndex >= 0 &&
+    practiceMarkupIndex < timingMarkupIndex &&
+    timingMarkupIndex < setupControlsMarkupIndex,
+  "Beat practice must live in the selected song details immediately above tap timing"
+);
+assert(
+  source.includes("function practiceAudioTimeMs()") &&
+    source.includes("const cycleMs = beatMs * 8;") &&
+    source.includes("const calibratedTime = audioTimeMs + timingOffsetFor(song());"),
+  "Beat practice must follow the selected song preview BPM and timing calibration"
+);
+assert(
+  /\.jb-setup-controls\s*\{[^}]*grid-template-columns:\s*1fr;/s.test(gameCss) &&
+    /\.jb-setup-panel\s*\{[^}]*grid-template-columns:\s*5\.25rem minmax\(0,\s*1fr\);/s.test(gameCss) &&
+    /\.jb-marker-mode\s*\{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/s.test(gameCss),
+  "Difficulty and marker controls must remain two compact full-width rows"
+);
 assert(game.clampTimingOffset(438) === 400, "Tap calibration must clamp unsafe large offsets");
 assert(game.clampTimingOffset(112) === 100, "Tap calibration must snap to 25 ms steps");
 assert(

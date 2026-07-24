@@ -1134,6 +1134,19 @@
                   <div><dt>Total taps</dt><dd id="jb-song-detail-taps"></dd></div>
                   <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
                 </dl>
+                <section class="jb-practice-row jb-song-practice" aria-label="Practice marker against song timing">
+                  <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
+                    <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
+                      ${markerLayersMarkup()}
+                      <span class="jb-cell-judge" hidden aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <div class="jb-practice-feedback" aria-live="polite">
+                    <span>BEAT PRACTICE</span>
+                    <strong id="jb-practice-judge">TOUCH</strong>
+                    <small id="jb-practice-accuracy">--%</small>
+                  </div>
+                </section>
                 <section class="jb-timing-calibration" aria-labelledby="jb-timing-label">
                   <div class="jb-timing-head">
                     <span id="jb-timing-label">TAP TIMING</span>
@@ -1266,19 +1279,6 @@
             <section class="jb-setup-panel jb-marker-lab" aria-labelledby="jb-marker-label">
               <p class="jb-setup-label" id="jb-marker-label">MARKER</p>
               <div class="jb-marker-mode" id="jb-marker-mode" role="group" aria-label="Shutter design"></div>
-              <div class="jb-practice-row">
-                <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
-                  <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
-                    ${markerLayersMarkup()}
-                    <span class="jb-cell-judge" hidden aria-hidden="true"></span>
-                  </button>
-                </div>
-                <div class="jb-practice-feedback" aria-live="polite">
-                  <span>PRACTICE</span>
-                  <strong id="jb-practice-judge">TOUCH</strong>
-                  <small id="jb-practice-accuracy">--%</small>
-                </div>
-              </div>
             </section>
           </div>
           <p class="game-hint jb-selection-hint" id="jb-selection-hint"></p>
@@ -1567,12 +1567,14 @@
     function setTimingOffset(selected, value) {
       timingOffsets[timingKeyFor(selected)] = clampTimingOffset(value);
       timingOffsets = saveTimingOffsets(chartStorage, timingOffsets);
+      restartPractice();
       paintMeta();
     }
 
     function resetTimingOffset(selected) {
       delete timingOffsets[timingKeyFor(selected)];
       timingOffsets = saveTimingOffsets(chartStorage, timingOffsets);
+      restartPractice();
       paintMeta();
     }
 
@@ -2099,6 +2101,7 @@
           paintSongs();
           paintDifficulty();
           paintCustomActions();
+          restartPractice();
           paintMeta();
           cuePreview(song(), true);
           global.ArcadeSFX?.click?.();
@@ -2229,8 +2232,26 @@
       paintSongDetail();
     }
 
+    function practiceAudioTimeMs() {
+      const selected = song();
+      if (!selected.audio || !audioEl || audioEl.paused || audioSrc !== selected.audio) return null;
+      const value = audioEl.currentTime * 1000 - Math.max(0, Number(selected.audioOffsetMs) || 0);
+      return Number.isFinite(value) ? Math.max(0, value) : null;
+    }
+
     function practiceProgress(now = performance.now()) {
       const approachMs = difficulty().approachMs;
+      const audioTimeMs = practiceAudioTimeMs();
+      if (audioTimeMs != null) {
+        const beatMs = 60000 / Math.max(1, Number(song().bpm) || 1);
+        const cycleMs = beatMs * 8;
+        const calibratedTime = audioTimeMs + timingOffsetFor(song());
+        const phaseMs = ((calibratedTime % cycleMs) + cycleMs) % cycleMs;
+        const lateWindowMs = approachMs * (JUDGE_PROGRESS.perfect - 1);
+        if (phaseMs <= lateWindowMs) return 1 + phaseMs / approachMs;
+        const untilTargetMs = cycleMs - phaseMs;
+        return untilTargetMs <= approachMs ? 1 - untilTargetMs / approachMs : null;
+      }
       const cycleMs = approachMs + 420;
       const elapsed = Math.max(0, now - practiceCycleStart) % cycleMs;
       return elapsed <= approachMs ? elapsed / approachMs : null;
