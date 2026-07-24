@@ -44,9 +44,23 @@
   const JUDGE_MS = { excellent: 280, great: 260, good: 240, miss: 180 };
   /** Empty tap flash (wrong panel / early) */
   const EMPTY_TAP_MS = 90;
-  const FULL_COMBO_REVEAL_DELAY_MS = 1000;
-  const EXC_REVEAL_DELAY_MS = FULL_COMBO_REVEAL_DELAY_MS + 4000;
   const EXC_MINIMUM_CELEBRATION_MS = 11000;
+  /**
+   * Spoken cue onsets measured from the result media.
+   * Visuals follow media currentTime so decoding/autoplay latency cannot put them
+   * ahead of the corresponding voice line.
+   */
+  const RESULT_ANNOUNCEMENT_CUES_MS = Object.freeze({
+    A: Object.freeze({ rankMs: 2140, fullComboMs: 2230, fullComboRankMs: 3960 }),
+    B: Object.freeze({ rankMs: 2140, fullComboMs: 2230, fullComboRankMs: 3960 }),
+    C: Object.freeze({ rankMs: 2140, fullComboMs: 2230, fullComboRankMs: 3960 }),
+    D: Object.freeze({ rankMs: 2140, fullComboMs: 2230, fullComboRankMs: 3960 }),
+    FAIL: Object.freeze({ rankMs: 2140, fullComboMs: 2230, fullComboRankMs: 3960 }),
+    S: Object.freeze({ rankMs: 2140, fullComboMs: 2280, fullComboRankMs: 3900 }),
+    SS: Object.freeze({ rankMs: 2260, fullComboMs: 2200, fullComboRankMs: 3820 }),
+    SSS: Object.freeze({ rankMs: 2080, fullComboMs: 2160, fullComboRankMs: 3740 }),
+    EXC: Object.freeze({ rankMs: 5080, fullComboMs: 220, fullComboRankMs: 4960 }),
+  });
 
   const JUDGE_CLASSES = ["is-judge-excellent", "is-judge-great", "is-judge-good", "is-judge-miss"];
   const AUDIO_BASE = "assets/jubeat/audio/";
@@ -68,6 +82,14 @@
   function resultAudioUrl(filename) {
     const version = encodeURIComponent(String(global.SITE_VERSION?.id || "latest"));
     return `${RESULT_AUDIO_BASE}${filename}?v=${version}`;
+  }
+
+  function resultAnnouncementCues(rank, fullCombo) {
+    const cue = RESULT_ANNOUNCEMENT_CUES_MS[String(rank || "").toUpperCase()] || RESULT_ANNOUNCEMENT_CUES_MS.A;
+    return {
+      comboMs: fullCombo ? cue.fullComboMs : null,
+      rankMs: fullCombo ? cue.fullComboRankMs : cue.rankMs,
+    };
   }
 
   function panelsFromMask(mask) {
@@ -1529,6 +1551,7 @@
     let resultRaf = 0;
     let resultTimers = [];
     let announcementToken = 0;
+    let announcementRaf = 0;
     let accuracyTimeline = [];
     let accuracyByKey = new Map();
     let accuracySequences = new Map();
@@ -2355,8 +2378,12 @@
 
     function stopResultAudio() {
       announcementToken += 1;
+      cancelAnimationFrame(announcementRaf);
+      announcementRaf = 0;
       try {
         if (resultAudioEl) {
+          resultAudioEl.onplaying = null;
+          resultAudioEl.ontimeupdate = null;
           resultAudioEl.onended = null;
           resultAudioEl.onerror = null;
           resultAudioEl.pause();
@@ -2841,8 +2868,22 @@
       }
     }
 
-    function announceRank(rank, fullCombo, onComplete) {
+    function announceRank(rank, fullCombo, { onComboCue, onRankCue, onComplete } = {}) {
+      const cues = resultAnnouncementCues(rank, fullCombo);
+      let comboRevealed = !fullCombo;
+      let rankRevealed = false;
+      const revealDueCues = (mediaTimeMs = Infinity) => {
+        if (!comboRevealed && mediaTimeMs >= cues.comboMs) {
+          comboRevealed = true;
+          onComboCue?.();
+        }
+        if (!rankRevealed && mediaTimeMs >= cues.rankMs) {
+          rankRevealed = true;
+          onRankCue?.();
+        }
+      };
       const finish = () => {
+        revealDueCues();
         if (audioEl) audioEl.volume = 0.32;
         onComplete?.();
       };
@@ -2857,20 +2898,44 @@
 
       const token = ++announcementToken;
       let completed = false;
+      const stopCueWatcher = () => {
+        cancelAnimationFrame(announcementRaf);
+        announcementRaf = 0;
+        if (!resultAudioEl) return;
+        resultAudioEl.onplaying = null;
+        resultAudioEl.ontimeupdate = null;
+      };
       const complete = () => {
         if (completed || token !== announcementToken) return;
         completed = true;
+        stopCueWatcher();
         finish();
+      };
+      const syncCuesToMedia = () => {
+        if (completed || token !== announcementToken || !resultAudioEl) return;
+        revealDueCues(resultAudioEl.currentTime * 1000);
+      };
+      const watchCues = () => {
+        if (announcementRaf || completed || token !== announcementToken) return;
+        const frame = () => {
+          announcementRaf = 0;
+          if (completed || token !== announcementToken) return;
+          syncCuesToMedia();
+          if (!comboRevealed || !rankRevealed) announcementRaf = requestAnimationFrame(frame);
+        };
+        frame();
       };
       const rankId = rank.toLowerCase();
       const comboSuffix = fullCombo ? "-full-combo" : "";
       try {
+        resultAudioEl.onplaying = watchCues;
+        resultAudioEl.ontimeupdate = syncCuesToMedia;
         resultAudioEl.onended = complete;
         resultAudioEl.onerror = complete;
         resultAudioEl.src = resultAudioUrl(`final-${rankId}${comboSuffix}.mp4`);
         resultAudioEl.currentTime = 0;
         resultAudioEl.volume = 1;
-        resultAudioEl.play()?.catch?.(complete);
+        resultAudioEl.play()?.then?.(watchCues)?.catch?.(complete);
       } catch {
         complete();
       }
@@ -2904,43 +2969,38 @@
       resultTimers.push(
         setTimeout(() => {
           const celebrationStartedAt = performance.now();
-          if (rank !== "EXC") {
+          const revealFullCombo = () => {
+            if (!resultsOpen) return;
+            resultsEl.classList.add("is-full-combo", "is-combo-visible");
+            resultsKickerEl.textContent = "FLAWLESS CHAIN";
+            resultsComboEl.textContent = "FULL COMBO";
+          };
+          const revealRank = () => {
+            if (!resultsOpen) return;
             resultsEl.classList.add("is-rank-visible");
             resultsRankEl.textContent = rank;
-          }
-          if (fullCombo) {
-            resultTimers.push(
-              setTimeout(() => {
-                if (!resultsOpen) return;
-                resultsEl.classList.add("is-full-combo", "is-combo-visible");
-                resultsKickerEl.textContent = "FLAWLESS CHAIN";
-                resultsComboEl.textContent = "FULL COMBO";
-              }, FULL_COMBO_REVEAL_DELAY_MS)
-            );
-          }
-          if (rank === "EXC") {
-            resultTimers.push(
-              setTimeout(() => {
-                if (!resultsOpen) return;
-                resultsEl.classList.add("is-exc", "is-rank-visible");
-                resultsKickerEl.textContent = "PERFECT PERFORMANCE";
-                resultsRankEl.textContent = rank;
-                resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
-              }, EXC_REVEAL_DELAY_MS)
-            );
-          }
-          announceRank(rank, fullCombo, () => {
-            if (!resultsOpen) return;
-            const minimumCelebrationMs =
-              rank === "EXC" ? EXC_MINIMUM_CELEBRATION_MS : fullCombo ? 4200 : 0;
-            const remainingMs = Math.max(0, minimumCelebrationMs - (performance.now() - celebrationStartedAt));
-            const revealActions = () => {
+            if (rank === "EXC") {
+              resultsEl.classList.add("is-exc");
+              resultsKickerEl.textContent = "PERFECT PERFORMANCE";
+              resultsComboEl.textContent = "ALL EXCELLENT · FULL COMBO";
+            }
+          };
+          announceRank(rank, fullCombo, {
+            onComboCue: revealFullCombo,
+            onRankCue: revealRank,
+            onComplete: () => {
               if (!resultsOpen) return;
-              resultsEl.classList.add("is-ready");
-              resultsActionsEl.hidden = false;
-            };
-            if (remainingMs > 0) resultTimers.push(setTimeout(revealActions, remainingMs));
-            else revealActions();
+              const minimumCelebrationMs =
+                rank === "EXC" ? EXC_MINIMUM_CELEBRATION_MS : fullCombo ? 4200 : 0;
+              const remainingMs = Math.max(0, minimumCelebrationMs - (performance.now() - celebrationStartedAt));
+              const revealActions = () => {
+                if (!resultsOpen) return;
+                resultsEl.classList.add("is-ready");
+                resultsActionsEl.hidden = false;
+              };
+              if (remainingMs > 0) resultTimers.push(setTimeout(revealActions, remainingMs));
+              else revealActions();
+            },
           });
         }, 1650),
         setTimeout(() => {
@@ -3492,8 +3552,8 @@
     isDisplayedPerfectAccuracy,
     setMarkerProgress,
     bindSlideHits,
-    FULL_COMBO_REVEAL_DELAY_MS,
-    EXC_REVEAL_DELAY_MS,
+    RESULT_ANNOUNCEMENT_CUES_MS,
+    resultAnnouncementCues,
     EXC_MINIMUM_CELEBRATION_MS,
   };
 })(window);

@@ -60,7 +60,8 @@ assert(
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(
   source.includes('resultsEl.classList.add("is-full-combo", "is-combo-visible")') &&
-    source.includes('resultsEl.classList.add("is-exc", "is-rank-visible")'),
+    source.includes('resultsEl.classList.add("is-exc")') &&
+    source.includes('resultsEl.classList.add("is-rank-visible")'),
   "Pulse Grid must distinguish full-combo and EXC result celebrations"
 );
 assert(
@@ -70,9 +71,28 @@ assert(
   "The result display must not repeat its summary in the hint below"
 );
 assert(
-  game.FULL_COMBO_REVEAL_DELAY_MS === 1000 &&
-    game.EXC_REVEAL_DELAY_MS - game.FULL_COMBO_REVEAL_DELAY_MS === 4000,
-  "EXC must wait four seconds after the Full Combo reveal"
+  game.resultAnnouncementCues("A", false).rankMs === 2140 &&
+    game.resultAnnouncementCues("SSS", false).rankMs === 2080 &&
+    game.resultAnnouncementCues("EXC", true).comboMs === 220 &&
+    game.resultAnnouncementCues("EXC", true).rankMs === 4960,
+  "Every result visual must use its measured spoken announcement cue"
+);
+assert(
+  ["A", "B", "C", "D", "FAIL", "S", "SS", "SSS", "EXC"].every((rank) => {
+    const standard = game.resultAnnouncementCues(rank, false);
+    const fullCombo = game.resultAnnouncementCues(rank, true);
+    return standard.comboMs === null && standard.rankMs > 0 && fullCombo.comboMs >= 0 && fullCombo.rankMs > fullCombo.comboMs;
+  }),
+  "Every grade and Full Combo result must have valid synchronized media cues"
+);
+assert(
+  source.includes("resultAudioEl.currentTime * 1000") &&
+    source.includes("resultAudioEl.onplaying = watchCues") &&
+    source.includes("onComboCue: revealFullCombo") &&
+    source.includes("onRankCue: revealRank") &&
+    !source.includes("FULL_COMBO_REVEAL_DELAY_MS") &&
+    !source.includes("EXC_REVEAL_DELAY_MS"),
+  "Grade and Full Combo visuals must follow media playback instead of page timers"
 );
 assert(
   game.EXC_MINIMUM_CELEBRATION_MS === 11000 &&
