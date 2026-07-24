@@ -3045,7 +3045,10 @@
             if (!resultsOpen) return;
             resultsEl.classList.add("is-rank-visible");
             resultsRankEl.textContent = rank;
-            if (rank === "EXC") {
+            if (rank === "FAIL") {
+              resultsEl.classList.add("is-fail");
+              resultsKickerEl.textContent = "TRACK FAILED";
+            } else if (rank === "EXC") {
               resultsEl.classList.add("is-exc");
               resultsKickerEl.textContent = "PERFECT PERFORMANCE";
               if (resultsEl.classList.contains("is-combo-visible")) {

@@ -71,8 +71,17 @@ assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer 
 assert(
   source.includes('resultsEl.classList.add("is-full-combo", "is-combo-visible")') &&
     source.includes('resultsEl.classList.add("is-exc")') &&
+    source.includes('resultsEl.classList.add("is-fail")') &&
     source.includes('resultsEl.classList.add("is-rank-visible")'),
-  "Pulse Grid must distinguish full-combo and EXC result celebrations"
+  "Pulse Grid must distinguish full-combo, EXC, and FAIL result animations"
+);
+assert(
+  source.includes('resultsKickerEl.textContent = "TRACK FAILED"') &&
+    gameCss.includes(".jb-results.is-fail") &&
+    gameCss.includes("@keyframes jb-fail-board") &&
+    gameCss.includes("@keyframes jb-fail-rain") &&
+    gameCss.includes("@keyframes jb-fail-rank"),
+  "FAIL must use its dedicated red, sad result treatment"
 );
 assert(
   source.includes("hintEl.hidden = true;") &&
