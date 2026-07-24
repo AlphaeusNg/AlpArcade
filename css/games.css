@@ -1478,6 +1478,13 @@
   background: #60a5fa;
 }
 
+.jb-results.is-exc .jb-accuracy-box.is-excellent {
+  background: linear-gradient(180deg, #fffbd1 0%, #fbbf24 52%, #d97706 100%);
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.9),
+    0 0 8px rgba(251, 191, 36, 0.88);
+}
+
 .jb-results-stats {
   max-width: 18rem;
   color: var(--muted);

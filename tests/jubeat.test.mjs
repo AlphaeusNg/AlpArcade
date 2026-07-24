@@ -29,6 +29,10 @@ assert(
   "Pulse Grid must distinguish full-combo and EXC result celebrations"
 );
 assert(source.includes('rank === "EXC" ? 5600'), "EXC celebration must hold longer than a full combo");
+assert(
+  gameCss.includes(".jb-results.is-exc .jb-accuracy-box.is-excellent"),
+  "All-Excellent result bars must turn gold"
+);
 assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
 assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
