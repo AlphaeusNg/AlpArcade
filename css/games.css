@@ -2081,6 +2081,12 @@
   display: none;
 }
 
+.jb-marker-surface[data-marker="iris"] .jb-shutter {
+  --jb-door-size: var(--jb-iris-door-size, 0%);
+  --jb-touch-opacity: var(--jb-iris-touch-opacity, 0);
+  --jb-touch-gap: var(--jb-iris-touch-gap, 2.8em);
+}
+
 .jb-marker-surface[data-marker="ring"] .jb-cell.is-approach .jb-alt-marker,
 .jb-marker-surface[data-marker="ring"] .jb-cell.is-armed .jb-alt-marker,
 .jb-marker-surface[data-marker="sweep"] .jb-cell.is-approach .jb-alt-marker,

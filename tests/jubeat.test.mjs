@@ -122,6 +122,12 @@ assert(
   "The live combo tracker must span the 4 by 4 panel background"
 );
 assert(
+  source.includes('let markerId = "flower"') &&
+    source.includes('id="jb-marker-practice" data-marker="flower"') &&
+    gameCss.includes('.jb-marker-surface[data-marker="iris"] .jb-shutter'),
+  "Flower must be the default while Iris keeps its eased visual variables"
+);
+assert(
   source.includes('id="jb-tap-map"') &&
     source.includes('id="jb-tap-map-playhead"') &&
     source.indexOf('id="jb-progress"') < source.indexOf('id="jb-grid"'),
@@ -241,6 +247,19 @@ assert(
 );
 const markerProperties = new Map();
 const markerFixture = { style: { setProperty: (name, value) => markerProperties.set(name, value) } };
+assert(
+  game.irisVisualProgress(0) === 0 &&
+    game.irisVisualProgress(0.5) < 0.31 &&
+    game.irisVisualProgress(1) === 1,
+  "Iris must open slowly without changing its final hit point"
+);
+game.setMarkerProgress(markerFixture, 0.5);
+assert(
+  markerProperties.get("--jb-door-size") === "25.00%" &&
+    markerProperties.get("--jb-iris-door-size") === "15.39%" &&
+    markerProperties.get("--jb-iris-touch-opacity") === "0.0000",
+  "Iris must use a slower visual clock without changing other marker timing"
+);
 game.setMarkerProgress(markerFixture, 0.899);
 assert(markerProperties.get("--jb-ring-ready-opacity") === "0.0000", "Neon Ring press cue must wait for Excellent");
 game.setMarkerProgress(markerFixture, 0.9);

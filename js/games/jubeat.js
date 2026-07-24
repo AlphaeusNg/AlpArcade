@@ -252,14 +252,23 @@
     return achievement || null;
   }
 
+  function irisVisualProgress(progress) {
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    return Math.pow(p, 1.7);
+  }
+
   function setMarkerProgress(el, progress) {
     if (!el) return;
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const irisP = irisVisualProgress(p);
     el.style.setProperty("--jb-p", p.toFixed(4));
     el.style.setProperty("--jb-door-size", `${(p * 50).toFixed(2)}%`);
-    el.style.setProperty("--jb-iris-turn", `${(p * 12).toFixed(2)}deg`);
-    el.style.setProperty("--jb-iris-scale", (0.15 + p * 0.95).toFixed(4));
-    el.style.setProperty("--jb-marker-opacity", (0.25 + p * 0.75).toFixed(4));
+    el.style.setProperty("--jb-iris-door-size", `${(irisP * 50).toFixed(2)}%`);
+    el.style.setProperty("--jb-iris-turn", `${(irisP * 12).toFixed(2)}deg`);
+    el.style.setProperty("--jb-iris-scale", (0.15 + irisP * 0.95).toFixed(4));
+    el.style.setProperty("--jb-marker-opacity", (0.25 + irisP * 0.75).toFixed(4));
+    el.style.setProperty("--jb-iris-touch-opacity", Math.max(0, (irisP - 0.5) / 0.5).toFixed(4));
+    el.style.setProperty("--jb-iris-touch-gap", `${((1 - irisP) * 2.8).toFixed(3)}em`);
     el.style.setProperty("--jb-touch-opacity", Math.max(0, (p - 0.5) / 0.5).toFixed(4));
     el.style.setProperty("--jb-touch-gap", `${((1 - p) * 2.8).toFixed(3)}em`);
     const ringP = Math.min(1, p / JUDGE_PROGRESS.great);
@@ -1164,7 +1173,7 @@
   function mount(root, { onScore }) {
     let songIndex = 0;
     let difficultyId = "easy";
-    let markerId = "iris";
+    let markerId = "flower";
     let chartStorage = null;
     try {
       chartStorage = global.localStorage;
@@ -1212,7 +1221,7 @@
                   <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
                 </dl>
                 <section class="jb-practice-row jb-song-practice" aria-label="Practice marker against song timing">
-                  <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="iris">
+                  <div class="jb-marker-practice jb-marker-surface" id="jb-marker-practice" data-marker="flower">
                     <button type="button" class="jb-cell jb-practice-cell is-approach is-armed" id="jb-practice-cell" aria-label="Practice selected marker">
                       ${markerLayersMarkup()}
                       <span class="jb-cell-judge" hidden aria-hidden="true"></span>
@@ -2311,7 +2320,7 @@
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
         <span class="jb-timing-meta">${formatTimingOffset(timingOffset)}</span>
-        <span class="jb-bgm">${s.requiresLocalAudio && !s.audio ? "♪ Load local audio" : "♪ Local BGM"} · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Iris")}</span>`;
+        <span class="jb-bgm">${s.requiresLocalAudio && !s.audio ? "♪ Load local audio" : "♪ Local BGM"} · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Flower")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
       playfieldEl.style.setProperty("--jb-accent", s.color);
       paintSongDetail();
@@ -3604,6 +3613,7 @@
     liveSequenceGrade,
     resultAudioUrl,
     isDisplayedPerfectAccuracy,
+    irisVisualProgress,
     setMarkerProgress,
     bindSlideHits,
     RESULT_ANNOUNCEMENT_CUES_MS,
