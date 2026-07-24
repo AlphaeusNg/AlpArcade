@@ -556,4 +556,29 @@ assert(
   "Per-song timing calibration must persist safely"
 );
 
+const selectionStored = new Map();
+const selectionStorage = {
+  getItem: (key) => selectionStored.get(key) ?? null,
+  setItem: (key, value) => selectionStored.set(key, value),
+};
+game.savePulseGridSelection(selectionStorage, game.SONGS[3], "extreme");
+assert(
+  JSON.stringify(game.loadPulseGridSelection(selectionStorage, game.SONGS)) ===
+    JSON.stringify({ songIndex: 3, difficultyId: "extreme" }),
+  "The last built-in song and difficulty must restore together"
+);
+const customSelectionSong = game.customSongFromDefinition(customDefinition);
+game.savePulseGridSelection(selectionStorage, customSelectionSong, "easy");
+assert(
+  JSON.stringify(game.loadPulseGridSelection(selectionStorage, game.SONGS.concat(customSelectionSong))) ===
+    JSON.stringify({ songIndex: game.SONGS.length, difficultyId: "custom" }),
+  "A saved custom chart must restore with its custom difficulty"
+);
+assert(
+  JSON.stringify(game.loadPulseGridSelection(selectionStorage, game.SONGS)) ===
+    JSON.stringify({ songIndex: 0, difficultyId: "easy" }) &&
+    source.includes("persistSelection();"),
+  "A missing saved song must fall back safely and selection changes must persist"
+);
+
 console.log("Pulse Grid timing, chart uniqueness, custom charts, and score cap passed.");

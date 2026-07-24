@@ -10,6 +10,7 @@
   const MAX_SCORE = 1000000;
   const CUSTOM_CHART_STORAGE_KEY = "alparcade-jubeat-custom-charts-v1";
   const TIMING_OFFSET_STORAGE_KEY = "alparcade-jubeat-timing-offsets-v1";
+  const SELECTION_STORAGE_KEY = "alparcade-jubeat-selection-v1";
   const TIMING_OFFSET_LIMIT_MS = 400;
   const TIMING_OFFSET_STEP_MS = 25;
   const DEFAULT_TIMING_OFFSET_MS = 25;
@@ -1086,6 +1087,42 @@
     return normalized;
   }
 
+  function loadPulseGridSelection(storage, songs = SONGS) {
+    try {
+      const parsed = JSON.parse(storage?.getItem?.(SELECTION_STORAGE_KEY) || "{}");
+      const availableSongs = Array.isArray(songs) && songs.length ? songs : SONGS;
+      const songIndex = availableSongs.findIndex((item) => item?.id === parsed?.songId);
+      const selectedSong = availableSongs[songIndex >= 0 ? songIndex : 0] || SONGS[0];
+      const difficultyId = selectedSong.custom
+        ? "custom"
+        : Object.prototype.hasOwnProperty.call(DIFFICULTIES, parsed?.difficultyId)
+          ? parsed.difficultyId
+          : "easy";
+      return {
+        songIndex: songIndex >= 0 ? songIndex : 0,
+        difficultyId,
+      };
+    } catch {
+      return { songIndex: 0, difficultyId: "easy" };
+    }
+  }
+
+  function savePulseGridSelection(storage, selectedSong, difficultyId) {
+    const songId = typeof selectedSong?.id === "string" ? selectedSong.id : SONGS[0].id;
+    const normalizedDifficulty = selectedSong?.custom
+      ? "custom"
+      : Object.prototype.hasOwnProperty.call(DIFFICULTIES, difficultyId)
+        ? difficultyId
+        : "easy";
+    const selection = { songId, difficultyId: normalizedDifficulty };
+    try {
+      storage?.setItem?.(SELECTION_STORAGE_KEY, JSON.stringify(selection));
+    } catch {
+      /* Selection still works for the current visit. */
+    }
+    return selection;
+  }
+
   function applyTimingOffset(chart, offsetMs) {
     const leadMs = clampTimingOffset(offsetMs);
     if (!leadMs) return chart;
@@ -1137,6 +1174,9 @@
     let timingOffsets = loadTimingOffsets(chartStorage);
     let customDefinitions = loadCustomChartDefinitions(chartStorage);
     let customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
+    const restoredSelection = loadPulseGridSelection(chartStorage, SONGS.concat(customSongs));
+    songIndex = restoredSelection.songIndex;
+    difficultyId = restoredSelection.difficultyId;
     let editorDraft = null;
     let editorStep = 0;
     let editorRecording = false;
@@ -1154,7 +1194,7 @@
         <section class="jb-setup" id="jb-setup" aria-label="Pulse Grid setup">
           <header class="jb-select-header">
             <span>SELECT MUSIC</span>
-            <strong id="jb-selection-title">${escapeHtml(SONGS[songIndex].title)}</strong>
+            <strong id="jb-selection-title">${escapeHtml(song().title)}</strong>
           </header>
           <div class="jb-song-browser">
             <div class="jb-song-bar" id="jb-songs" role="tablist" aria-label="Pulse Grid songs"></div>
@@ -1577,6 +1617,10 @@
 
     function song() {
       return allSongs()[songIndex] || SONGS[0];
+    }
+
+    function persistSelection() {
+      savePulseGridSelection(chartStorage, song(), difficultyId);
     }
 
     function difficulty() {
@@ -2102,6 +2146,7 @@
       const selectedIndex = allSongs().findIndex((item) => item.customId === definition.id);
       songIndex = selectedIndex >= 0 ? selectedIndex : 0;
       difficultyId = "custom";
+      persistSelection();
       closeEditor();
       paintSongs();
       paintDifficulty();
@@ -2135,6 +2180,7 @@
           songIndex = Number(btn.dataset.s);
           if (song().custom) difficultyId = "custom";
           else if (difficultyId === "custom") difficultyId = "easy";
+          persistSelection();
           closeEditor();
           paintSongs();
           paintDifficulty();
@@ -2160,6 +2206,7 @@
         btn.addEventListener("click", () => {
           if (controlsLocked()) return;
           difficultyId = btn.dataset.difficulty;
+          persistSelection();
           restartPractice();
           paintDifficulty();
           paintSongs();
@@ -3300,6 +3347,7 @@
       customSongs = customDefinitions.map(customSongFromDefinition).filter(Boolean);
       songIndex = 0;
       difficultyId = "easy";
+      persistSelection();
       closeEditor();
       paintSongs();
       paintDifficulty();
@@ -3544,6 +3592,9 @@
     loadTimingOffsets,
     saveTimingOffsets,
     applyTimingOffset,
+    SELECTION_STORAGE_KEY,
+    loadPulseGridSelection,
+    savePulseGridSelection,
     createScoreTracker,
     rankForScore,
     judgeForTap,
