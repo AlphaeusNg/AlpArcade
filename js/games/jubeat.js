@@ -12,6 +12,7 @@
   const TIMING_OFFSET_STORAGE_KEY = "alparcade-jubeat-timing-offsets-v1";
   const TIMING_OFFSET_LIMIT_MS = 400;
   const TIMING_OFFSET_STEP_MS = 25;
+  const DEFAULT_TIMING_OFFSET_MS = 25;
   const CUSTOM_STEP_BEATS = [1, 0.5, 0.25];
   const CUSTOM_START_BEATS = 4;
   const CUSTOM_MAX_STEPS = 2048;
@@ -194,6 +195,12 @@
   function songProgressPercent(time, durationMs) {
     const duration = Math.max(1, Number(durationMs) || 1);
     return Math.max(0, Math.min(100, ((Number(time) || 0) / duration) * 100));
+  }
+
+  function liveSequenceGrade(entries) {
+    const sequence = Array.isArray(entries) ? entries : [];
+    if (!sequence.length || sequence.some((entry) => entry?.grade == null)) return "expected";
+    return sequence.every((entry) => entry.grade === "excellent") ? "excellent" : "hit";
   }
 
   function isDisplayedPerfectAccuracy(accuracy) {
@@ -897,7 +904,6 @@
       audio: AUDIO_BASE + "only-my-railgun.mp3",
       jacket: JACKET_BASE + "only-my-railgun.webp",
       notesHint: "arcade chart transcription",
-      defaultTimingOffsetMs: 100,
       officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));
@@ -1299,8 +1305,8 @@
               <div class="jb-live-track-head">
                 <strong id="jb-live-track-label">SONG MAP</strong>
                 <span class="jb-live-track-legend" aria-hidden="true">
-                  <i class="is-expected"></i> EXPECTED
-                  <i class="is-hit"></i> HIT
+                  <i class="is-expected"></i> CHART
+                  <i class="is-hit"></i> ALL EXC
                 </span>
                 <span class="jb-live-track-count">HITS <b id="jb-live-taps">0 / 0</b></span>
               </div>
@@ -1509,7 +1515,6 @@
     let useAudioClock = false;
     let clockAnchorAudioMs = 0;
     let clockAnchorPerf = 0;
-    let lastAudioSamplePerf = 0;
     let audioSrc = "";
     let loadGen = 0;
     let countInTimers = [];
@@ -1520,6 +1525,7 @@
     let announcementToken = 0;
     let accuracyTimeline = [];
     let accuracyByKey = new Map();
+    let accuracySequences = new Map();
     let runDurationMs = 1000;
     let resolvedTapCount = 0;
     let liveHitCount = 0;
@@ -1554,7 +1560,7 @@
       if (Object.prototype.hasOwnProperty.call(timingOffsets, key)) {
         return clampTimingOffset(timingOffsets[key]);
       }
-      return clampTimingOffset(selected.defaultTimingOffsetMs || 0);
+      return clampTimingOffset(selected.defaultTimingOffsetMs ?? DEFAULT_TIMING_OFFSET_MS);
     }
 
     function formatTimingOffset(value) {
@@ -2546,40 +2552,22 @@
     function nowMs() {
       if (useAudioClock && audioEl) {
         const perf = performance.now();
-        // Track ended: keep advancing with performance.now so late notes can miss/finish
+        // Track ended: keep advancing so late notes can expire and the result can finish.
         if (audioEl.ended) {
           return Math.max(0, clockAnchorAudioMs + (perf - clockAnchorPerf));
         }
         if (audioEl.paused) {
           return clockAnchorAudioMs;
         }
-        // Intro silence: hard hold at 0 (no perf interpolation thrash)
-        try {
-          if (audioEl.currentTime * 1000 < songOffsetMs()) {
-            clockAnchorAudioMs = 0;
-            clockAnchorPerf = perf;
-            lastAudioSamplePerf = perf;
-            return 0;
-          }
-        } catch {
-          /* ignore */
+        // The media clock is the beat clock. Sampling it every frame prevents
+        // performance-clock interpolation error from accumulating through a song.
+        const sampled = sampleAudioMs();
+        if (sampled != null) {
+          clockAnchorAudioMs = sampled;
+          clockAnchorPerf = perf;
+          return sampled;
         }
-        // Resample HTMLAudio ~10×/s; interpolate with performance.now between samples
-        if (perf - lastAudioSamplePerf > 100) {
-          const v = sampleAudioMs();
-          if (v != null) {
-            // Soft catch-up: never jump backward more than a small amount
-            if (v + 40 < clockAnchorAudioMs + (perf - clockAnchorPerf)) {
-              // buffer underrun recovery — re-anchor without large rewind
-              clockAnchorAudioMs = Math.max(v, clockAnchorAudioMs + (perf - clockAnchorPerf) - 80);
-            } else {
-              clockAnchorAudioMs = v;
-            }
-            clockAnchorPerf = perf;
-            lastAudioSamplePerf = perf;
-          }
-        }
-        return Math.max(0, clockAnchorAudioMs + (perf - clockAnchorPerf));
+        return clockAnchorAudioMs;
       }
       return performance.now() - t0;
     }
@@ -2644,20 +2632,16 @@
         1 + (songProgressPercent(entry.noteTime, runDurationMs) / 100) * (tapMapCanvasEl.width - 2)
       );
       const y = 3 + (entry.mapLane || 0) * 12;
-      const missed = grade === "miss";
       const expected = grade === "expected";
+      const allExcellent = grade === "excellent";
       context.save();
-      context.fillStyle = expected
-        ? "rgba(96, 165, 250, 0.62)"
-        : missed
-          ? "rgba(251, 113, 133, 0.96)"
-          : grade === "good"
-            ? "rgba(253, 230, 138, 0.94)"
-            : grade === "great"
-              ? "rgba(245, 158, 11, 1)"
-              : "rgba(251, 191, 36, 1)";
+      context.fillStyle = allExcellent
+        ? "rgba(251, 191, 36, 1)"
+        : expected
+          ? "rgba(96, 165, 250, 0.62)"
+          : "rgba(96, 165, 250, 1)";
       if (!expected) {
-        context.shadowColor = missed ? "rgba(251, 113, 133, 0.8)" : "rgba(251, 191, 36, 0.82)";
+        context.shadowColor = allExcellent ? "rgba(251, 191, 36, 0.82)" : "rgba(96, 165, 250, 0.78)";
         context.shadowBlur = 4;
       }
       context.fillRect(x - (expected ? 1 : 2), y, expected ? 2 : 4, expected ? 7 : 9);
@@ -2681,14 +2665,18 @@
     function resetAccuracyTimeline(events) {
       accuracyTimeline = [];
       accuracyByKey = new Map();
+      accuracySequences = new Map();
       resolvedTapCount = 0;
       liveHitCount = 0;
       let mapIndex = 0;
-      events.forEach((event) => {
+      events.forEach((event, sequenceIndex) => {
+        const sequenceKey = `${event.t}-${sequenceIndex}`;
+        const sequence = [];
         event.panels.forEach((panel) => {
           const key = `${event.t}-${panel}`;
           const entry = {
             key,
+            sequenceKey,
             noteTime: event.t,
             panel,
             mapLane: (panel + mapIndex) % 4,
@@ -2699,7 +2687,9 @@
           mapIndex += 1;
           accuracyTimeline.push(entry);
           accuracyByKey.set(key, entry);
+          sequence.push(entry);
         });
+        accuracySequences.set(sequenceKey, sequence);
       });
       renderLiveTapMap();
     }
@@ -2714,7 +2704,9 @@
         : 0;
       resolvedTapCount += 1;
       if (grade !== "miss") liveHitCount += 1;
-      drawLiveTap(entry, grade);
+      const sequence = accuracySequences.get(entry.sequenceKey) || [entry];
+      const sequenceGrade = liveSequenceGrade(sequence);
+      sequence.forEach((sequenceEntry) => drawLiveTap(sequenceEntry, sequenceGrade));
       updateLiveTapSummary();
       return entry.accuracy;
     }
@@ -3043,7 +3035,6 @@
       useAudioClock = true;
       clockAnchorAudioMs = sampleAudioMs() || 0;
       clockAnchorPerf = perf;
-      lastAudioSamplePerf = perf;
     }
 
     function beginChartClock(fromAudio, leadInMs = 0) {
@@ -3054,7 +3045,6 @@
       useAudioClock = !!fromAudio;
       clockAnchorAudioMs = 0;
       clockAnchorPerf = perf;
-      lastAudioSamplePerf = perf;
       if (useAudioClock) anchorChartToAudio();
       raf = requestAnimationFrame(frame);
     }
@@ -3472,6 +3462,7 @@
     TIMING_OFFSET_STORAGE_KEY,
     TIMING_OFFSET_LIMIT_MS,
     TIMING_OFFSET_STEP_MS,
+    DEFAULT_TIMING_OFFSET_MS,
     normalizeCustomChartDefinition,
     customStepIndexForTime,
     buildCustomChart,
@@ -3488,6 +3479,7 @@
     timingAccuracy,
     songTimelineDuration,
     songProgressPercent,
+    liveSequenceGrade,
     isDisplayedPerfectAccuracy,
     setMarkerProgress,
     bindSlideHits,

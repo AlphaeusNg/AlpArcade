@@ -90,9 +90,17 @@ assert(
 assert(
   source.includes('id="jb-tap-map-canvas"') &&
     source.includes('tapMapCanvasEl.getContext("2d"') &&
-    source.includes("drawLiveTap(entry, grade)") &&
+    source.includes('function drawLiveTap(entry, grade = "expected")') &&
     !source.includes("jb-tap-tick"),
   "Expected taps must update on one low-overhead canvas instead of hundreds of DOM nodes"
+);
+assert(
+  game.liveSequenceGrade([{ grade: "excellent" }, { grade: null }]) === "expected" &&
+    game.liveSequenceGrade([{ grade: "excellent" }, { grade: "great" }]) === "hit" &&
+    game.liveSequenceGrade([{ grade: "excellent" }, { grade: "excellent" }]) === "excellent" &&
+    source.includes("sequence.forEach((sequenceEntry) => drawLiveTap(sequenceEntry, sequenceGrade));") &&
+    source.includes("<i class=\"is-hit\"></i> ALL EXC"),
+  "The live map must turn a sequence gold only when every simultaneous tap is Excellent"
 );
 assert(
   source.includes("1000 / 30") &&
@@ -120,6 +128,14 @@ assert(
     source.includes("runtimeChartFor(s, difficultyId, timingOffsetFor(s))") &&
     gameCss.includes(".jb-timing-calibration"),
   "Each song must expose editable earlier/later tap calibration"
+);
+assert(
+  game.DEFAULT_TIMING_OFFSET_MS === 25 &&
+    game.SONGS.every((song) => song.defaultTimingOffsetMs == null) &&
+    source.includes("const sampled = sampleAudioMs();") &&
+    source.includes("return sampled;") &&
+    !source.includes("perf - lastAudioSamplePerf > 100"),
+  "All songs must default 25 ms early and follow the media beat clock without accumulated interpolation drift"
 );
 const practiceMarkupIndex = source.indexOf('class="jb-practice-row jb-song-practice"');
 const timingMarkupIndex = source.indexOf('class="jb-timing-calibration"');
@@ -260,10 +276,6 @@ const expectedChartHashes = {
 };
 const difficultyIds = ["easy", "medium", "extreme"];
 assert(game.SONGS.length === 5, "Pulse Grid must contain the four originals plus only my railgun");
-assert(
-  game.SONGS.find((song) => song.id === "onlymyrailgun")?.defaultTimingOffsetMs === 100,
-  "Railgun must start with taps calibrated 100 ms earlier"
-);
 for (const song of game.SONGS) {
   const expected = expectedCharts[song.id];
   assert(expected && song.bpm === expected.bpm, `${song.id} BPM must match the arcade chart`);
