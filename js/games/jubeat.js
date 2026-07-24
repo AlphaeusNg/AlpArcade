@@ -1140,6 +1140,14 @@
               <strong id="jb-start-sequence-song"></strong>
             </section>
             <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
+              <div class="jb-results-fx" aria-hidden="true">
+                <i style="--ray:0deg;--delay:0s"></i><i style="--ray:30deg;--delay:.04s"></i>
+                <i style="--ray:60deg;--delay:.08s"></i><i style="--ray:90deg;--delay:.12s"></i>
+                <i style="--ray:120deg;--delay:.16s"></i><i style="--ray:150deg;--delay:.2s"></i>
+                <i style="--ray:180deg;--delay:.24s"></i><i style="--ray:210deg;--delay:.28s"></i>
+                <i style="--ray:240deg;--delay:.32s"></i><i style="--ray:270deg;--delay:.36s"></i>
+                <i style="--ray:300deg;--delay:.4s"></i><i style="--ray:330deg;--delay:.44s"></i>
+              </div>
               <p class="jb-results-kicker" id="jb-results-kicker">TRACK COMPLETE</p>
               <p class="jb-results-score" id="jb-results-score">0</p>
               <p class="jb-results-rank" id="jb-results-rank">RANK</p>
@@ -1238,6 +1246,7 @@
     const startSequenceLabelEl = root.querySelector("#jb-start-sequence-label");
     const startSequenceSongEl = root.querySelector("#jb-start-sequence-song");
     const resultsEl = root.querySelector("#jb-results");
+    const resultsKickerEl = root.querySelector("#jb-results-kicker");
     const resultsScoreEl = root.querySelector("#jb-results-score");
     const resultsRankEl = root.querySelector("#jb-results-rank");
     const resultsComboEl = root.querySelector("#jb-results-combo");
@@ -2400,9 +2409,11 @@
       resultsOpen = true;
       resultsEl.hidden = false;
       resultsEl.className = "jb-results is-open";
+      resultsKickerEl.textContent =
+        rank === "EXC" ? "PERFECT PERFORMANCE" : fullCombo ? "FLAWLESS CHAIN" : "TRACK COMPLETE";
       resultsScoreEl.textContent = "0";
       resultsRankEl.textContent = "RANK";
-      resultsComboEl.textContent = fullCombo ? "FULL COMBO" : "";
+      resultsComboEl.textContent = rank === "EXC" ? "ALL EXCELLENT · FULL COMBO" : fullCombo ? "FULL COMBO" : "";
       resultsAccuracyEl.textContent = `${overallAccuracy().toFixed(1)}%`;
       renderAccuracyTimeline();
       resultsStatsEl.textContent = "";
@@ -2421,12 +2432,22 @@
 
       resultTimers.push(
         setTimeout(() => {
+          if (fullCombo) resultsEl.classList.add("is-full-combo");
+          if (rank === "EXC") resultsEl.classList.add("is-exc");
           resultsEl.classList.add("is-rank-visible");
           resultsRankEl.textContent = rank;
+          const celebrationStartedAt = performance.now();
           announceRank(rank, fullCombo, () => {
             if (!resultsOpen) return;
-            resultsEl.classList.add("is-ready");
-            resultsActionsEl.hidden = false;
+            const minimumCelebrationMs = rank === "EXC" ? 5600 : fullCombo ? 3200 : 0;
+            const remainingMs = Math.max(0, minimumCelebrationMs - (performance.now() - celebrationStartedAt));
+            const revealActions = () => {
+              if (!resultsOpen) return;
+              resultsEl.classList.add("is-ready");
+              resultsActionsEl.hidden = false;
+            };
+            if (remainingMs > 0) resultTimers.push(setTimeout(revealActions, remainingMs));
+            else revealActions();
           });
         }, 1650),
         setTimeout(() => {

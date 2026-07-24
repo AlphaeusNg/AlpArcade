@@ -23,6 +23,12 @@ const assert = (condition, message) => {
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
+assert(
+  source.includes('resultsEl.classList.add("is-full-combo")') &&
+    source.includes('resultsEl.classList.add("is-exc")'),
+  "Pulse Grid must distinguish full-combo and EXC result celebrations"
+);
+assert(source.includes('rank === "EXC" ? 5600'), "EXC celebration must hold longer than a full combo");
 assert(!source.includes("assets/jubeat/panel-"), "Pulse Grid must not load legacy panel art or video");
 assert(!gameCss.includes("assets/jubeat/panel-"), "Pulse Grid CSS must not use legacy panel faces");
 assert(gameCss.includes('content: "PRESS"'), "Neon Ring must expose an explicit press cue");
