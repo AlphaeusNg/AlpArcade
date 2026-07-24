@@ -163,6 +163,13 @@ assert(
   "Every built-in song must use a local jacket asset"
 );
 assert(new Set(game.SONGS.map((song) => song.jacket)).size === game.SONGS.length, "Song jackets must remain unique");
+assert(
+  crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(path.join(root, "assets/jubeat/jackets/only-my-railgun.webp")))
+    .digest("hex") === "f5efaab974b992c4c8312749a8cdd4c2f57880a23fabbb32b187f59bba0046cc",
+  "Railgun must keep the requested RemyWiki jacket artwork"
+);
 
 const slideListeners = new Map();
 const slideCells = Array.from({ length: 4 }, (_, index) => ({
@@ -265,8 +272,13 @@ for (const song of game.SONGS) {
 }
 assert(
   JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
-    JSON.stringify(["imsosohappy", "onlymyrailgun"]),
-  "Railgun and the mismatched extended Happy mix must request exact local game-cut audio"
+    JSON.stringify(["onlymyrailgun"]),
+  "Only Railgun must request exact local game-cut audio"
+);
+assert(
+  game.SONGS.find((song) => song.id === "imsosohappy")?.audio ===
+    "assets/jubeat/audio/imsosohappy.mp3",
+  "I'm so Happy must use its restored bundled audio"
 );
 assert(
   game.SONGS.find((song) => song.id === "onlymyrailgun")?.officialAudioUrl ===

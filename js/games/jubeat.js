@@ -839,11 +839,9 @@
       // Audio position of chart beat zero (the first musical downbeat).
       audioOffsetMs: 580,
       color: "#f472b6",
-      audio: "",
+      audio: AUDIO_BASE + "imsosohappy.mp3",
       jacket: JACKET_BASE + "imsosohappy.webp",
       notesHint: "arcade chart transcription",
-      requiresLocalAudio: true,
-      audioCutLabel: "1:40",
     },
     {
       id: "albida",
