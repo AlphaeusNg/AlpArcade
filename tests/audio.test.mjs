@@ -12,7 +12,12 @@ const context = {
   },
 };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(root, "js/core/audio.js"), "utf8"), context);
+const source = fs.readFileSync(path.join(root, "js/core/audio.js"), "utf8");
+vm.runInContext(source, context);
+
+if (!source.includes("if (unlocked) return !!ac();")) {
+  throw new Error("Audio unlock must be idempotent so rapid game taps do not create silent oscillator nodes");
+}
 
 const seen = [];
 const stop = context.window.ArcadeSFX.onMuteChange((muted) => seen.push(muted));

@@ -257,30 +257,46 @@
     return Math.pow(p, 1.7);
   }
 
-  function setMarkerProgress(el, progress) {
+  function setMarkerProgress(el, progress, markerMode = "all") {
     if (!el) return;
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
-    const irisP = irisVisualProgress(p);
     el.style.setProperty("--jb-p", p.toFixed(4));
-    el.style.setProperty("--jb-door-size", `${(p * 50).toFixed(2)}%`);
-    el.style.setProperty("--jb-iris-door-size", `${(irisP * 50).toFixed(2)}%`);
-    el.style.setProperty("--jb-iris-turn", `${(irisP * 12).toFixed(2)}deg`);
-    el.style.setProperty("--jb-iris-scale", (0.15 + irisP * 0.95).toFixed(4));
-    el.style.setProperty("--jb-marker-opacity", (0.25 + irisP * 0.75).toFixed(4));
-    el.style.setProperty("--jb-iris-touch-opacity", Math.max(0, (irisP - 0.5) / 0.5).toFixed(4));
-    el.style.setProperty("--jb-iris-touch-gap", `${((1 - irisP) * 2.8).toFixed(3)}em`);
-    el.style.setProperty("--jb-touch-opacity", Math.max(0, (p - 0.5) / 0.5).toFixed(4));
-    el.style.setProperty("--jb-touch-gap", `${((1 - p) * 2.8).toFixed(3)}em`);
-    const ringP = Math.min(1, p / JUDGE_PROGRESS.great);
-    const ringReadyP = p >= JUDGE_PROGRESS.great ? 1 : 0;
-    el.style.setProperty("--jb-ring-opacity", (0.42 + ringP * 0.58).toFixed(4));
-    el.style.setProperty("--jb-ring-scale", (1.9 - ringP * 0.9).toFixed(4));
-    el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
-    el.style.setProperty("--jb-ring-ready-opacity", ringReadyP.toFixed(4));
-    el.style.setProperty("--jb-ring-ready-scale", (0.72 + ringReadyP * 0.28).toFixed(4));
-    el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
-    el.style.setProperty("--jb-sweep-core-scale", (0.35 + p * 0.65).toFixed(4));
-    el.style.setProperty("--jb-sweep-core-opacity", Math.max(0, (p - 0.58) / 0.42).toFixed(4));
+
+    if (markerMode === "stealth") return;
+
+    if (markerMode === "shutter" || markerMode === "all") {
+      el.style.setProperty("--jb-door-size", `${(p * 50).toFixed(2)}%`);
+      el.style.setProperty("--jb-touch-opacity", Math.max(0, (p - 0.5) / 0.5).toFixed(4));
+      el.style.setProperty("--jb-touch-gap", `${((1 - p) * 2.8).toFixed(3)}em`);
+    }
+
+    if (markerMode === "iris" || markerMode === "all") {
+      const irisP = irisVisualProgress(p);
+      el.style.setProperty("--jb-iris-door-size", `${(irisP * 50).toFixed(2)}%`);
+      el.style.setProperty("--jb-iris-turn", `${(irisP * 12).toFixed(2)}deg`);
+      el.style.setProperty("--jb-iris-scale", (0.15 + irisP * 0.95).toFixed(4));
+      el.style.setProperty("--jb-marker-opacity", (0.25 + irisP * 0.75).toFixed(4));
+      el.style.setProperty("--jb-iris-touch-opacity", Math.max(0, (irisP - 0.5) / 0.5).toFixed(4));
+      el.style.setProperty("--jb-iris-touch-gap", `${((1 - irisP) * 2.8).toFixed(3)}em`);
+    }
+
+    if (markerMode === "ring" || markerMode === "all") {
+      const ringP = Math.min(1, p / JUDGE_PROGRESS.great);
+      const ringReadyP = p >= JUDGE_PROGRESS.great ? 1 : 0;
+      el.style.setProperty("--jb-ring-opacity", (0.42 + ringP * 0.58).toFixed(4));
+      el.style.setProperty("--jb-ring-scale", (1.9 - ringP * 0.9).toFixed(4));
+      el.style.setProperty("--jb-ring-turn", `${(p * 180).toFixed(2)}deg`);
+      el.style.setProperty("--jb-ring-ready-opacity", ringReadyP.toFixed(4));
+      el.style.setProperty("--jb-ring-ready-scale", (0.72 + ringReadyP * 0.28).toFixed(4));
+    }
+
+    if (markerMode === "sweep" || markerMode === "all") {
+      el.style.setProperty("--jb-sweep-position", `${(p * 50).toFixed(2)}%`);
+      el.style.setProperty("--jb-sweep-core-scale", (0.35 + p * 0.65).toFixed(4));
+      el.style.setProperty("--jb-sweep-core-opacity", Math.max(0, (p - 0.58) / 0.42).toFixed(4));
+    }
+
+    if (markerMode !== "flower" && markerMode !== "all") return;
     const flowerP = Math.max(0, Math.min(1, (p - 0.34) / 0.66));
     const flowerTurn = -150 + flowerP * 150;
     el.style.setProperty("--jb-flower-opacity", Math.min(1, flowerP * 1.8).toFixed(4));
@@ -407,6 +423,9 @@
       this.judgeTimer = null;
       this.judgeAnimation = null;
       this.emptyTimer = null;
+      this.markerMode = "all";
+      this.markerVisible = false;
+      this.lastMarkerStep = -1;
       /** @type {{ t: number, key: string }[]} notes waiting on this panel */
       this.queue = [];
       el.addEventListener("pointerdown", (e) => {
@@ -416,14 +435,19 @@
     }
 
     /** Spawning / active notes on this panel only. */
-    addNote(hitTime, key) {
-      if (this.queue.some((n) => n.key === key)) return;
-      this.queue.push({ t: hitTime, key });
-      this.queue.sort((a, b) => a.t - b.t);
+    addNote(noteOrTime, key) {
+      const next =
+        noteOrTime && typeof noteOrTime === "object"
+          ? noteOrTime
+          : { t: noteOrTime, key };
+      if (!Number.isFinite(next.t) || this.queue[this.queue.length - 1]?.key === next.key) return;
+      // Chart events are pre-sorted, so append without rescanning and resorting.
+      this.queue.push(next);
     }
 
     removeNote(key) {
-      this.queue = this.queue.filter((n) => n.key !== key);
+      const index = this.queue.findIndex((note) => note.key === key);
+      if (index >= 0) this.queue.splice(index, 1);
     }
 
     soonest() {
@@ -440,11 +464,15 @@
 
     /** Expire untouched notes after the shutter closes. */
     expireMisses(t, onMiss) {
-      const late = this.queue.filter((n) => t - n.t > MISS_AFTER_MS);
-      for (const n of late) {
-        this.removeNote(n.key);
-        onMiss(n);
+      while (this.queue.length && t - this.queue[0].t > MISS_AFTER_MS) {
+        onMiss(this.queue.shift());
       }
+    }
+
+    setMarkerMode(mode) {
+      this.markerMode = MARKER_MODES.some((marker) => marker.id === mode) ? mode : "all";
+      this.lastMarkerStep = -1;
+      if (this.markerVisible) this.syncMarker(this.soonest()?.t || 0);
     }
 
     /**
@@ -455,16 +483,26 @@
     syncMarker(t, approachMs = DIFFICULTIES.extreme.approachMs) {
       const soonest = this.soonest();
       if (!soonest) {
-        if (performance.now() >= this.judgeUntil) {
+        if (this.markerVisible && performance.now() >= this.judgeUntil) {
+          this.markerVisible = false;
+          this.lastMarkerStep = 0;
           this.el.classList.remove("is-approach", "is-armed");
-          setMarkerProgress(this.el, 0);
+          setMarkerProgress(this.el, 0, this.markerMode);
         }
         return;
       }
       const start = soonest.t - approachMs;
       const p = Math.max(0, Math.min(1, (t - start) / approachMs));
-      this.el.classList.add("is-approach", "is-armed");
-      setMarkerProgress(this.el, p);
+      if (!this.markerVisible) {
+        this.markerVisible = true;
+        this.el.classList.add("is-approach", "is-armed");
+      }
+      // 120 visual steps are finer than a 60 Hz frame while avoiding duplicate
+      // style invalidations when multiple callbacks land in the same interval.
+      const markerStep = Math.round(p * 120);
+      if (markerStep === this.lastMarkerStep) return;
+      this.lastMarkerStep = markerStep;
+      setMarkerProgress(this.el, markerStep / 120, this.markerMode);
     }
 
     clearJudgeVisual() {
@@ -497,8 +535,10 @@
       if (this.soonest()) {
         this.syncMarker(nowMsFn(), approachMs);
       } else {
+        this.markerVisible = false;
+        this.lastMarkerStep = 0;
         this.el.classList.remove("is-approach", "is-armed");
-        setMarkerProgress(this.el, 0);
+        setMarkerProgress(this.el, 0, this.markerMode);
       }
 
       if (this.judgeEl) {
@@ -536,13 +576,15 @@
 
     reset() {
       this.queue = [];
+      this.markerVisible = false;
+      this.lastMarkerStep = 0;
       this.clearJudgeVisual();
       if (this.emptyTimer) {
         clearTimeout(this.emptyTimer);
         this.emptyTimer = null;
       }
       this.el.classList.remove("is-armed", "is-hit", "is-miss", "is-approach", ...JUDGE_CLASSES);
-      setMarkerProgress(this.el, 0);
+      setMarkerProgress(this.el, 0, this.markerMode);
     }
 
     destroy() {
@@ -1598,7 +1640,10 @@
     }
     const stopSlideHits = bindSlideHits(grid, (index) => onPanel(index));
     const practicePanel = new Panel(-1, practiceCellEl, practiceTap);
-    setMarkerProgress(practiceCellEl, 0);
+    const activePanels = new Set();
+    panels.forEach((panel) => panel.setMarkerMode(markerId));
+    practicePanel.setMarkerMode(markerId);
+    setMarkerProgress(practiceCellEl, 0, markerId);
 
     let running = false;
     let paused = false;
@@ -1633,6 +1678,7 @@
     let accuracyByKey = new Map();
     let accuracySequences = new Map();
     let runDurationMs = 1000;
+    let runApproachMs = DIFFICULTIES.easy.approachMs;
     let resolvedTapCount = 0;
     let liveHitCount = 0;
     let tapMapContext = null;
@@ -1640,6 +1686,7 @@
     let lastProgressPercent = -1;
     let lastProgressAria = -1;
     let comboPulseAnimation = null;
+    let lastBlipAt = -Infinity;
     let practiceLastPaintMs = -Infinity;
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
@@ -2360,6 +2407,8 @@
           markerId = btn.dataset.marker;
           grid.dataset.marker = markerId;
           markerPracticeEl.dataset.marker = markerId;
+          panels.forEach((panel) => panel.setMarkerMode(markerId));
+          practicePanel.setMarkerMode(markerId);
           restartPractice();
           paintMarkerModes();
           paintMeta();
@@ -2490,10 +2539,10 @@
       const showingJudge = now < practicePanel.judgeUntil;
       if (!showingJudge && progress != null) {
         practiceCellEl.classList.add("is-approach", "is-armed");
-        setMarkerProgress(practiceCellEl, progress);
+        setMarkerProgress(practiceCellEl, progress, markerId);
       } else {
         practiceCellEl.classList.remove("is-approach", "is-armed");
-        setMarkerProgress(practiceCellEl, 0);
+        setMarkerProgress(practiceCellEl, 0, markerId);
       }
       practiceRaf = requestAnimationFrame(animatePractice);
     }
@@ -2718,6 +2767,12 @@
 
     function blip(freq, dur = 0.05, gain = 0.03) {
       try {
+        if (global.ArcadeSFX?.isMuted?.()) return;
+        const requestedAt = performance.now();
+        // Treat near-simultaneous chord taps as one audible event. This avoids
+        // constructing a burst of Web Audio nodes for every panel in a chord.
+        if (requestedAt - lastBlipAt < 12) return;
+        lastBlipAt = requestedAt;
         if (!audioCtx) {
           const C = window.AudioContext || window.webkitAudioContext;
           if (!C) return;
@@ -2789,9 +2844,7 @@
     }
 
     function activeNoteCount() {
-      let n = 0;
-      for (const p of panels) n += p.queue.length;
-      return n;
+      return activePanels.size;
     }
 
     function paintSongProgress(time, force = false) {
@@ -2888,8 +2941,10 @@
       events.forEach((event, sequenceIndex) => {
         const sequenceKey = `${event.t}-${sequenceIndex}`;
         const sequence = [];
+        event.runtimeNotes = [];
         event.panels.forEach((panel) => {
           const key = `${event.t}-${panel}`;
+          event.runtimeNotes.push({ t: event.t, key, panel });
           const entry = {
             key,
             sequenceKey,
@@ -2916,7 +2971,7 @@
       entry.grade = grade;
       entry.deltaMs = Number.isFinite(tapTime) ? Math.round(tapTime - n.t) : null;
       entry.accuracy = Number.isFinite(tapTime)
-        ? timingAccuracy(n.t, tapTime, difficulty().approachMs)
+        ? timingAccuracy(n.t, tapTime, runApproachMs)
         : 0;
       resolvedTapCount += 1;
       if (grade !== "miss") liveHitCount += 1;
@@ -2983,9 +3038,8 @@
       missEl.textContent = String(counts.miss);
       combo = 0;
       paintCombo();
-      panel.setJudge("MISS", "miss", nowMs, difficulty().approachMs);
+      panel.setJudge("MISS", "miss", nowMs, runApproachMs);
       if (srJudgeEl) srJudgeEl.textContent = "MISS";
-      global.ArcadeSFX?.foul?.() || global.ArcadeSFX?.tick?.();
       blip(120, 0.05, 0.025);
     }
 
@@ -2995,8 +3049,7 @@
       const panel = panels[i];
       if (!panel) return;
       const t = nowMs();
-      const diff = difficulty();
-      const judgment = panel.judgeTap(t, diff.approachMs);
+      const judgment = panel.judgeTap(t, runApproachMs);
       if (!judgment) {
         // Truly empty panels stay harmless; an armed early note is judged MISS.
         panel.flashEmpty();
@@ -3007,6 +3060,7 @@
       const { note: best, grade, label, perfect } = judgment;
       if (grade === "miss") {
         panel.removeNote(best.key);
+        if (!panel.soonest()) activePanels.delete(panel);
         registerMiss(best, panel, t);
         return;
       }
@@ -3014,15 +3068,12 @@
       if (grade === "excellent") {
         counts.excellent += 1;
         blip(perfect ? 1040 + (i % 4) * 40 : 880 + (i % 4) * 40, 0.04, 0.03);
-        global.ArcadeSFX?.match?.() || global.ArcadeSFX?.go?.();
       } else if (grade === "great") {
         counts.great += 1;
         blip(660, 0.04, 0.028);
-        global.ArcadeSFX?.click?.();
       } else {
         counts.good += 1;
         blip(440, 0.04, 0.025);
-        global.ArcadeSFX?.tick?.();
       }
 
       combo += 1;
@@ -3034,7 +3085,8 @@
       paintCombo();
       excEl.textContent = String(counts.excellent);
       panel.removeNote(best.key);
-      panel.setJudge(label, grade, nowMs, diff.approachMs);
+      if (!panel.soonest()) activePanels.delete(panel);
+      panel.setJudge(label, grade, nowMs, runApproachMs);
       if (srJudgeEl) srJudgeEl.textContent = label;
     }
 
@@ -3220,6 +3272,7 @@
       clearCountIn();
       paintSongProgress(runDurationMs, true);
       panels.forEach((p) => p.reset());
+      activePanels.clear();
       startBtn.disabled = true;
       startBtn.textContent = "Play again";
       const s = song();
@@ -3271,18 +3324,24 @@
         visualInterval === 0 || t < lastVisualPaintMs || t - lastVisualPaintMs >= visualInterval;
       if (paintVisuals) lastVisualPaintMs = t;
 
-      while (chartIndex < ch.length && ch[chartIndex].t <= t + difficulty().approachMs) {
+      while (chartIndex < ch.length && ch[chartIndex].t <= t + runApproachMs) {
         const n = ch[chartIndex++];
-        n.panels.forEach((p) => {
-          const key = `${n.t}-${p}`;
-          panels[p]?.addNote(n.t, key);
+        n.runtimeNotes.forEach((note) => {
+          const panel = panels[note.panel];
+          panel?.addNote(note);
+          if (panel) activePanels.add(panel);
         });
       }
 
-      for (const panel of panels) {
+      for (const panel of activePanels) {
         if (!running || submitted) break;
         panel.expireMisses(t, (n) => registerMiss(n, panel));
-        if (paintVisuals) panel.syncMarker(t, difficulty().approachMs);
+        if (!panel.soonest()) {
+          activePanels.delete(panel);
+          panel.syncMarker(t, runApproachMs);
+        } else if (paintVisuals) {
+          panel.syncMarker(t, runApproachMs);
+        }
       }
 
       if (paintVisuals) paintSongProgress(t);
@@ -3409,10 +3468,13 @@
       cancelAnimationFrame(raf);
       clearCountIn();
       panels.forEach((p) => p.reset());
+      activePanels.clear();
       stopBgm();
       duckLobbyMusic(true);
       primeResultAudio();
       const s = song();
+      const diff = difficulty();
+      runApproachMs = diff.approachMs;
       chart = runtimeChartFor(s, difficultyId, timingOffsetFor(s));
       runDurationMs = songTimelineDuration(s, chart);
       resetAccuracyTimeline(chart);
@@ -3445,7 +3507,6 @@
       const chartSeconds = runDurationMs / 1000;
       const mins = Math.round(chartSeconds / 6) / 10;
       const noteCount = chart.reduce((n, ev) => n + ev.panels.length, 0);
-      const diff = difficulty();
       const level = levelFor(s);
       hintEl.hidden = false;
       hintEl.textContent = `${s.title} · ${diff.label} ${level} · ${s.bpm} BPM · ~${mins} min · ${noteCount} hits · follow the beat`;

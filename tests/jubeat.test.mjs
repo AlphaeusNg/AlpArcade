@@ -377,6 +377,25 @@ assert(
     markerProperties.get("--jb-ring-ready-opacity") === "1.0000",
   "Neon Ring must meet its target and show PRESS when Excellent begins"
 );
+markerProperties.clear();
+game.setMarkerProgress(markerFixture, 0.5, "flower");
+assert(
+  markerProperties.size <= 12 &&
+    markerProperties.has("--jb-flower-scale") &&
+    !markerProperties.has("--jb-iris-scale") &&
+    !markerProperties.has("--jb-ring-scale"),
+  "A live marker must update only the CSS properties used by its selected design"
+);
+assert(
+  source.includes("const activePanels = new Set();") &&
+    source.includes("event.runtimeNotes = [];") &&
+    source.includes("for (const panel of activePanels)") &&
+    !source.includes("this.queue.sort(") &&
+    !source.includes("this.queue.filter(") &&
+    gameCss.includes("@media (pointer: coarse)") &&
+    gameCss.includes("contain: layout paint style"),
+  "Dense charts must prebuild note objects and render only active panels with touch-device containment"
+);
 assert(game.judgeForTap(1000, 499, 1000).grade === "miss", "Early taps must miss below 50%");
 assert(game.judgeForTap(1000, 500, 1000).grade === "good", "The 50% boundary must be GOOD");
 assert(!game.isDisplayedPerfectAccuracy(99.949), "99.9% display hits must not unlock Perfect Pulse");

@@ -108,6 +108,7 @@
     },
     /** Call from a click / key / pointer handler before playing tones. */
     unlock() {
+      if (unlocked) return !!ac();
       unlocked = true;
       const c = ac();
       if (!c) return false;
