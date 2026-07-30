@@ -35,10 +35,28 @@ const screenContext = {
     requestAnimationFrame: () => 1,
     cancelAnimationFrame() {},
   },
-  document: { fullscreenElement: null, webkitFullscreenElement: null },
+  document: {
+    documentElement: { classList: { add() {}, remove() {} } },
+    body: {
+      classList: { add() {}, remove() {} },
+      style: { setProperty() {}, removeProperty() {} },
+    },
+    dispatchEvent() {},
+  },
+  CustomEvent: class {
+    constructor(type, init) {
+      this.type = type;
+      this.detail = init?.detail;
+    }
+  },
 };
 vm.createContext(screenContext);
 vm.runInContext(gameScreenSource, screenContext);
+assert(
+  !gameScreenSource.includes("requestFullscreen") &&
+    !gameScreenSource.includes("webkitRequestFullscreen"),
+  "Game view lock must not invoke native fullscreen APIs"
+);
 const screenRootFixture = {
   closest: (selector) => (selector === "#play-view" ? playViewFixture : null),
 };
@@ -46,10 +64,10 @@ assert(
   screenContext.window.ArcadeGameScreen.shouldUseDocumentScroll(screenRootFixture),
   "Phone cabinet play must use the outer document scroller"
 );
-screenContext.document.fullscreenElement = playViewFixture;
+screenContext.window.ArcadeGameScreen.enterFullscreen(playViewFixture);
 assert(
   !screenContext.window.ArcadeGameScreen.shouldUseDocumentScroll(screenRootFixture),
-  "Fullscreen phone play must keep the stable cabinet lock"
+  "Locked phone play must keep the stable cabinet lock"
 );
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");

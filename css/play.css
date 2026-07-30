@@ -62,7 +62,24 @@
   scrollbar-gutter: stable;
 }
 
+html.is-game-view-locked,
+body.is-game-view-locked {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.is-game-view-locked {
+  position: fixed;
+  top: var(--game-view-scroll-offset, 0);
+  right: 0;
+  left: 0;
+  width: 100%;
+}
+
 #play-view.is-app-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -143,4 +160,3 @@
   gap: 0.5rem;
   margin-top: 1rem;
 }
-

@@ -3510,8 +3510,7 @@
       }
     }
     window.addEventListener("keydown", onKey);
-    document.addEventListener("fullscreenchange", onJubeatFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", onJubeatFullscreenChange);
+    document.addEventListener("arcadegamescreenchange", onJubeatFullscreenChange);
     practiceCellEl.addEventListener("click", (event) => {
       if (event.detail === 0) practiceTap();
     });
@@ -3556,8 +3555,7 @@
         localAudioUrls.clear();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
-        document.removeEventListener("fullscreenchange", onJubeatFullscreenChange);
-        document.removeEventListener("webkitfullscreenchange", onJubeatFullscreenChange);
+        document.removeEventListener("arcadegamescreenchange", onJubeatFullscreenChange);
         stopMuteSync();
         restoreFullscreenButton({ show: true });
         try {

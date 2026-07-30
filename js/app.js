@@ -1289,19 +1289,18 @@
   });
 
   const fullscreenButton = $("#btn-fullscreen");
-  let fullscreenExitAt = -Infinity;
   window.ArcadeGameScreen?.guardFullscreenGestures?.(playView);
 
   function syncFullscreenUi() {
     const active = window.ArcadeGameScreen?.isFullscreen?.(playView) || false;
-    const wasActive = playView.classList.contains("is-app-fullscreen");
-    if (wasActive && !active) fullscreenExitAt = performance.now();
     playView.classList.toggle("is-app-fullscreen", active);
     if (fullscreenButton) {
       fullscreenButton.hidden = !window.ArcadeGameScreen?.isFullscreenSupported?.(playView);
       fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
-      fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
-      fullscreenButton.title = active ? "Exit fullscreen" : "Enter fullscreen";
+      fullscreenButton.setAttribute("aria-label", active ? "Unlock game view" : "Lock game view");
+      fullscreenButton.title = active
+        ? "Unlock game view"
+        : "Lock game view to prevent accidental scrolling";
     }
     lockActiveCabinetScreen();
     if (active) {
@@ -1316,11 +1315,9 @@
     const action = window.ArcadeGameScreen?.isFullscreen?.(playView)
       ? window.ArcadeGameScreen.exitFullscreen(playView)
       : window.ArcadeGameScreen?.enterFullscreen?.(playView);
-    action?.catch?.(() => showToast("Fullscreen unavailable"));
+    action?.catch?.(() => showToast("Game view unavailable"));
   });
-  document.addEventListener("fullscreenchange", syncFullscreenUi);
-  document.addEventListener("webkitfullscreenchange", syncFullscreenUi);
-  document.addEventListener("fullscreenerror", () => showToast("Fullscreen unavailable"));
+  document.addEventListener("arcadegamescreenchange", syncFullscreenUi);
   syncFullscreenUi();
 
   function openHelp() {
@@ -1355,8 +1352,11 @@
       return;
     }
     if (playView?.hidden) return;
-    if (window.ArcadeGameScreen?.isFullscreen?.(playView)) return;
-    if (performance.now() - fullscreenExitAt < 600) return;
+    if (window.ArcadeGameScreen?.isFullscreen?.(playView)) {
+      e.preventDefault();
+      window.ArcadeGameScreen.exitFullscreen(playView);
+      return;
+    }
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     e.preventDefault();

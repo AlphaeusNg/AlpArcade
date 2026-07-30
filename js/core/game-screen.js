@@ -5,6 +5,9 @@
 (function (global) {
   "use strict";
 
+  let activePlayView = null;
+  let lockedScrollY = 0;
+
   function shouldUseDocumentScroll(root) {
     const playView = root?.closest?.("#play-view");
     return (
@@ -71,41 +74,41 @@
     };
   }
 
-  function fullscreenElement() {
-    return document.fullscreenElement || document.webkitFullscreenElement || null;
-  }
-
   function isFullscreen(root) {
-    const active = fullscreenElement();
-    return root ? active === root : !!active;
+    return root ? activePlayView === root : !!activePlayView;
   }
 
   function isFullscreenSupported(root) {
-    return !!(root?.requestFullscreen || root?.webkitRequestFullscreen);
+    return !!root;
+  }
+
+  function announceScreenChange() {
+    document.dispatchEvent(new CustomEvent("arcadegamescreenchange", {
+      detail: { active: !!activePlayView },
+    }));
   }
 
   function enterFullscreen(root) {
     if (!root || isFullscreen(root)) return Promise.resolve();
-    const request = root.requestFullscreen || root.webkitRequestFullscreen;
-    if (!request) return Promise.reject(new Error("Fullscreen is not supported"));
-    try {
-      const result = request.call(root, { navigationUI: "hide" });
-      return result?.then ? result : Promise.resolve();
-    } catch (error) {
-      return Promise.reject(error);
-    }
+    if (activePlayView) exitFullscreen(activePlayView);
+    lockedScrollY = Math.max(0, global.scrollY || 0);
+    activePlayView = root;
+    document.documentElement.classList.add("is-game-view-locked");
+    document.body.classList.add("is-game-view-locked");
+    document.body.style.setProperty("--game-view-scroll-offset", `${-lockedScrollY}px`);
+    announceScreenChange();
+    return Promise.resolve();
   }
 
   function exitFullscreen(root) {
-    if (!isFullscreen(root)) return Promise.resolve();
-    const exit = document.exitFullscreen || document.webkitExitFullscreen;
-    if (!exit) return Promise.resolve();
-    try {
-      const result = exit.call(document);
-      return result?.then ? result : Promise.resolve();
-    } catch (error) {
-      return Promise.reject(error);
-    }
+    if (!activePlayView || (root && activePlayView !== root)) return Promise.resolve();
+    activePlayView = null;
+    document.documentElement.classList.remove("is-game-view-locked");
+    document.body.classList.remove("is-game-view-locked");
+    document.body.style.removeProperty("--game-view-scroll-offset");
+    global.scrollTo(0, lockedScrollY);
+    announceScreenChange();
+    return Promise.resolve();
   }
 
   function guardFullscreenGestures(root) {
