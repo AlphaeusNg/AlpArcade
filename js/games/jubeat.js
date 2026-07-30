@@ -1170,7 +1170,7 @@
     return applyTimingOffset(adjusted, timingOffsetMs);
   }
 
-  function mount(root, { onScore }) {
+  function mount(root, { onScore, onExit }) {
     let songIndex = 0;
     let difficultyId = "easy";
     let markerId = "flower";
@@ -1380,6 +1380,12 @@
             <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
           </div>
           <div class="jb-meta mono" id="jb-meta"></div>
+          <div class="jb-run-controls" id="jb-run-controls" hidden>
+            <button type="button" class="jb-pause-btn" id="jb-pause" aria-label="Pause song" aria-pressed="false" hidden>
+              <span aria-hidden="true">Ⅱ</span>
+              <span>Pause</span>
+            </button>
+          </div>
           <div class="jb-stage">
             <section class="jb-live-track" id="jb-live-track" aria-labelledby="jb-live-track-label">
               <div class="jb-live-track-head">
@@ -1411,6 +1417,15 @@
               <div class="jb-loading-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
               <p id="jb-start-sequence-label">LOADING</p>
               <strong id="jb-start-sequence-song"></strong>
+            </section>
+            <section class="jb-pause-overlay" id="jb-pause-overlay" role="dialog" aria-modal="true" aria-labelledby="jb-pause-title" hidden>
+              <p class="jb-pause-kicker">SONG PAUSED</p>
+              <h3 id="jb-pause-title">Take a breather</h3>
+              <div class="jb-pause-actions">
+                <button type="button" class="btn primary" id="jb-resume">Resume</button>
+                <button type="button" class="btn ghost" id="jb-restart-song">Restart song</button>
+                <button type="button" class="btn ghost jb-exit-song" id="jb-exit-song">Exit to lobby</button>
+              </div>
             </section>
             <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
               <div class="jb-results-fx" aria-hidden="true">
@@ -1537,6 +1552,12 @@
     const startSequenceEl = root.querySelector("#jb-start-sequence");
     const startSequenceLabelEl = root.querySelector("#jb-start-sequence-label");
     const startSequenceSongEl = root.querySelector("#jb-start-sequence-song");
+    const runControlsEl = root.querySelector("#jb-run-controls");
+    const pauseBtn = root.querySelector("#jb-pause");
+    const pauseOverlayEl = root.querySelector("#jb-pause-overlay");
+    const resumeBtn = root.querySelector("#jb-resume");
+    const restartSongBtn = root.querySelector("#jb-restart-song");
+    const exitSongBtn = root.querySelector("#jb-exit-song");
     const resultsEl = root.querySelector("#jb-results");
     const resultsKickerEl = root.querySelector("#jb-results-kicker");
     const resultsScoreEl = root.querySelector("#jb-results-score");
@@ -1580,6 +1601,10 @@
     setMarkerProgress(practiceCellEl, 0);
 
     let running = false;
+    let paused = false;
+    let pauseAvailable = false;
+    let pausedAtMs = 0;
+    let resumeWithAudio = false;
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
@@ -1722,6 +1747,108 @@
         startSequenceEl.hidden = true;
         startSequenceEl.className = "jb-start-sequence";
       }
+    }
+
+    function syncPauseUi({ focusResume = false } = {}) {
+      const canPause = running && clockStarted && pauseAvailable && !submitted;
+      runControlsEl.hidden = !canPause || paused;
+      pauseBtn.hidden = !canPause || paused;
+      pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+      pauseOverlayEl.hidden = !paused;
+      playfieldEl.classList.toggle("is-paused", paused);
+      grid.setAttribute("aria-disabled", paused ? "true" : "false");
+      if (focusResume && paused) resumeBtn.focus({ preventScroll: true });
+    }
+
+    function resetPauseState() {
+      paused = false;
+      pauseAvailable = false;
+      pausedAtMs = 0;
+      resumeWithAudio = false;
+      syncPauseUi();
+    }
+
+    function pauseSong() {
+      if (!running || submitted || paused || !clockStarted || !pauseAvailable) return;
+      pausedAtMs = nowMs();
+      resumeWithAudio =
+        !!audioEl &&
+        !!song().audio &&
+        audioSrc === song().audio &&
+        audioEl.readyState >= 1 &&
+        !audioEl.ended;
+      paused = true;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      clockAnchorAudioMs = pausedAtMs;
+      clockAnchorPerf = performance.now();
+      try {
+        audioEl?.pause();
+      } catch {
+        resumeWithAudio = false;
+      }
+      if (musicNoteEl) musicNoteEl.textContent = `Paused · ${song().title}`;
+      syncPauseUi({ focusResume: true });
+    }
+
+    function resumeSong() {
+      if (!running || submitted || !paused) return;
+      const resumeAt = pausedAtMs;
+      const resumePerf = performance.now();
+      paused = false;
+      t0 = resumePerf - resumeAt;
+      syncPauseUi();
+      if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${song().title}`;
+
+      if (resumeWithAudio && audioEl) {
+        try {
+          const playback = audioEl.play();
+          if (playback?.then) {
+            playback
+              .then(() => {
+                if (!running || submitted || paused || destroyed) {
+                  if (paused) audioEl.pause();
+                  return;
+                }
+                anchorChartToAudio();
+              })
+              .catch(() => {
+                if (!running || submitted || paused || destroyed) return;
+                useAudioClock = false;
+                t0 = performance.now() - resumeAt;
+              });
+          } else {
+            anchorChartToAudio();
+          }
+        } catch {
+          useAudioClock = false;
+          t0 = performance.now() - resumeAt;
+        }
+      } else {
+        useAudioClock = false;
+      }
+      resumeWithAudio = false;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(frame);
+      pauseBtn.focus({ preventScroll: true });
+    }
+
+    function restartSong() {
+      if (!running || submitted) return;
+      running = false;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      clearCountIn();
+      resetPauseState();
+      panels.forEach((panel) => panel.reset());
+      stopBgm();
+      startBtn.disabled = false;
+      start();
+    }
+
+    function exitSongToLobby() {
+      if (!paused) return;
+      onExit?.();
     }
 
     function duckLobbyMusic(on) {
@@ -2850,7 +2977,7 @@
     }
 
     function registerMiss(n, panel, tapTime = null) {
-      if (!running || submitted) return;
+      if (!running || submitted || paused) return;
       recordAccuracy(n, "miss", tapTime);
       counts.miss += 1;
       missEl.textContent = String(counts.miss);
@@ -2864,7 +2991,7 @@
 
     function onPanel(i) {
       global.ArcadeSFX?.unlock?.();
-      if (!running || !clockStarted) return;
+      if (!running || !clockStarted || paused) return;
       const panel = panels[i];
       if (!panel) return;
       const t = nowMs();
@@ -3089,6 +3216,7 @@
       submitted = true;
       running = false;
       cancelAnimationFrame(raf);
+      resetPauseState();
       clearCountIn();
       paintSongProgress(runDurationMs, true);
       panels.forEach((p) => p.reset());
@@ -3135,7 +3263,7 @@
     }
 
     function frame() {
-      if (!running || submitted) return;
+      if (!running || submitted || paused) return;
       const t = nowMs();
       const ch = chart;
       const visualInterval = phoneAnimationMedia?.matches ? 1000 / 30 : 0;
@@ -3231,10 +3359,12 @@
       // window first so those opening markers animate from 0% to the downbeat.
       const leadInMs = difficulty().approachMs;
       beginChartClock(false, leadInMs);
-      if (!audioReady || !audioEl) return;
       countInTimers.push(
         setTimeout(() => {
           if (!running || destroyed || submitted) return;
+          pauseAvailable = true;
+          syncPauseUi();
+          if (!audioReady || !audioEl) return;
           try {
             audioEl.currentTime = songOffsetMs() / 1000;
             audioEl.volume = 1;
@@ -3291,6 +3421,7 @@
       lastProgressAria = -1;
       chartIndex = 0;
       running = true;
+      resetPauseState();
       clockStarted = false;
       useAudioClock = false;
       submitted = false;
@@ -3450,6 +3581,10 @@
     editorSaveBtn.addEventListener("click", () => saveEditor());
     editorTestBtn.addEventListener("click", () => saveEditor({ test: true }));
     startBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", pauseSong);
+    resumeBtn.addEventListener("click", resumeSong);
+    restartSongBtn.addEventListener("click", restartSong);
+    exitSongBtn.addEventListener("click", exitSongToLobby);
     resultsRetryBtn.addEventListener("click", () => {
       clearResults();
       stopBgm();
@@ -3477,6 +3612,12 @@
 
     function onKey(e) {
       if (resultsOpen) return;
+      if (e.key.toLowerCase() === "p" && running && clockStarted && pauseAvailable) {
+        e.preventDefault();
+        if (paused) resumeSong();
+        else pauseSong();
+        return;
+      }
       const map = {
         "1": 0,
         "2": 1,

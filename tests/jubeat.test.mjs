@@ -273,6 +273,19 @@ assert(
   "Song completion must exit the locked game view before opening results"
 );
 assert(
+  source.includes('id="jb-pause"') &&
+    source.includes('id="jb-resume"') &&
+    source.includes('id="jb-restart-song"') &&
+    source.includes('id="jb-exit-song"') &&
+    source.includes("pausedAtMs = nowMs();") &&
+    source.includes("audioEl.pause();") &&
+    source.includes("t0 = resumePerf - resumeAt;") &&
+    source.includes("onExit?.();") &&
+    gameCss.includes(".jb-pause-overlay") &&
+    appSource.includes("onExit: backToLobby"),
+  "A paused song must freeze its timing clock and offer Resume, Restart song, and Exit to lobby"
+);
+assert(
   gameScreenSource.includes('addEventListener?.("popstate"') &&
     gameScreenSource.includes("FULLSCREEN_HISTORY_KEY") &&
     appSource.includes("async function backToLobby()") &&

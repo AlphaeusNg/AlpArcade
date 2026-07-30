@@ -1144,6 +1144,7 @@
 
       gameMount.innerHTML = "";
       activeGame = game.mount(gameMount, {
+        onExit: backToLobby,
         onScore({ score, result, meta }) {
           const { isHighScore, xpGained } = ArcadeScores.submitScore(id, score, {
             result,
