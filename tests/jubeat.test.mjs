@@ -16,6 +16,7 @@ vm.createContext(context);
 const chartDataSource = fs.readFileSync(path.join(root, "js/games/jubeat-chart-data.js"), "utf8");
 const source = fs.readFileSync(path.join(root, "js/games/jubeat.js"), "utf8");
 const gameCss = fs.readFileSync(path.join(root, "css/games.css"), "utf8");
+const playCss = fs.readFileSync(path.join(root, "css/play.css"), "utf8");
 const responsiveCss = fs.readFileSync(path.join(root, "css/responsive.css"), "utf8");
 const achievementsSource = fs.readFileSync(path.join(root, "js/features/achievements.js"), "utf8");
 const appSource = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
@@ -56,6 +57,10 @@ assert(
   !gameScreenSource.includes("requestFullscreen") &&
     !gameScreenSource.includes("webkitRequestFullscreen"),
   "Game view lock must not invoke native fullscreen APIs"
+);
+assert(
+  /body\.is-game-view-locked\s*>\s*main\s*\{[^}]*z-index:\s*110;/s.test(playCss),
+  "Locked game view must stack above footer and page chrome"
 );
 const screenRootFixture = {
   closest: (selector) => (selector === "#play-view" ? playViewFixture : null),

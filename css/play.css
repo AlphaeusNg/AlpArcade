@@ -76,6 +76,15 @@ body.is-game-view-locked {
   width: 100%;
 }
 
+/*
+ * Fullscreen is nested inside main's stacking context. Keep that context
+ * above the sticky header, footer, music dock, and global notices; otherwise
+ * those siblings can paint over the game when its fixed layout leaves flow.
+ */
+body.is-game-view-locked > main {
+  z-index: 110;
+}
+
 #play-view.is-app-fullscreen {
   position: fixed;
   inset: 0;
