@@ -3105,6 +3105,7 @@
       const cleared = rank !== "FAIL";
       hintEl.hidden = true;
       if (musicNoteEl) musicNoteEl.textContent = `♪ ${s.title} finished`;
+      global.ArcadeGameScreen?.exitFullscreen?.(playView())?.catch?.(() => {});
       showResults({ rank, arcadePoints, total, fullCombo, unranked: s.custom });
       startPostGameLoop(s);
       paintSongs();

@@ -5,8 +5,12 @@
 (function (global) {
   "use strict";
 
+  const FULLSCREEN_HISTORY_KEY = "__alparcadeGameView";
   let activePlayView = null;
   let lockedScrollY = 0;
+  let fullscreenHistoryToken = "";
+  let historyExitPending = false;
+  let historyExitPromise = Promise.resolve();
 
   function shouldUseDocumentScroll(root) {
     const playView = root?.closest?.("#play-view");
@@ -88,28 +92,89 @@
     }));
   }
 
-  function enterFullscreen(root) {
-    if (!root || isFullscreen(root)) return Promise.resolve();
-    if (activePlayView) exitFullscreen(activePlayView);
-    lockedScrollY = Math.max(0, global.scrollY || 0);
-    activePlayView = root;
-    document.documentElement.classList.add("is-game-view-locked");
-    document.body.classList.add("is-game-view-locked");
-    document.body.style.setProperty("--game-view-scroll-offset", `${-lockedScrollY}px`);
-    announceScreenChange();
-    return Promise.resolve();
+  function currentFullscreenHistoryToken() {
+    return global.history?.state?.[FULLSCREEN_HISTORY_KEY] || "";
   }
 
-  function exitFullscreen(root) {
-    if (!activePlayView || (root && activePlayView !== root)) return Promise.resolve();
+  function pushFullscreenHistory() {
+    const token = `game-view-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    try {
+      const currentState =
+        global.history?.state && typeof global.history.state === "object"
+          ? global.history.state
+          : {};
+      global.history?.pushState?.(
+        { ...currentState, [FULLSCREEN_HISTORY_KEY]: token },
+        "",
+        global.location.href
+      );
+      fullscreenHistoryToken = currentFullscreenHistoryToken() === token ? token : "";
+    } catch {
+      fullscreenHistoryToken = "";
+    }
+  }
+
+  function deactivateFullscreen() {
     activePlayView = null;
     document.documentElement.classList.remove("is-game-view-locked");
     document.body.classList.remove("is-game-view-locked");
     document.body.style.removeProperty("--game-view-scroll-offset");
     global.scrollTo(0, lockedScrollY);
     announceScreenChange();
+  }
+
+  function enterFullscreen(root) {
+    if (!root || isFullscreen(root)) return Promise.resolve();
+    if (historyExitPending) {
+      return historyExitPromise.then(() => enterFullscreen(root));
+    }
+    if (activePlayView) deactivateFullscreen();
+    lockedScrollY = Math.max(0, global.scrollY || 0);
+    activePlayView = root;
+    document.documentElement.classList.add("is-game-view-locked");
+    document.body.classList.add("is-game-view-locked");
+    document.body.style.setProperty("--game-view-scroll-offset", `${-lockedScrollY}px`);
+    pushFullscreenHistory();
+    announceScreenChange();
     return Promise.resolve();
   }
+
+  function exitFullscreen(root) {
+    if (!activePlayView || (root && activePlayView !== root)) return historyExitPromise;
+    const token = fullscreenHistoryToken;
+    const consumeHistory = !!token && currentFullscreenHistoryToken() === token;
+    fullscreenHistoryToken = "";
+    deactivateFullscreen();
+    if (!consumeHistory || typeof global.history?.back !== "function") {
+      return Promise.resolve();
+    }
+
+    historyExitPending = true;
+    historyExitPromise = new Promise((resolve) => {
+      let fallbackTimer = 0;
+      const settle = () => {
+        if (!historyExitPending) return;
+        historyExitPending = false;
+        global.removeEventListener?.("popstate", settle);
+        global.clearTimeout?.(fallbackTimer);
+        resolve();
+      };
+      global.addEventListener?.("popstate", settle);
+      fallbackTimer = global.setTimeout?.(settle, 500) || 0;
+      try {
+        global.history.back();
+      } catch {
+        settle();
+      }
+    });
+    return historyExitPromise;
+  }
+
+  global.addEventListener?.("popstate", () => {
+    if (!activePlayView) return;
+    fullscreenHistoryToken = "";
+    deactivateFullscreen();
+  });
 
   function guardFullscreenGestures(root) {
     if (!root) return () => {};

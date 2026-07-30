@@ -30,11 +30,42 @@ const assert = (condition, message) => {
 };
 
 const playViewFixture = {};
+const screenWindowListeners = new Map();
+const addScreenWindowListener = (type, listener) => {
+  const listeners = screenWindowListeners.get(type) || new Set();
+  listeners.add(listener);
+  screenWindowListeners.set(type, listeners);
+};
+const removeScreenWindowListener = (type, listener) => {
+  screenWindowListeners.get(type)?.delete(listener);
+};
+const dispatchScreenWindowEvent = (type, event = {}) => {
+  [...(screenWindowListeners.get(type) || [])].forEach((listener) => listener(event));
+};
+const screenHistory = {
+  state: null,
+  backCalls: 0,
+  pushState(state) {
+    this.state = state;
+  },
+  back() {
+    this.backCalls += 1;
+    this.state = null;
+    dispatchScreenWindowEvent("popstate", { state: this.state });
+  },
+};
 const screenContext = {
   window: {
+    location: { href: "https://example.test/AlpArcade/#play/jubeat" },
+    history: screenHistory,
     matchMedia: () => ({ matches: true }),
     requestAnimationFrame: () => 1,
     cancelAnimationFrame() {},
+    scrollTo() {},
+    addEventListener: addScreenWindowListener,
+    removeEventListener: removeScreenWindowListener,
+    setTimeout,
+    clearTimeout,
   },
   document: {
     documentElement: { classList: { add() {}, remove() {} } },
@@ -73,6 +104,19 @@ screenContext.window.ArcadeGameScreen.enterFullscreen(playViewFixture);
 assert(
   !screenContext.window.ArcadeGameScreen.shouldUseDocumentScroll(screenRootFixture),
   "Locked phone play must keep the stable cabinet lock"
+);
+screenHistory.state = null;
+dispatchScreenWindowEvent("popstate", { state: null });
+assert(
+  !screenContext.window.ArcadeGameScreen.isFullscreen(playViewFixture),
+  "Device Back must exit the locked game view without leaving the game route"
+);
+screenContext.window.ArcadeGameScreen.enterFullscreen(playViewFixture);
+screenContext.window.ArcadeGameScreen.exitFullscreen(playViewFixture);
+assert(
+  screenHistory.backCalls === 1 &&
+    !screenContext.window.ArcadeGameScreen.isFullscreen(playViewFixture),
+  "The fullscreen button must consume its temporary device-Back history entry"
 );
 
 assert(game.MARKER_MODES.length === 6, "Pulse Grid marker count changed");
@@ -218,6 +262,22 @@ assert(
     source.includes("return sampled;") &&
     !source.includes("perf - lastAudioSamplePerf > 100"),
   "All songs and the Reset action must use On chart timing without accumulated media-clock drift"
+);
+const finishFunction = source.slice(
+  source.indexOf("function finish()"),
+  source.indexOf("function start()", source.indexOf("function finish()"))
+);
+assert(
+  finishFunction.includes("ArcadeGameScreen?.exitFullscreen?.(playView())") &&
+    finishFunction.indexOf("exitFullscreen") < finishFunction.indexOf("showResults"),
+  "Song completion must exit the locked game view before opening results"
+);
+assert(
+  gameScreenSource.includes('addEventListener?.("popstate"') &&
+    gameScreenSource.includes("FULLSCREEN_HISTORY_KEY") &&
+    appSource.includes("async function backToLobby()") &&
+    appSource.includes("await window.ArcadeGameScreen?.exitFullscreen?.(playView)"),
+  "Device Back and Lobby navigation must settle the temporary fullscreen history entry"
 );
 const practiceMarkupIndex = source.indexOf('class="jb-practice-row jb-song-practice"');
 const timingMarkupIndex = source.indexOf('class="jb-timing-calibration"');

@@ -1208,8 +1208,8 @@
     }
   }
 
-  function backToLobby() {
-    window.ArcadeGameScreen?.exitFullscreen?.(playView)?.catch?.(() => {});
+  async function backToLobby() {
+    await window.ArcadeGameScreen?.exitFullscreen?.(playView)?.catch?.(() => {});
     releaseCabinetScreen();
     if (activeGame?.destroy) activeGame.destroy();
     activeGame = null;
