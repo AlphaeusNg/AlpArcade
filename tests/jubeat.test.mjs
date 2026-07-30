@@ -210,12 +210,14 @@ assert(
   "Each song must expose editable earlier/later tap calibration"
 );
 assert(
-  game.DEFAULT_TIMING_OFFSET_MS === 25 &&
+  game.DEFAULT_TIMING_OFFSET_MS === 0 &&
     game.SONGS.every((song) => song.defaultTimingOffsetMs == null) &&
+    source.includes("function resetTimingOffset(selected)") &&
+    source.includes("setTimingOffset(selected, 0);") &&
     source.includes("const sampled = sampleAudioMs();") &&
     source.includes("return sampled;") &&
     !source.includes("perf - lastAudioSamplePerf > 100"),
-  "All songs must default 25 ms early and follow the media beat clock without accumulated interpolation drift"
+  "All songs and the Reset action must use On chart timing without accumulated media-clock drift"
 );
 const practiceMarkupIndex = source.indexOf('class="jb-practice-row jb-song-practice"');
 const timingMarkupIndex = source.indexOf('class="jb-timing-calibration"');

@@ -13,7 +13,7 @@
   const SELECTION_STORAGE_KEY = "alparcade-jubeat-selection-v1";
   const TIMING_OFFSET_LIMIT_MS = 400;
   const TIMING_OFFSET_STEP_MS = 25;
-  const DEFAULT_TIMING_OFFSET_MS = 25;
+  const DEFAULT_TIMING_OFFSET_MS = 0;
   const CUSTOM_STEP_BEATS = [1, 0.5, 0.25];
   const CUSTOM_START_BEATS = 4;
   const CUSTOM_MAX_STEPS = 2048;
@@ -1663,10 +1663,7 @@
     }
 
     function resetTimingOffset(selected) {
-      delete timingOffsets[timingKeyFor(selected)];
-      timingOffsets = saveTimingOffsets(chartStorage, timingOffsets);
-      restartPractice();
-      paintMeta();
+      setTimingOffset(selected, 0);
     }
 
     function levelFor(s = song()) {
