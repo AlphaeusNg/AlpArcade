@@ -389,9 +389,11 @@
 
 .jb-run-controls {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   width: min(100%, 360px);
-  margin: -0.18rem auto;
+  min-height: 1.75rem;
+  margin: 0 auto 0.1rem;
 }
 
 .jb-run-controls[hidden] {
@@ -420,6 +422,11 @@
   border-color: rgba(56, 189, 248, 0.55);
   color: var(--cyan);
   outline: none;
+}
+
+.jb-pause-btn:disabled {
+  cursor: default;
+  opacity: 0.48;
 }
 
 .jb-pause-btn > span:first-child {
@@ -1303,9 +1310,15 @@
   letter-spacing: 0.14em;
 }
 
-.jb-pause-overlay h3 {
-  margin: 0;
-  font-size: 1.05rem;
+.jb-resume-countdown {
+  min-height: 2.2rem;
+  color: #fff;
+  font: 900 2rem/1 var(--mono);
+  text-shadow: 0 0 18px rgba(56, 189, 248, 0.72);
+}
+
+.jb-resume-countdown[hidden] {
+  display: none;
 }
 
 .jb-pause-actions {

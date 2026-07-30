@@ -26,8 +26,13 @@ Normal-speed numbered/handclap checks:
 - Evans EXT: https://www.youtube.com/watch?v=RlUhC7heqh4
 - only my railgun EXT: https://www.youtube.com/watch?v=HrOO9GU2Q8U
 
-The bundled ALBIDA, FLOWER, and Evans audio arrangements match their chart
-guides. The old 4:07 `imsosohappy.mp3` is a rearranged extended mix and is not
-used by the exact 1:40 chart. I'm so Happy and only my railgun therefore accept
-user-owned game-cut audio through a device-local object URL; the file is never
-uploaded or saved by AlpArcade.
+The bundled I'm so Happy, ALBIDA, FLOWER, and Evans audio arrangements match
+their chart guides. The I'm so Happy asset is the 1:40 arcade edit rebuilt from
+the existing extended master at its exact 181 BPM section boundaries; the old
+continuous 4:07 arrangement must not be restored because its section order does
+not match the chart.
+
+The available only my railgun asset is a different cover and is deliberately
+not used with the fripSide arcade chart. Players can load their own exact 1:42
+game cut through a device-local object URL; the file is never uploaded or saved
+by AlpArcade.

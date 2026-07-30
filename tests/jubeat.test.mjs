@@ -275,15 +275,28 @@ assert(
 assert(
   source.includes('id="jb-pause"') &&
     source.includes('id="jb-resume"') &&
+    source.includes('id="jb-resume-countdown"') &&
     source.includes('id="jb-restart-song"') &&
     source.includes('id="jb-exit-song"') &&
+    source.includes("Exit to song select") &&
+    !source.includes("Take a breather") &&
     source.includes("pausedAtMs = nowMs();") &&
     source.includes("audioEl.pause();") &&
+    source.includes("setTimeout(() => showCount(2), 1000)") &&
+    source.includes("setTimeout(() => showCount(1), 2000)") &&
     source.includes("t0 = resumePerf - resumeAt;") &&
-    source.includes("onExit?.();") &&
+    source.includes("async function showSongSelection()") &&
+    source.includes("setupEl.hidden = false;") &&
+    !source.includes("onExit?.();") &&
     gameCss.includes(".jb-pause-overlay") &&
-    appSource.includes("onExit: backToLobby"),
-  "A paused song must freeze its timing clock and offer Resume, Restart song, and Exit to lobby"
+    gameCss.includes(".jb-resume-countdown") &&
+    gameCss.includes("min-height: 1.75rem"),
+  "Pause must reserve its controls, freeze timing, count down on Resume, and return Exit to song select"
+);
+assert(
+  !source.includes("function primeResultAudio()") &&
+    !source.includes('resultAudioUrl("final-a.mp4")'),
+  "Result voice media must never play or prime when a song starts"
 );
 assert(
   gameScreenSource.includes('addEventListener?.("popstate"') &&
@@ -537,13 +550,14 @@ for (const song of game.SONGS) {
 }
 assert(
   JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
-    JSON.stringify([]),
-  "Every built-in song must now have bundled audio"
+    JSON.stringify(["onlymyrailgun"]),
+  "The mismatched Railgun cover must request exact local fripSide game-cut audio"
 );
 assert(
   game.SONGS.find((song) => song.id === "imsosohappy")?.audio ===
-    "assets/jubeat/audio/imsosohappy.mp3",
-  "I'm so Happy must use its restored bundled audio"
+      "assets/jubeat/audio/imsosohappy.mp3" &&
+    fs.statSync(path.join(root, "assets/jubeat/audio/imsosohappy.mp3")).size < 2_000_000,
+  "I'm so Happy must use the compact 1:40 arcade edit, not the 4:07 extended arrangement"
 );
 assert(
   game.SONGS.find((song) => song.id === "onlymyrailgun")?.officialAudioUrl ===
@@ -551,10 +565,9 @@ assert(
   "Railgun must link to its official audio distributor"
 );
 assert(
-  game.SONGS.find((song) => song.id === "onlymyrailgun")?.audio ===
-    "assets/jubeat/audio/only-my-railgun.mp3" &&
-    fs.statSync(path.join(root, "assets/jubeat/audio/only-my-railgun.mp3")).size < 1_500_000,
-  "Railgun must use the compressed phone-friendly game cut"
+  game.SONGS.find((song) => song.id === "onlymyrailgun")?.audio === "" &&
+    game.SONGS.find((song) => song.id === "onlymyrailgun")?.audioCutLabel === "1:42 game-cut",
+  "Railgun must not attach a different cover to the official fripSide chart"
 );
 assert(
   source.includes("createObjectURL") && source.includes("revokeObjectURL"),

@@ -984,9 +984,11 @@
       durationSec: 102,
       audioOffsetMs: 0,
       color: "#60a5fa",
-      audio: AUDIO_BASE + "only-my-railgun.mp3",
+      audio: "",
       jacket: JACKET_BASE + "only-my-railgun.webp",
       notesHint: "arcade chart transcription",
+      requiresLocalAudio: true,
+      audioCutLabel: "1:42 game-cut",
       officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));
@@ -1212,7 +1214,7 @@
     return applyTimingOffset(adjusted, timingOffsetMs);
   }
 
-  function mount(root, { onScore, onExit }) {
+  function mount(root, { onScore }) {
     let songIndex = 0;
     let difficultyId = "easy";
     let markerId = "flower";
@@ -1422,8 +1424,8 @@
             <div><span class="hud-label">Miss</span><strong id="jb-miss">0</strong></div>
           </div>
           <div class="jb-meta mono" id="jb-meta"></div>
-          <div class="jb-run-controls" id="jb-run-controls" hidden>
-            <button type="button" class="jb-pause-btn" id="jb-pause" aria-label="Pause song" aria-pressed="false" hidden>
+          <div class="jb-run-controls" id="jb-run-controls">
+            <button type="button" class="jb-pause-btn" id="jb-pause" aria-label="Pause song" aria-pressed="false" disabled>
               <span aria-hidden="true">Ⅱ</span>
               <span>Pause</span>
             </button>
@@ -1460,13 +1462,13 @@
               <p id="jb-start-sequence-label">LOADING</p>
               <strong id="jb-start-sequence-song"></strong>
             </section>
-            <section class="jb-pause-overlay" id="jb-pause-overlay" role="dialog" aria-modal="true" aria-labelledby="jb-pause-title" hidden>
-              <p class="jb-pause-kicker">SONG PAUSED</p>
-              <h3 id="jb-pause-title">Take a breather</h3>
+            <section class="jb-pause-overlay" id="jb-pause-overlay" role="dialog" aria-modal="true" aria-labelledby="jb-pause-heading" hidden>
+              <p class="jb-pause-kicker" id="jb-pause-heading">SONG PAUSED</p>
+              <strong class="jb-resume-countdown" id="jb-resume-countdown" aria-live="assertive" hidden></strong>
               <div class="jb-pause-actions">
                 <button type="button" class="btn primary" id="jb-resume">Resume</button>
                 <button type="button" class="btn ghost" id="jb-restart-song">Restart song</button>
-                <button type="button" class="btn ghost jb-exit-song" id="jb-exit-song">Exit to lobby</button>
+                <button type="button" class="btn ghost jb-exit-song" id="jb-exit-song">Exit to song select</button>
               </div>
             </section>
             <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
@@ -1597,6 +1599,7 @@
     const runControlsEl = root.querySelector("#jb-run-controls");
     const pauseBtn = root.querySelector("#jb-pause");
     const pauseOverlayEl = root.querySelector("#jb-pause-overlay");
+    const resumeCountdownEl = root.querySelector("#jb-resume-countdown");
     const resumeBtn = root.querySelector("#jb-resume");
     const restartSongBtn = root.querySelector("#jb-restart-song");
     const exitSongBtn = root.querySelector("#jb-exit-song");
@@ -1650,6 +1653,8 @@
     let pauseAvailable = false;
     let pausedAtMs = 0;
     let resumeWithAudio = false;
+    let resumeCountdownActive = false;
+    let resumeCountdownTimers = [];
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
@@ -1796,18 +1801,36 @@
       }
     }
 
+    function clearResumeCountdown() {
+      resumeCountdownTimers.forEach((id) => clearTimeout(id));
+      resumeCountdownTimers = [];
+      resumeCountdownActive = false;
+      if (resumeCountdownEl) {
+        resumeCountdownEl.hidden = true;
+        resumeCountdownEl.textContent = "";
+      }
+      resumeBtn.textContent = "Resume";
+      resumeBtn.disabled = false;
+    }
+
     function syncPauseUi({ focusResume = false } = {}) {
-      const canPause = running && clockStarted && pauseAvailable && !submitted;
-      runControlsEl.hidden = !canPause || paused;
-      pauseBtn.hidden = !canPause || paused;
+      const showControls = running && !submitted;
+      const canPause = showControls && clockStarted && pauseAvailable && !paused;
+      runControlsEl.hidden = !showControls;
+      pauseBtn.hidden = !showControls;
+      pauseBtn.disabled = !canPause;
       pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
       pauseOverlayEl.hidden = !paused;
+      resumeBtn.disabled = resumeCountdownActive;
+      resumeBtn.textContent = resumeCountdownActive ? "Resuming…" : "Resume";
+      if (resumeCountdownEl) resumeCountdownEl.hidden = !resumeCountdownActive;
       playfieldEl.classList.toggle("is-paused", paused);
       grid.setAttribute("aria-disabled", paused ? "true" : "false");
-      if (focusResume && paused) resumeBtn.focus({ preventScroll: true });
+      if (focusResume && paused && !resumeCountdownActive) resumeBtn.focus({ preventScroll: true });
     }
 
     function resetPauseState() {
+      clearResumeCountdown();
       paused = false;
       pauseAvailable = false;
       pausedAtMs = 0;
@@ -1838,8 +1861,9 @@
       syncPauseUi({ focusResume: true });
     }
 
-    function resumeSong() {
+    function completeResumeSong() {
       if (!running || submitted || !paused) return;
+      clearResumeCountdown();
       const resumeAt = pausedAtMs;
       const resumePerf = performance.now();
       paused = false;
@@ -1880,6 +1904,28 @@
       pauseBtn.focus({ preventScroll: true });
     }
 
+    function resumeSong() {
+      if (!running || submitted || !paused || resumeCountdownActive) return;
+      resumeCountdownActive = true;
+      const showCount = (value) => {
+        if (!resumeCountdownActive || !paused || !running || submitted) return;
+        resumeCountdownEl.textContent = String(value);
+        if (global.ArcadeSFX?.countdown) global.ArcadeSFX.countdown();
+        else global.ArcadeSFX?.tick?.();
+      };
+      showCount(3);
+      resumeCountdownTimers.push(
+        setTimeout(() => showCount(2), 1000),
+        setTimeout(() => showCount(1), 2000),
+        setTimeout(() => {
+          if (!resumeCountdownActive || !paused || !running || submitted) return;
+          global.ArcadeSFX?.go?.();
+          completeResumeSong();
+        }, 3000)
+      );
+      syncPauseUi();
+    }
+
     function restartSong() {
       if (!running || submitted) return;
       running = false;
@@ -1888,14 +1934,48 @@
       clearCountIn();
       resetPauseState();
       panels.forEach((panel) => panel.reset());
+      activePanels.clear();
       stopBgm();
       startBtn.disabled = false;
       start();
     }
 
-    function exitSongToLobby() {
+    async function showSongSelection() {
+      running = false;
+      submitted = false;
+      clockStarted = false;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      clearCountIn();
+      resetPauseState();
+      clearResults();
+      panels.forEach((panel) => panel.reset());
+      activePanels.clear();
+      stopBgm();
+      duckLobbyMusic(false);
+      playfieldEl.hidden = true;
+      setupEl.hidden = false;
+      startBtn.disabled = false;
+      startBtn.textContent = "Confirm song";
+      paintSongs();
+      paintDifficulty();
+      paintMarkerModes();
+      paintCustomActions();
+      paintMeta();
+      restartPractice();
+      cuePreview(song(), true);
+      try {
+        await global.ArcadeGameScreen?.exitFullscreen?.(playView());
+      } catch {
+        /* Song selection remains usable if the browser ignores the exit request. */
+      }
+      hideGameplayFullscreenButton();
+      startBtn.focus({ preventScroll: true });
+    }
+
+    function exitSongToSongSelect() {
       if (!paused) return;
-      onExit?.();
+      showSongSelection();
     }
 
     function duckLobbyMusic(on) {
@@ -2624,27 +2704,6 @@
         }
       } catch {
         /* ignore */
-      }
-    }
-
-    function primeResultAudio() {
-      if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
-      try {
-        resultAudioEl.src = resultAudioUrl("final-a.mp4");
-        resultAudioEl.muted = global.ArcadeSFX?.isMuted?.() ?? false;
-        resultAudioEl.volume = 0;
-        const ready = resultAudioEl.play();
-        ready
-          ?.then?.(() => {
-            resultAudioEl.pause();
-            resultAudioEl.currentTime = 0;
-            resultAudioEl.volume = 1;
-          })
-          ?.catch?.(() => {
-            resultAudioEl.volume = 1;
-          });
-      } catch {
-        resultAudioEl.volume = 1;
       }
     }
 
@@ -3471,7 +3530,6 @@
       activePanels.clear();
       stopBgm();
       duckLobbyMusic(true);
-      primeResultAudio();
       const s = song();
       const diff = difficulty();
       runApproachMs = diff.approachMs;
@@ -3482,9 +3540,9 @@
       lastProgressPercent = -1;
       lastProgressAria = -1;
       chartIndex = 0;
+      clockStarted = false;
       running = true;
       resetPauseState();
-      clockStarted = false;
       useAudioClock = false;
       submitted = false;
       score = 0;
@@ -3645,7 +3703,7 @@
     pauseBtn.addEventListener("click", pauseSong);
     resumeBtn.addEventListener("click", resumeSong);
     restartSongBtn.addEventListener("click", restartSong);
-    exitSongBtn.addEventListener("click", exitSongToLobby);
+    exitSongBtn.addEventListener("click", exitSongToSongSelect);
     resultsRetryBtn.addEventListener("click", () => {
       clearResults();
       stopBgm();
@@ -3653,23 +3711,7 @@
       startBtn.textContent = "Play again";
       start();
     });
-    resultsContinueBtn.addEventListener("click", () => {
-      clearResults();
-      stopBgm();
-      playfieldEl.hidden = true;
-      setupEl.hidden = false;
-      startBtn.disabled = false;
-      startBtn.textContent = "Confirm song";
-      paintSongs();
-      paintDifficulty();
-      paintMarkerModes();
-      paintCustomActions();
-      paintMeta();
-      restartPractice();
-      cuePreview(song(), true);
-      hideGameplayFullscreenButton();
-      startBtn.focus({ preventScroll: true });
-    });
+    resultsContinueBtn.addEventListener("click", showSongSelection);
 
     function onKey(e) {
       if (resultsOpen) return;
