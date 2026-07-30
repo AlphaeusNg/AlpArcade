@@ -96,7 +96,8 @@ python3 -m http.server 8080
 
 ## Related links in UI
 
-Portfolio, VerseKeep, Biblical Truth, Source — external; don’t hardcode wrong GitHub user/paths.
+Keep the header and footer focused: Portfolio is the only cross-project link.
+Source code belongs in the footer, not the header.
 
 ## Deploy
 
