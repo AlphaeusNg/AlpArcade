@@ -26,6 +26,12 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 Footer shows `vYYYY.MM.DD.N · AlpArcade` from `js/version.js`.  
 **Bump `id` every deploy** so you can tell whether GitHub Pages has the latest commit.
 
+### Repository workflow
+
+After a requested change is complete and tests pass, commit it and push directly
+to `origin/main`. Do not wait for a separate permission or follow-up request to
+push unless the user explicitly asks to keep the work local.
+
 ### Enable global scoreboard (Firebase free tier)
 
 All **backend/infra** lives under **`firebase/`**. Runtime web keys stay in `js/firebase-config.js` (loaded by the site).

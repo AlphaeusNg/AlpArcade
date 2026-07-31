@@ -1,7 +1,7 @@
 /**
  * Pulse Grid — jubeat-style 4×4 with classic Shutter marker.
  * All panels share one Panel class so approach, hit windows, and miss
- * timing stay identical across the grid. Local audio (no YouTube).
+ * timing stay identical across the grid. Bundled audio (no YouTube).
  */
 (function (global) {
   "use strict";
@@ -610,24 +610,40 @@
 
     const onPointerDown = (event) => {
       if (event.pointerType !== "touch") return;
+      event.preventDefault?.();
       activeTouches.set(event.pointerId, panelAt(event));
+      try {
+        gridEl.setPointerCapture?.(event.pointerId);
+      } catch {
+        /* Coordinate hit-testing still works if this Safari cannot capture. */
+      }
     };
     const onPointerMove = (event) => {
       if (!activeTouches.has(event.pointerId)) return;
-      event.preventDefault();
+      event.preventDefault?.();
       const index = panelAt(event);
       const previous = activeTouches.get(event.pointerId);
       if (index === previous) return;
       activeTouches.set(event.pointerId, index);
       if (index !== null) onHit(index);
     };
-    const endPointer = (event) => activeTouches.delete(event.pointerId);
+    const endPointer = (event) => {
+      activeTouches.delete(event.pointerId);
+      try {
+        if (gridEl.hasPointerCapture?.(event.pointerId)) gridEl.releasePointerCapture(event.pointerId);
+      } catch {
+        /* Ignore stale capture IDs after Safari cancels a gesture. */
+      }
+    };
+    const blockNativeTouchGesture = (event) => event.preventDefault?.();
 
-    gridEl.addEventListener("pointerdown", onPointerDown);
-    gridEl.addEventListener("pointermove", onPointerMove);
+    gridEl.addEventListener("pointerdown", onPointerDown, { passive: false });
+    gridEl.addEventListener("pointermove", onPointerMove, { passive: false });
     gridEl.addEventListener("pointerup", endPointer);
     gridEl.addEventListener("pointercancel", endPointer);
     gridEl.addEventListener("lostpointercapture", endPointer);
+    gridEl.addEventListener("touchstart", blockNativeTouchGesture, { passive: false, capture: true });
+    gridEl.addEventListener("touchmove", blockNativeTouchGesture, { passive: false, capture: true });
 
     return () => {
       activeTouches.clear();
@@ -636,6 +652,8 @@
       gridEl.removeEventListener("pointerup", endPointer);
       gridEl.removeEventListener("pointercancel", endPointer);
       gridEl.removeEventListener("lostpointercapture", endPointer);
+      gridEl.removeEventListener("touchstart", blockNativeTouchGesture, { capture: true });
+      gridEl.removeEventListener("touchmove", blockNativeTouchGesture, { capture: true });
     };
   }
 
@@ -943,7 +961,9 @@
       levels: { easy: 5, medium: 7, extreme: 10.1 },
       bpm: 185,
       durationSec: 116,
-      audioOffsetMs: 890,
+      // The first strong downbeat measures at about 0.900 s. Playback includes
+      // the intro before this point so the track does not begin on a hard cut.
+      audioOffsetMs: 900,
       color: "#38bdf8",
       audio: AUDIO_BASE + "albida.mp3",
       jacket: JACKET_BASE + "albida.webp",
@@ -970,6 +990,9 @@
       bpm: 185,
       durationSec: 109,
       audioOffsetMs: 530,
+      // One built-in calibration step later. This corrects the chart without
+      // changing the player's visible timing slider or saved preference.
+      chartTimingOffsetMs: -TIMING_OFFSET_STEP_MS,
       color: "#fbbf24",
       audio: AUDIO_BASE + "evans.mp3",
       jacket: JACKET_BASE + "evans.webp",
@@ -984,11 +1007,9 @@
       durationSec: 102,
       audioOffsetMs: 0,
       color: "#60a5fa",
-      audio: "",
+      audio: AUDIO_BASE + "only-my-railgun.mp3",
       jacket: JACKET_BASE + "only-my-railgun.webp",
       notesHint: "arcade chart transcription",
-      requiresLocalAudio: true,
-      audioCutLabel: "1:42 game-cut",
       officialAudioUrl: "https://lnk.to/onlymyrailgun",
     },
   ].map((s) => ({ ...s, charts: {} }));
@@ -1201,7 +1222,10 @@
 
   function runtimeChartFor(song, difficultyId = "extreme", timingOffsetMs = 0) {
     const source = chartFor(song, difficultyId);
-    if (!song.custom) return applyTimingOffset(source, timingOffsetMs);
+    if (!song.custom) {
+      const codedChart = applyTimingOffset(source, song.chartTimingOffsetMs || 0);
+      return applyTimingOffset(codedChart, timingOffsetMs);
+    }
     const customLeadMs = customRuntimeLeadMs(song.difficulty?.approachMs);
     const rampMs = customLeadMs * 4;
     const adjusted = withoutPanelOverlaps(
@@ -1240,7 +1264,6 @@
     let editorRecordAnchorAudioMs = 0;
     let editorRecordAnchorPerf = 0;
     const editorConflictTimers = new Map();
-    const localAudioUrls = new Map();
 
     root.innerHTML = `
       <div class="jubeat-wrap">
@@ -1290,19 +1313,6 @@
                   </div>
                   <small>Move earlier when markers trail the music.</small>
                 </section>
-                <div class="jb-local-audio" id="jb-local-audio" hidden>
-                  <label class="btn ghost small jb-local-audio-pick">
-                    <span id="jb-local-audio-pick-label">Load exact song audio</span>
-                    <input id="jb-local-audio-file" type="file" accept="audio/*" hidden>
-                  </label>
-                  <label class="jb-local-audio-offset">
-                    <span>FIRST BEAT</span>
-                    <input id="jb-local-audio-offset" type="number" min="0" max="10000" step="10" value="0" inputmode="numeric">
-                    <span>ms</span>
-                  </label>
-                  <small id="jb-local-audio-status">Stays on this device</small>
-                  <a id="jb-local-audio-source" class="jb-local-audio-source" href="#" target="_blank" rel="noopener noreferrer" hidden>Official release ↗</a>
-                </div>
               </div>
             </section>
           </div>
@@ -1524,12 +1534,6 @@
     const timingLaterBtn = root.querySelector("#jb-timing-later");
     const timingResetBtn = root.querySelector("#jb-timing-reset");
     const timingEarlierBtn = root.querySelector("#jb-timing-earlier");
-    const localAudioEl = root.querySelector("#jb-local-audio");
-    const localAudioPickLabelEl = root.querySelector("#jb-local-audio-pick-label");
-    const localAudioFileEl = root.querySelector("#jb-local-audio-file");
-    const localAudioOffsetEl = root.querySelector("#jb-local-audio-offset");
-    const localAudioStatusEl = root.querySelector("#jb-local-audio-status");
-    const localAudioSourceEl = root.querySelector("#jb-local-audio-source");
     const selectionTitleEl = root.querySelector("#jb-selection-title");
     const selectionHintEl = root.querySelector("#jb-selection-hint");
     const customNewBtn = root.querySelector("#jb-custom-new");
@@ -1940,7 +1944,7 @@
       start();
     }
 
-    async function showSongSelection() {
+    function showSongSelection() {
       running = false;
       submitted = false;
       clockStarted = false;
@@ -1953,6 +1957,7 @@
       activePanels.clear();
       stopBgm();
       duckLobbyMusic(false);
+      const fullscreenExit = global.ArcadeGameScreen?.exitFullscreen?.(playView());
       playfieldEl.hidden = true;
       setupEl.hidden = false;
       startBtn.disabled = false;
@@ -1964,13 +1969,11 @@
       paintMeta();
       restartPractice();
       cuePreview(song(), true);
-      try {
-        await global.ArcadeGameScreen?.exitFullscreen?.(playView());
-      } catch {
-        /* Song selection remains usable if the browser ignores the exit request. */
-      }
       hideGameplayFullscreenButton();
       startBtn.focus({ preventScroll: true });
+      fullscreenExit?.catch?.(() => {
+        /* Song selection remains usable if the browser ignores the exit request. */
+      });
     }
 
     function exitSongToSongSelect() {
@@ -2545,19 +2548,6 @@
       timingLaterBtn.disabled = controlsLocked() || timingOffset <= -TIMING_OFFSET_LIMIT_MS;
       timingResetBtn.disabled = controlsLocked();
       timingEarlierBtn.disabled = controlsLocked() || timingOffset >= TIMING_OFFSET_LIMIT_MS;
-      const needsLocalAudio = !selected.custom && !!selected.requiresLocalAudio;
-      localAudioEl.hidden = !needsLocalAudio;
-      if (needsLocalAudio) {
-        localAudioPickLabelEl.textContent = `Load your ${selected.audioCutLabel || "exact"} audio`;
-        localAudioOffsetEl.value = String(Math.max(0, Number(selected.audioOffsetMs) || 0));
-        localAudioStatusEl.textContent = selected.audio
-          ? `Loaded for this visit · ${selected.localAudioName || "local audio"}`
-          : `Stays on this device · use the jubeat ${selected.audioCutLabel || "game"} cut`;
-        if (localAudioSourceEl) {
-          localAudioSourceEl.hidden = !selected.officialAudioUrl;
-          if (selected.officialAudioUrl) localAudioSourceEl.href = selected.officialAudioUrl;
-        }
-      }
     }
 
     function paintMeta() {
@@ -2573,7 +2563,7 @@
         <span>${escapeHtml(s.artist)}</span>
         <span>${s.bpm} BPM</span>
         <span class="jb-timing-meta">${formatTimingOffset(timingOffset)}</span>
-        <span class="jb-bgm">${s.requiresLocalAudio && !s.audio ? "♪ Load local audio" : "♪ Local BGM"} · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Flower")}</span>`;
+        <span class="jb-bgm">♪ Local BGM · ${escapeHtml(MARKER_MODES.find((m) => m.id === markerId)?.label || "Flower")}</span>`;
       grid.style.setProperty("--jb-accent", s.color);
       playfieldEl.style.setProperty("--jb-accent", s.color);
       paintSongDetail();
@@ -2707,6 +2697,33 @@
       }
     }
 
+    /**
+     * Safari only permits later result announcements when this media element
+     * has been unlocked by the same user gesture that starts the chart.
+     */
+    function primeResultAudio() {
+      if (!resultAudioEl || global.ArcadeSFX?.isMuted?.()) return;
+      try {
+        resultAudioEl.src = resultAudioUrl("final-fail.mp4");
+        resultAudioEl.currentTime = 0;
+        // This file begins with measured silence, so it can unlock as audible
+        // media without leaking part of the announcement into the countdown.
+        resultAudioEl.volume = 1;
+        const playback = resultAudioEl.play();
+        playback
+          ?.then?.(() => {
+            resultAudioEl.pause();
+            resultAudioEl.currentTime = 0;
+            resultAudioEl.volume = 1;
+          })
+          ?.catch?.(() => {
+            resultAudioEl.volume = 1;
+          });
+      } catch {
+        resultAudioEl.volume = 1;
+      }
+    }
+
     function loadAudio(src) {
       if (!audioEl || !src) return Promise.resolve(false);
       if (audioSrc === src && audioEl.readyState >= 2) return Promise.resolve(true);
@@ -2754,9 +2771,6 @@
 
     function cuePreview(s, autoplay = false) {
       if (!s?.audio) {
-        if (musicNoteEl && s?.requiresLocalAudio) {
-          musicNoteEl.textContent = `♪ ${s.title} · load your local ${s.audioCutLabel || "game-cut"} audio to hear the track`;
-        }
         duckLobbyMusic(false);
         return;
       }
@@ -2783,44 +2797,6 @@
               : `${s.title} · ${s.artist} · ready`
             : `♪ ${s.title} · audio missing (chart still playable)`;
         }
-      });
-    }
-
-    function loadSelectedLocalAudio(file) {
-      const selected = song();
-      if (!selected?.requiresLocalAudio || !file) return;
-      if (file.type && !file.type.startsWith("audio/")) {
-        localAudioStatusEl.textContent = "Choose an audio file.";
-        return;
-      }
-      stopBgm();
-      const previousUrl = localAudioUrls.get(selected.id);
-      if (previousUrl) global.URL?.revokeObjectURL?.(previousUrl);
-      const objectUrl = global.URL?.createObjectURL?.(file);
-      if (!objectUrl) {
-        localAudioStatusEl.textContent = "This browser could not open the local file.";
-        return;
-      }
-      localAudioUrls.set(selected.id, objectUrl);
-      selected.audio = objectUrl;
-      selected.localAudioName = file.name;
-      selected.audioOffsetMs = Math.max(0, Number(localAudioOffsetEl.value) || 0);
-      localAudioStatusEl.textContent = `Loading ${file.name}…`;
-      paintMeta();
-      loadAudio(objectUrl).then((ok) => {
-        if (!ok || destroyed || song().id !== selected.id) {
-          localAudioStatusEl.textContent = ok ? `Loaded · ${file.name}` : "Could not decode this audio file.";
-          return;
-        }
-        const duration = Number(audioEl?.duration);
-        const lengthLabel = Number.isFinite(duration)
-          ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, "0")}`
-          : "unknown length";
-        localAudioStatusEl.textContent =
-          Number.isFinite(duration) && Math.abs(duration - selected.durationSec) > 5
-            ? `Loaded ${lengthLabel} · chart expects the ${selected.audioCutLabel || "game"} jubeat cut`
-            : `Loaded ${lengthLabel} · stays on this device`;
-        cuePreview(selected, true);
       });
     }
 
@@ -2859,10 +2835,7 @@
       return song().audioOffsetMs || 0;
     }
 
-    /**
-     * Chart time origin = first audible beat (after audioOffsetMs).
-     * Hold at 0 during intro silence — never interpolate past 0 while still in intro.
-     */
+    /** Chart time origin = the measured first downbeat after audioOffsetMs. */
     function sampleAudioMs() {
       const offset = songOffsetMs();
       if (!audioEl || !Number.isFinite(audioEl.currentTime)) return null;
@@ -2871,9 +2844,7 @@
           return Math.max(0, (audioEl.duration || audioEl.currentTime) * 1000 - offset);
         }
         if (audioEl.paused) return clockAnchorAudioMs;
-        const raw = audioEl.currentTime * 1000;
-        if (raw < offset) return 0; // intro hold
-        return raw - offset;
+        return audioEl.currentTime * 1000 - offset;
       } catch {
         return null;
       }
@@ -3192,9 +3163,12 @@
 
       const token = ++announcementToken;
       let completed = false;
+      const watchdogMs = rank === "EXC" ? 12000 : fullCombo ? 7000 : 5000;
+      let watchdog = 0;
       const stopCueWatcher = () => {
         cancelAnimationFrame(announcementRaf);
         announcementRaf = 0;
+        clearTimeout(watchdog);
         if (!resultAudioEl) return;
         resultAudioEl.onplaying = null;
         resultAudioEl.ontimeupdate = null;
@@ -3205,6 +3179,8 @@
         stopCueWatcher();
         finish();
       };
+      watchdog = setTimeout(complete, watchdogMs);
+      resultTimers.push(watchdog);
       const syncCuesToMedia = () => {
         if (completed || token !== announcementToken || !resultAudioEl) return;
         revealDueCues(resultAudioEl.currentTime * 1000);
@@ -3477,14 +3453,17 @@
       // window first so those opening markers animate from 0% to the downbeat.
       const leadInMs = difficulty().approachMs;
       beginChartClock(false, leadInMs);
+      const offsetMs = songOffsetMs();
+      const audioStartMs = Math.max(0, offsetMs - leadInMs);
+      const audioStartDelayMs = Math.max(0, leadInMs - offsetMs);
       countInTimers.push(
         setTimeout(() => {
           if (!running || destroyed || submitted) return;
-          pauseAvailable = true;
-          syncPauseUi();
           if (!audioReady || !audioEl) return;
           try {
-            audioEl.currentTime = songOffsetMs() / 1000;
+            // Start before the first downbeat when the asset contains an intro.
+            // The negative media clock keeps beat zero and the first marker exact.
+            audioEl.currentTime = audioStartMs / 1000;
             audioEl.volume = 1;
             audioEl.loop = false;
             const playback = audioEl.play();
@@ -3494,6 +3473,11 @@
           } catch {
             /* The performance clock keeps every chart playable without audio. */
           }
+        }, audioStartDelayMs),
+        setTimeout(() => {
+          if (!running || destroyed || submitted) return;
+          pauseAvailable = true;
+          syncPauseUi();
         }, leadInMs)
       );
     }
@@ -3524,6 +3508,7 @@
 
     function start() {
       if (resultsOpen || running) return;
+      primeResultAudio();
       cancelAnimationFrame(raf);
       clearCountIn();
       panels.forEach((p) => p.reset());
@@ -3589,17 +3574,6 @@
     timingEarlierBtn.addEventListener("click", () => {
       if (controlsLocked()) return;
       setTimingOffset(song(), timingOffsetFor(song()) + TIMING_OFFSET_STEP_MS);
-    });
-    localAudioFileEl.addEventListener("change", () => {
-      loadSelectedLocalAudio(localAudioFileEl.files?.[0]);
-      localAudioFileEl.value = "";
-    });
-    localAudioOffsetEl.addEventListener("change", () => {
-      const selected = song();
-      if (!selected?.requiresLocalAudio) return;
-      selected.audioOffsetMs = Math.max(0, Number(localAudioOffsetEl.value) || 0);
-      localAudioOffsetEl.value = String(selected.audioOffsetMs);
-      if (selected.audio) cuePreview(selected, true);
     });
     customNewBtn.addEventListener("click", () => openEditor());
     customEditBtn.addEventListener("click", () => {
@@ -3786,15 +3760,6 @@
         practicePanel.destroy();
         stopSlideHits();
         stopBgm();
-        localAudioUrls.forEach((url, songId) => {
-          global.URL?.revokeObjectURL?.(url);
-          const localSong = SONGS.find((item) => item.id === songId);
-          if (localSong) {
-            localSong.audio = "";
-            delete localSong.localAudioName;
-          }
-        });
-        localAudioUrls.clear();
         duckLobbyMusic(false);
         window.removeEventListener("keydown", onKey);
         document.removeEventListener("arcadegamescreenchange", onJubeatFullscreenChange);

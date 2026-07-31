@@ -263,6 +263,15 @@ assert(
     !source.includes("perf - lastAudioSamplePerf > 100"),
   "All songs and the Reset action must use On chart timing without accumulated media-clock drift"
 );
+const evansSong = game.SONGS.find((song) => song.id === "evans");
+const evansSourceChart = game.chartFor(evansSong, "extreme");
+const evansRuntimeChart = game.runtimeChartFor(evansSong, "extreme", 0);
+assert(
+  evansSong.chartTimingOffsetMs === -game.TIMING_OFFSET_STEP_MS &&
+    evansRuntimeChart.every((event, index) => event.t === evansSourceChart[index].t + 25) &&
+    evansSong.defaultTimingOffsetMs == null,
+  "Evans must move one coded slider step later without changing visible calibration"
+);
 const finishFunction = source.slice(
   source.indexOf("function finish()"),
   source.indexOf("function start()", source.indexOf("function finish()"))
@@ -285,7 +294,7 @@ assert(
     source.includes("setTimeout(() => showCount(2), 1000)") &&
     source.includes("setTimeout(() => showCount(1), 2000)") &&
     source.includes("t0 = resumePerf - resumeAt;") &&
-    source.includes("async function showSongSelection()") &&
+    source.includes("function showSongSelection()") &&
     source.includes("setupEl.hidden = false;") &&
     !source.includes("onExit?.();") &&
     gameCss.includes(".jb-pause-overlay") &&
@@ -293,10 +302,26 @@ assert(
     gameCss.includes("min-height: 1.75rem"),
   "Pause must reserve its controls, freeze timing, count down on Resume, and return Exit to song select"
 );
+const songSelectionFunction = source.slice(
+  source.indexOf("function showSongSelection()"),
+  source.indexOf("function exitSongToSongSelect()")
+);
 assert(
-  !source.includes("function primeResultAudio()") &&
-    !source.includes('resultAudioUrl("final-a.mp4")'),
-  "Result voice media must never play or prime when a song starts"
+  songSelectionFunction.includes("submitted = false;") &&
+    songSelectionFunction.includes("clearResults();") &&
+    songSelectionFunction.includes("paintSongs();") &&
+    songSelectionFunction.includes("paintMeta();") &&
+    songSelectionFunction.includes("setupEl.hidden = false;") &&
+    !songSelectionFunction.includes("await "),
+  "Returning from results or pause must synchronously rebuild a usable song map"
+);
+assert(
+  source.includes("function primeResultAudio()") &&
+    source.includes('resultAudioUrl("final-fail.mp4")') &&
+    source.includes("primeResultAudio();") &&
+    source.includes("const watchdogMs =") &&
+    source.includes("clearTimeout(watchdog);"),
+  "Result voice media must unlock on the Start gesture and retain a completion watchdog"
 );
 assert(
   gameScreenSource.includes('addEventListener?.("popstate"') &&
@@ -465,14 +490,24 @@ const slideGrid = {
   },
 };
 const slideHits = [];
+let slidePrevented = 0;
 const stopSlideHits = game.bindSlideHits(slideGrid, (index) => slideHits.push(index));
-slideListeners.get("pointerdown")({ pointerType: "touch", pointerId: 7, clientX: 20, clientY: 20 });
+slideListeners.get("pointerdown")({
+  pointerType: "touch",
+  pointerId: 7,
+  clientX: 20,
+  clientY: 20,
+  preventDefault() { slidePrevented += 1; },
+});
 slideListeners.get("pointermove")({ pointerId: 7, clientX: 40, clientY: 20, preventDefault() {} });
 slideListeners.get("pointermove")({ pointerId: 7, clientX: 120, clientY: 20, preventDefault() {} });
 slideListeners.get("pointermove")({ pointerId: 7, clientX: 220, clientY: 20, preventDefault() {} });
 slideListeners.get("pointerup")({ pointerId: 7 });
 slideListeners.get("pointermove")({ pointerId: 7, clientX: 320, clientY: 20, preventDefault() {} });
 assert(JSON.stringify(slideHits) === JSON.stringify([1, 2]), "Touch slides must hit each newly entered panel once");
+slideListeners.get("touchstart")({ preventDefault() { slidePrevented += 1; } });
+slideListeners.get("touchmove")({ preventDefault() { slidePrevented += 1; } });
+assert(slidePrevented === 3, "Touch slides must suppress native iPad navigation from first contact");
 stopSlideHits();
 assert(slideListeners.size === 0, "Touch slide listeners must clean up with the game");
 
@@ -548,11 +583,7 @@ for (const song of game.SONGS) {
     assert(tracker.score() === 1000000, `${song.id} ${difficultyId} all-EXCELLENT score must be 1,000,000`);
   });
 }
-assert(
-  JSON.stringify(game.SONGS.filter((song) => song.requiresLocalAudio && !song.audio).map((song) => song.id)) ===
-    JSON.stringify(["onlymyrailgun"]),
-  "The mismatched Railgun cover must request exact local fripSide game-cut audio"
-);
+assert(game.SONGS.every((song) => song.audio), "Every official song must use bundled database audio");
 assert(
   game.SONGS.find((song) => song.id === "imsosohappy")?.audio ===
       "assets/jubeat/audio/imsosohappy.mp3" &&
@@ -565,13 +596,18 @@ assert(
   "Railgun must link to its official audio distributor"
 );
 assert(
-  game.SONGS.find((song) => song.id === "onlymyrailgun")?.audio === "" &&
-    game.SONGS.find((song) => song.id === "onlymyrailgun")?.audioCutLabel === "1:42 game-cut",
-  "Railgun must not attach a different cover to the official fripSide chart"
+  game.SONGS.find((song) => song.id === "onlymyrailgun")?.audio ===
+      "assets/jubeat/audio/only-my-railgun.mp3" &&
+    fs.statSync(path.join(root, "assets/jubeat/audio/only-my-railgun.mp3")).size > 1_000_000 &&
+    !source.includes('id="jb-local-audio"') &&
+    !source.includes("createObjectURL"),
+  "Railgun must play its bundled game-cut without a Load song control"
 );
 assert(
-  source.includes("createObjectURL") && source.includes("revokeObjectURL"),
-  "Local game-cut audio must stay in-browser and release its temporary URL"
+  game.SONGS.find((song) => song.id === "albida")?.audioOffsetMs === 900 &&
+    source.includes("const audioStartDelayMs = Math.max(0, leadInMs - offsetMs);") &&
+    source.includes("return audioEl.currentTime * 1000 - offset;"),
+  "ALBIDA must preserve its measured downbeat while playing the intro before it"
 );
 assert(
   game.SONGS.some((song) =>
