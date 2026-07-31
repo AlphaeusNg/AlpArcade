@@ -39,7 +39,7 @@ css/
   game-controls.css   # Late-loaded touch controls
   error.css           # Root 404 document
 js/
-  app.js              # Lobby, routing, HUD, help, phone header hide
+  app.js              # Lobby, routing, HUD, help, scroll-direction header hide
   firebase-config.js  # runtime web keys (loaded by index.html)
   version.js          # SITE_VERSION — bump every deploy
   core/               # SFX, local scores, stable game viewport
@@ -62,9 +62,9 @@ manifest.webmanifest
 - **Left-edge dock** (`#bg-music`): vertical tab opens/closes the panel; open state in `alparcade-music-ui-v5`.
 - Player shell stays **inside the dock slot only** (no free-float / drag). Closing the panel does not stop audio. Nav **Music** toggles the dock.
 
-## Phone UX
+## Header UX
 
-- Sticky `.topbar` gets `.is-scroll-hidden` on scroll-down (≤720px) to free space; returns on scroll-up / near top / `:focus-within`.
+- Sticky `.topbar` gets `.is-scroll-hidden` on scroll-down at every viewport size; it returns on scroll-up / near top / `:focus-within`.
 - External nav links (`.nav-extra`) hidden on small screens.
 
 ## Cloud scores (optional)

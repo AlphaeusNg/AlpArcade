@@ -1701,29 +1701,21 @@
   window.addEventListener("touchstart", unlockOnce, { passive: true });
   syncMuteButtons();
 
-  // Phone: hide sticky topbar while scrolling down; show on scroll up / near top
-  (function bindPhoneHeaderHide() {
+  // Hide the sticky header while scrolling down; restore it on scroll up / near top.
+  (function bindAutoHideHeader() {
     const bar = document.querySelector(".topbar");
     if (!bar) return;
-    const mq = window.matchMedia("(max-width: 720px)");
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     let lastY = window.scrollY || 0;
     let ticking = false;
 
     function apply() {
       ticking = false;
-      if (!mq.matches || reduce.matches) {
-        bar.classList.remove("is-scroll-hidden");
-        return;
-      }
       const y = window.scrollY || 0;
       const delta = y - lastY;
-      if (y < 24) {
+      if (y <= 16 || delta < 0 || bar.matches(":focus-within")) {
         bar.classList.remove("is-scroll-hidden");
-      } else if (delta > 6) {
+      } else if (delta > 0 && y > bar.offsetHeight) {
         bar.classList.add("is-scroll-hidden");
-      } else if (delta < -6) {
-        bar.classList.remove("is-scroll-hidden");
       }
       lastY = y;
     }
@@ -1738,12 +1730,7 @@
       },
       { passive: true }
     );
-    window.addEventListener("resize", () => {
-      if (!mq.matches) bar.classList.remove("is-scroll-hidden");
-    });
-    mq.addEventListener?.("change", () => {
-      if (!mq.matches) bar.classList.remove("is-scroll-hidden");
-    });
+    bar.addEventListener("focusin", () => bar.classList.remove("is-scroll-hidden"));
   })();
 
   $$("[data-game]").forEach((card) => {

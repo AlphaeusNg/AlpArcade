@@ -295,20 +295,7 @@
     transition-duration: 0.01ms !important;
   }
 
-  .topbar,
-  .topbar.is-scroll-hidden {
+  .topbar {
     transition: none;
-    transform: none;
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-/* Desktop: never auto-hide the top section header */
-@media (min-width: 721px) {
-  .topbar.is-scroll-hidden {
-    transform: none;
-    opacity: 1;
-    pointer-events: auto;
   }
 }

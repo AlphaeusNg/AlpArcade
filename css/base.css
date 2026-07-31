@@ -107,7 +107,7 @@ main,
   will-change: transform;
 }
 
-/* Phone: hide sticky section header while scrolling down to free space */
+/* Hide sticky section header while scrolling down to free space. */
 .topbar.is-scroll-hidden {
   transform: translateY(-110%);
   opacity: 0;
@@ -473,4 +473,3 @@ body.salmon-mode .fun-fact-text {
   background: rgba(45, 212, 191, 0.14);
   color: var(--teal);
 }
-
