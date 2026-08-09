@@ -103,33 +103,7 @@
     }
   }
 
-  const scriptPromises = Object.create(null);
-
-  function loadScript(src) {
-    if (scriptPromises[src]) return scriptPromises[src];
-    scriptPromises[src] = new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[data-arcade-src="${src}"]`);
-      if (existing) {
-        if (existing.dataset.loaded === "1") resolve();
-        else {
-          existing.addEventListener("load", () => resolve(), { once: true });
-          existing.addEventListener("error", () => reject(new Error("load failed")), { once: true });
-        }
-        return;
-      }
-      const s = document.createElement("script");
-      s.src = src;
-      s.async = true;
-      s.dataset.arcadeSrc = src;
-      s.onload = () => {
-        s.dataset.loaded = "1";
-        resolve();
-      };
-      s.onerror = () => reject(new Error("Failed to load " + src));
-      document.body.appendChild(s);
-    });
-    return scriptPromises[src];
-  }
+  const loadScript = window.ArcadeScriptLoader.create().load;
 
   async function ensureGame(id) {
     const api = GAME_LOADERS[id]?.();

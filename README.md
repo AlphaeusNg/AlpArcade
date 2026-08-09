@@ -79,7 +79,7 @@ css/
   responsive.css features.css game-controls.css error.css
 js/
   app.js firebase-config.js version.js
-  core/ features/ services/ games/
+  core/ features/ services/ games/ (including core/script-loader.js)
 assets/
   icon.svg jubeat/
 ```
@@ -103,7 +103,9 @@ shared audio/error/toast behavior, and Pulse Grid timing/scoring invariants. It
 also executes score rewards, persistence, ranking, cloud-merge validation, and
 Unicode import/export. It runs locally and in GitHub Actions on every `main`
 push and pull request. Daily coverage fixes the clock at SGT rollover boundaries
-and verifies deterministic targets and idempotent completion persistence.
+and verifies deterministic targets and idempotent completion persistence. A
+fake-DOM loader fixture verifies lazy cabinet scripts recover after errors and
+timeouts without duplicating concurrent requests.
 
 ### Enable GitHub Pages
 

@@ -32,6 +32,17 @@ for (const file of htmlFiles) {
 }
 
 const app = read("js/app.js");
+const indexHtml = read("index.html");
+assert(
+  indexHtml.indexOf('src="js/core/script-loader.js"') >= 0
+    && indexHtml.indexOf('src="js/core/script-loader.js"') < indexHtml.indexOf('src="js/app.js"'),
+  "the shared lazy script loader must initialize before app.js",
+);
+assert(
+  app.includes("window.ArcadeScriptLoader.create().load")
+    && !app.includes("const scriptPromises ="),
+  "app.js must use the tested retryable loader instead of an app-local promise cache",
+);
 localRefs.push(...[...app.matchAll(/"(js\/games\/[^"]+\.js)"/g)].map((match) => match[1]));
 for (const ref of new Set(localRefs)) {
   assert(fs.existsSync(path.join(root, ref)), `Missing local reference: ${ref}`);
