@@ -80,34 +80,102 @@
     };
   }
 
+  function isRecord(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function nonNegativeNumber(value, fallback = 0, { integer = false, positive = false } = {}) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0 || (positive && number <= 0)) return fallback;
+    return integer ? Math.floor(number) : number;
+  }
+
+  function validRunScore(gameId, value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return null;
+    if (gameId === "reaction" && number <= 0) return null;
+    return number;
+  }
+
+  function normalizeHighScores(value) {
+    const base = defaultState().highScores;
+    const source = isRecord(value) ? value : {};
+    const normalized = {};
+    for (const gameId of Object.keys(base)) {
+      const incoming = isRecord(source[gameId]) ? source[gameId] : {};
+      if (gameId === "tictactoe") {
+        const wins = nonNegativeNumber(incoming.wins, 0, { integer: true });
+        normalized[gameId] = {
+          best: wins,
+          wins,
+          losses: nonNegativeNumber(incoming.losses, 0, { integer: true }),
+          draws: nonNegativeNumber(incoming.draws, 0, { integer: true }),
+        };
+      } else if (gameId === "reaction") {
+        normalized[gameId] = {
+          best: incoming.best == null
+            ? null
+            : nonNegativeNumber(incoming.best, null, { positive: true }),
+        };
+      } else {
+        normalized[gameId] = { best: nonNegativeNumber(incoming.best, 0) };
+      }
+    }
+    return normalized;
+  }
+
+  function normalizeScoreEntry(entry, { history = false } = {}) {
+    if (!isRecord(entry) || !GAMES[entry.game]) return null;
+    const score = validRunScore(entry.game, entry.score);
+    if (score == null) return null;
+    const meta = isRecord(entry.meta) ? entry.meta : {};
+    const calculatedPoints = arcadePointsForRun(entry.game, score, meta);
+    const storedPoints = nonNegativeNumber(entry.arcadePoints, calculatedPoints, { integer: true });
+    const arcadePoints = Math.max(5, Math.min(100, storedPoints || calculatedPoints));
+    const normalized = {
+      ...entry,
+      game: entry.game,
+      score,
+      player: typeof entry.player === "string"
+        ? entry.player.trim().slice(0, 16) || "Player"
+        : "Player",
+      at: nonNegativeNumber(entry.at, 0, { integer: true }),
+      arcadePoints,
+    };
+    if (history) {
+      normalized.meta = meta;
+      normalized.xp = nonNegativeNumber(entry.xp, arcadePoints, { integer: true });
+    }
+    return normalized;
+  }
+
+  function normalizeScoreEntries(value, options) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => normalizeScoreEntry(entry, options))
+      .filter(Boolean);
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultState();
       const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return defaultState();
+      if (!isRecord(data)) return defaultState();
       const base = defaultState();
-      const highScores = { ...base.highScores };
-      if (data.highScores && typeof data.highScores === "object") {
-        for (const id of Object.keys(base.highScores)) {
-          const incoming = data.highScores[id];
-          if (!incoming || typeof incoming !== "object") continue;
-          highScores[id] = { ...base.highScores[id], ...incoming };
-        }
-      }
+      const history = normalizeScoreEntries(data.history, { history: true }).slice(0, MAX_HISTORY);
+      const hallOfFame = rankHall(
+        normalizeScoreEntries(data.hallOfFame)
+      ).slice(0, MAX_HALL);
       return {
         ...base,
         playerName:
           typeof data.playerName === "string" ? data.playerName.trim().slice(0, 16) || "Player" : base.playerName,
-        xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Math.floor(Number(data.xp))) : 0,
-        gamesPlayed: Number.isFinite(Number(data.gamesPlayed))
-          ? Math.max(0, Math.floor(Number(data.gamesPlayed)))
-          : 0,
-        highScores,
-        history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
-        hallOfFame: Array.isArray(data.hallOfFame)
-          ? rankHall(data.hallOfFame).slice(0, MAX_HALL)
-          : [],
+        xp: nonNegativeNumber(data.xp, 0, { integer: true }),
+        gamesPlayed: nonNegativeNumber(data.gamesPlayed, 0, { integer: true }),
+        highScores: normalizeHighScores(data.highScores),
+        history,
+        hallOfFame,
       };
     } catch {
       return defaultState();
@@ -146,8 +214,10 @@
     if (!metaInfo) throw new Error("Unknown game: " + gameId);
 
     const state = load();
-    const num = Number(score);
-    if (!Number.isFinite(num)) return { isHighScore: false, xpGained: 0, state };
+    const num = validRunScore(gameId, score);
+    if (num == null) {
+      return { isHighScore: false, xpGained: 0, arcadePoints: 0, state };
+    }
 
     let isHighScore = false;
     const hs = state.highScores[gameId] || { best: metaInfo.higherIsBetter ? 0 : null };
@@ -264,33 +334,36 @@
 
       if (gameId === "tictactoe") {
         const lw = Number(localHs.wins) || 0;
-        const rw = Number(remoteHs.wins) || 0;
+        const rw = nonNegativeNumber(remoteHs.wins, 0, { integer: true });
         if (rw > lw) {
           localHs.wins = rw;
           localHs.best = rw;
           changed = true;
         }
-        if ((Number(remoteHs.losses) || 0) > (Number(localHs.losses) || 0)) {
-          localHs.losses = Number(remoteHs.losses) || 0;
+        const remoteLosses = nonNegativeNumber(remoteHs.losses, 0, { integer: true });
+        if (remoteLosses > (Number(localHs.losses) || 0)) {
+          localHs.losses = remoteLosses;
           changed = true;
         }
-        if ((Number(remoteHs.draws) || 0) > (Number(localHs.draws) || 0)) {
-          localHs.draws = Number(remoteHs.draws) || 0;
+        const remoteDraws = nonNegativeNumber(remoteHs.draws, 0, { integer: true });
+        if (remoteDraws > (Number(localHs.draws) || 0)) {
+          localHs.draws = remoteDraws;
           changed = true;
         }
       } else if (g.higherIsBetter) {
-        if (remoteBest != null && Number(remoteBest) > Number(localBest ?? 0)) {
-          localHs.best = Number(remoteBest);
+        const normalizedRemoteBest = validRunScore(gameId, remoteBest);
+        if (normalizedRemoteBest != null && normalizedRemoteBest > Number(localBest ?? 0)) {
+          localHs.best = normalizedRemoteBest;
           changed = true;
         }
       } else {
         // lower is better
+        const normalizedRemoteBest = validRunScore(gameId, remoteBest);
         if (
-          remoteBest != null &&
-          Number.isFinite(Number(remoteBest)) &&
-          (localBest == null || Number(remoteBest) < Number(localBest))
+          normalizedRemoteBest != null &&
+          (localBest == null || normalizedRemoteBest < Number(localBest))
         ) {
-          localHs.best = Number(remoteBest);
+          localHs.best = normalizedRemoteBest;
           changed = true;
         }
       }
