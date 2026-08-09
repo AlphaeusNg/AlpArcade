@@ -97,7 +97,10 @@ python3 -m http.server 8080
 npm test
 ```
 
-The dependency-free suite checks JavaScript syntax, HTML/local asset references, CSS block balance, GitHub Pages root entrypoints, and Pulse Grid timing/scoring invariants.
+The dependency-free suite checks the GitHub Actions policy, JavaScript syntax,
+HTML/local asset references, CSS block balance, GitHub Pages root entrypoints,
+shared audio/error/toast behavior, and Pulse Grid timing/scoring invariants. It
+runs locally and in GitHub Actions on every `main` push and pull request.
 
 ### Enable GitHub Pages
 

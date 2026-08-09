@@ -1,3 +1,4 @@
+import "./workflow.test.mjs";
 import "./static-structure.test.mjs";
 import "./audio.test.mjs";
 import "./achievement-toast.test.mjs";
