@@ -1,6 +1,7 @@
 import "./workflow.test.mjs";
 import "./static-structure.test.mjs";
 import "./scores.test.mjs";
+import "./daily.test.mjs";
 import "./audio.test.mjs";
 import "./achievement-toast.test.mjs";
 import "./error-log.test.mjs";

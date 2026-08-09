@@ -37,6 +37,10 @@
     return h >>> 0;
   }
 
+  function isRecord(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
   function challengeFor(date = new Date()) {
     const key = dayKey(date);
     const h = hash("alparcade-daily-" + key);
@@ -65,7 +69,8 @@
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return {};
-      return JSON.parse(raw) || {};
+      const data = JSON.parse(raw);
+      return isRecord(data) ? data : {};
     } catch {
       return {};
     }

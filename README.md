@@ -102,7 +102,8 @@ HTML/local asset references, CSS block balance, GitHub Pages root entrypoints,
 shared audio/error/toast behavior, and Pulse Grid timing/scoring invariants. It
 also executes score rewards, persistence, ranking, cloud-merge validation, and
 Unicode import/export. It runs locally and in GitHub Actions on every `main`
-push and pull request.
+push and pull request. Daily coverage fixes the clock at SGT rollover boundaries
+and verifies deterministic targets and idempotent completion persistence.
 
 ### Enable GitHub Pages
 
