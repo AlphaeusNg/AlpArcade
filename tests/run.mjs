@@ -4,6 +4,7 @@ import "./scores.test.mjs";
 import "./daily.test.mjs";
 import "./script-loader.test.mjs";
 import "./audio.test.mjs";
+import "./music.test.mjs";
 import "./achievement-toast.test.mjs";
 import "./achievements.test.mjs";
 import "./error-log.test.mjs";

@@ -99,7 +99,7 @@ npm test
 
 The dependency-free suite checks the GitHub Actions policy, JavaScript syntax,
 HTML/local asset references, CSS block balance, GitHub Pages root entrypoints,
-shared audio/error/toast behavior, and Pulse Grid timing/scoring invariants. It
+shared audio/music hydration/error/toast behavior, and Pulse Grid timing/scoring invariants. It
 also executes score rewards, persistence, ranking, cloud-merge validation, and
 Unicode import/export. It runs locally and in GitHub Actions on every `main`
 push and pull request. Daily coverage fixes the clock at SGT rollover boundaries

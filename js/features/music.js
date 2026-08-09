@@ -44,6 +44,40 @@
     return $("#bg-music-empty");
   }
 
+  function isRecord(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function stationFromButton(button) {
+    if (!button || typeof button.dataset?.embed !== "string" || !button.dataset.embed.trim()) {
+      return null;
+    }
+    const id = typeof button.dataset.playlist === "string" ? button.dataset.playlist : "";
+    const label = button.querySelector("strong")?.textContent || id || "Playing…";
+    return { id, embed: button.dataset.embed, label };
+  }
+
+  function defaultStation() {
+    const button =
+      $(`.bg-music-btn[data-playlist="${DEFAULT_ID}"]`) || $(".bg-music-btn[data-embed]");
+    return stationFromButton(button) || {
+      id: DEFAULT_ID,
+      embed: DEFAULT_EMBED,
+      label: "Lofi Beats",
+    };
+  }
+
+  /** Resolve untrusted storage through stations already declared by the page. */
+  function storedStation(data) {
+    if (!isRecord(data)) return null;
+    const id = typeof data.id === "string" ? data.id : "";
+    const embed = typeof data.embed === "string" ? data.embed : "";
+    const stations = $$(".bg-music-btn[data-embed]").map(stationFromButton).filter(Boolean);
+    return stations.find((station) => id && station.id === id) ||
+      stations.find((station) => embed && station.embed === embed) ||
+      null;
+  }
+
   function withAutoplay(url) {
     if (!url) return url;
     try {
@@ -139,6 +173,22 @@
     }
   }
 
+  function persistPreference(stopped) {
+    try {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          id: currentId,
+          embed: lastEmbed || currentEmbed,
+          label: currentLabel,
+          stopped: stopped === true,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
   function setDockOpen(open, { persist = true } = {}) {
     dockOpen = !!open;
     const d = dockRoot();
@@ -191,19 +241,7 @@
     }
     setActiveButtons("");
     updateLabels();
-    try {
-      localStorage.setItem(
-        KEY,
-        JSON.stringify({
-          id: currentId,
-          embed: lastEmbed,
-          label: currentLabel,
-          stopped: true,
-        })
-      );
-    } catch {
-      /* ignore */
-    }
+    persistPreference(true);
     persistUi();
   }
 
@@ -245,19 +283,7 @@
     setActiveButtons(currentId);
     updateLabels();
 
-    try {
-      localStorage.setItem(
-        KEY,
-        JSON.stringify({
-          id: currentId,
-          embed: currentEmbed,
-          label: currentLabel,
-          stopped: false,
-        })
-      );
-    } catch {
-      /* ignore */
-    }
+    persistPreference(false);
     persistUi();
   }
 
@@ -281,15 +307,18 @@
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        if (data?.stopped) {
-          currentId = data.id || "";
-          currentLabel = data.label || "Playing…";
-          lastEmbed = data.embed || "";
+        const restored = storedStation(data);
+        if (isRecord(data) && data.stopped === true) {
+          const selected = restored || defaultStation();
+          currentId = selected.id;
+          currentLabel = selected.label;
+          lastEmbed = selected.embed;
+          persistPreference(true);
           updateLabels();
           return;
         }
-        if (data?.embed) {
-          play(data.id || "restored", data.embed, data.label || "");
+        if (restored) {
+          play(restored.id, restored.embed, restored.label);
           nudgeAutoplayOnGesture();
           return;
         }
@@ -297,17 +326,8 @@
     } catch {
       /* ignore */
     }
-    const btn =
-      $(`.bg-music-btn[data-playlist="${DEFAULT_ID}"]`) || $(".bg-music-btn[data-embed]");
-    if (btn?.dataset?.embed) {
-      play(
-        btn.dataset.playlist,
-        btn.dataset.embed,
-        btn.querySelector("strong")?.textContent || btn.dataset.playlist
-      );
-    } else {
-      play(DEFAULT_ID, DEFAULT_EMBED, "Lofi Beats");
-    }
+    const selected = defaultStation();
+    play(selected.id, selected.embed, selected.label);
     nudgeAutoplayOnGesture();
   }
 
@@ -316,8 +336,11 @@
       const raw = localStorage.getItem(UI_KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        setDockOpen(!!data.dockOpen, { persist: false });
-        return;
+        if (isRecord(data) && typeof data.dockOpen === "boolean") {
+          setDockOpen(data.dockOpen, { persist: false });
+          return;
+        }
+        localStorage.removeItem(UI_KEY);
       }
       // Migrate: ignore float/mini state from v4
       localStorage.removeItem("alparcade-music-ui-v4");
