@@ -71,14 +71,50 @@
     },
   };
 
+  const DEFINITION_IDS = new Set(DEFS.map((definition) => definition.id));
+
+  function isRecord(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function positiveTimestamp(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !value.trim()) return null;
+    const timestamp = Number(value);
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > Number.MAX_SAFE_INTEGER) {
+      return null;
+    }
+    return Math.floor(timestamp);
+  }
+
+  function normalizeUnlocked(value) {
+    if (!isRecord(value)) return {};
+    const unlocked = {};
+    for (const [id, at] of Object.entries(value)) {
+      const timestamp = positiveTimestamp(at);
+      if (DEFINITION_IDS.has(id) && timestamp != null) unlocked[id] = timestamp;
+    }
+    return unlocked;
+  }
+
+  function normalizeSeen(value) {
+    if (!isRecord(value)) return {};
+    const seen = {};
+    for (const [id, wasSeen] of Object.entries(value)) {
+      if (DEFINITION_IDS.has(id) && wasSeen === true) seen[id] = true;
+    }
+    return seen;
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return { unlocked: {}, seen: {} };
       const data = JSON.parse(raw);
+      if (!isRecord(data)) return { unlocked: {}, seen: {} };
       return {
-        unlocked: data.unlocked && typeof data.unlocked === "object" ? data.unlocked : {},
-        seen: data.seen && typeof data.seen === "object" ? data.seen : {},
+        unlocked: normalizeUnlocked(data.unlocked),
+        seen: normalizeSeen(data.seen),
       };
     } catch {
       return { unlocked: {}, seen: {} };
@@ -128,20 +164,23 @@
   }
 
   function mergeUnlocked(cloudMap) {
-    if (!cloudMap || typeof cloudMap !== "object") return [];
+    if (!isRecord(cloudMap)) return [];
     const state = load();
     const added = [];
+    let changed = false;
     for (const [id, at] of Object.entries(cloudMap)) {
-      if (!DEFS.some((d) => d.id === id)) continue;
-      const ts = Number(at) || Date.now();
+      if (!DEFINITION_IDS.has(id)) continue;
+      const ts = positiveTimestamp(at) || Date.now();
       if (!state.unlocked[id]) {
         state.unlocked[id] = ts;
         added.push(id);
+        changed = true;
       } else if (ts > 0 && ts < state.unlocked[id]) {
         state.unlocked[id] = ts;
+        changed = true;
       }
     }
-    if (added.length) save(state);
+    if (changed) save(state);
     return added;
   }
 
