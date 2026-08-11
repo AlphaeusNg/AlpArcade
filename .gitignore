@@ -5,8 +5,10 @@ firestore-debug.log
 ui-debug.log
 *.log
 
-# Dependencies (none required; ignore if tools ever install)
+# Locked test dependencies and Playwright output (runtime remains dependency-free)
 node_modules/
+test-results/
+playwright-report/
 
 # OS / editor
 .DS_Store

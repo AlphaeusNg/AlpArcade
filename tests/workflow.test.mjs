@@ -15,6 +15,26 @@ assert.match(workflow, /timeout-minutes:\s*10/, "the test job should have a boun
 assert.match(workflow, /uses:\s*actions\/checkout@v7/, "CI should use the supported checkout action");
 assert.match(workflow, /uses:\s*actions\/setup-node@v7/, "CI should use the supported Node action");
 assert.match(workflow, /node-version:\s*24/, "CI should use the documented Node baseline");
+assert.match(workflow, /cache:\s*npm/, "CI should cache locked npm dependencies");
+assert.match(
+  workflow,
+  /run:\s*npm ci --ignore-scripts\b/,
+  "CI should install exact browser dependencies from the lockfile",
+);
 assert.match(workflow, /run:\s*npm test\b/, "CI should run the complete local suite");
+assert.match(
+  workflow,
+  /run:\s*npx playwright install --with-deps chromium\b/,
+  "CI should install the locked Chromium runtime",
+);
+assert.match(
+  workflow,
+  /run:\s*npm run test:browser\b/,
+  "CI should run the browser cabinet smoke",
+);
+assert.ok(
+  workflow.indexOf("run: npm test") < workflow.indexOf("playwright install"),
+  "cheap unit tests should fail before the Chromium install",
+);
 
-console.log("GitHub Actions workflow policy passed (10 assertions).");
+console.log("GitHub Actions workflow policy passed (15 assertions).");

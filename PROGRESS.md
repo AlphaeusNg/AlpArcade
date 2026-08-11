@@ -1,55 +1,54 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-11 (Cycle 98 across the projects workspace; AlpArcade Cycle 57)
+Last updated: 2026-08-11 (Cycle 108 across the projects workspace; AlpArcade Cycle 58)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.11.1`.
-- Local verification: dependency-free `npm test` plus syntax checks across all JavaScript and test modules.
-- Automated verification: least-privilege GitHub Actions runs workflow policy, static structure, score persistence/import, achievement persistence/cloud merge, SGT daily scheduling, lazy script and cabinet-request lifecycles, shared audio/music hydration, achievement-toast, persistent error-log, and Pulse Grid suites on Node 24.
+- Deployment version: `2026.08.11.2`.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
+- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises the lobby, a lazy-loaded game, and return navigation in Chromium.
 
-## Latest cycle: cancel stale lazy cabinet navigation
+## Latest cycle: exercise the cabinet workflow in a real browser
 
 ### Why this was selected
 
-Returning to the lobby while a cabinet script was still loading did not cancel the pending continuation. When that fetch later resolved, the stale request could mount a hidden game and rewrite the URL. If the player started another cabinet first, a stale rejection could call the shared lobby cleanup and cancel the replacement request.
+The existing VM and source-contract suites verified individual modules well but never executed AlpArcade's integrated browser lifecycle. A broken selector, script order, DOM mutation, hash update, focus transition, or real page exception could therefore pass CI even when the central open/play/back journey failed.
 
 ### Changes
 
-- Added a small request-token lifecycle module for beginning, cancelling, validating, and finishing lazy cabinet opens.
-- Invalidated an in-flight token immediately when returning to the lobby, before the fullscreen-history wait can yield.
-- Guarded post-load mounting, synchronous mount completion, error handling, and final cleanup by request identity so stale work cannot affect a replacement.
-- Added an 11-contract VM fixture covering concurrent opens, cancellation, unique replacements, stale cleanup, and the delayed-load race.
-- Enforced the helper's script order and app integration in the static suite.
-- Bumped the deployment version to `2026.08.11.1`.
+- Added an exact, lockfile-pinned Playwright test dependency and a single-worker Chromium configuration backed by a local Python server.
+- Added a browser smoke that waits for application initialization, opens the lazy-loaded Tic-Tac-Toe cabinet, makes a move, observes the AI reply, and returns to the lobby.
+- Verified cabinet visibility, title, URL hash, board state, mount cleanup, and restored keyboard focus; page exceptions and console errors fail the test.
+- Stubbed all external HTTPS resources by request type so Firebase, Spotify, font, and donation availability cannot make CI flaky or leak test traffic.
+- Added locked dependency caching/install, browser installation, and the smoke to CI after the faster unit gate; enforced that order with five new workflow policy contracts.
+- Documented the local browser workflow, ignored generated Playwright output, and bumped the deployment version to `2026.08.11.2`.
 
 ### Verification and scores
 
-- Test-first lifecycle fixture failed because no cancellation-aware cabinet session existed.
-- `node tests/cabinet-session.test.mjs`: 11 navigation lifecycle and delayed-load contracts passed.
-- `npm test`: workflow policy, all persistence/loader/music/navigation contracts, and all existing suites passed across 22 JavaScript modules.
-- `find js tests ... | xargs -n1 node --check`: passed for every JavaScript and test module.
-- Manifest, Firebase CLI, and Firestore index JSON parsing: passed.
-- Retrying local HTTP preview smoke: served the cabinet lifecycle module and `2026.08.11.1` version successfully.
-- `git diff --check`: passed.
-- Correctness/reliability: 10/10 (stale lazy-load success and failure paths cannot mutate the active view).
-- Verifiability: 9/10 (the lifecycle race is deterministic; a full browser cabinet flow remains uncovered).
-- Maintainability: 9/10 (request identity is isolated behind four named lifecycle operations).
-- Performance: 10/10 (constant-time numeric token checks; no new runtime dependency).
-- Security/robustness: 9/10 (navigation state remains internally consistent under delayed or failed network loads).
+- Test-first workflow policy failed on the missing deterministic dependency install before the CI workflow was changed.
+- `npm test`: all suites passed across 22 JavaScript modules, including 15 CI policy assertions and all 11 cabinet lifecycle contracts.
+- `npm run test:browser -- --repeat-each=3`: 3/3 integrated open/play/back journeys passed in 4.0 seconds with no page or console errors.
+- `npm audit --audit-level=high`: zero vulnerabilities.
+- Syntax, JSON parsing, and `git diff --check`: passed.
+- Correctness/reliability: 9/10 (the primary game journey is now exercised against the real application DOM).
+- Verifiability: 10/10 (CI spans fast contracts plus an offline deterministic browser workflow).
+- Maintainability: 9/10 (one focused spec and a conventional pinned harness; commands are documented and policy-checked).
+- Performance: 8/10 (no runtime cost, but Chromium setup adds CI time; unit failures still short-circuit first).
+- Security/robustness: 10/10 (unexpected browser exceptions fail, while tests make no external requests).
 
 ### Lessons and process improvements
 
-- A boolean prevents overlap but cannot distinguish a stale continuation from the request that replaced it; asynchronous UI work needs request identity.
-- Cancellation must happen before the first `await` in teardown, or pending work can resume during cleanup.
-- Stale error handlers are as dangerous as stale success handlers because shared cleanup can destroy newer state.
-- A tiny dependency-free state machine gave deterministic race coverage without imposing a browser package and download on every CI run.
+- Application readiness should be observed through rendered public state, not a fixed timeout; the version footer makes a stable initialization signal.
+- Route interception by resource type keeps an integration test offline without producing invalid CSS or document responses that create false console failures.
+- Repeating the browser journey three times was a cheap race check after introducing the harness; the normal CI smoke stays intentionally singular.
+- Keeping unit tests before the browser download preserves fast feedback despite the added integration coverage.
 
 ## Recent project evolution
 
-- Cycle 57: made lazy cabinet navigation cancellation-safe with request-scoped lifecycle coverage.
+- Cycle 58: added locked, offline Chromium coverage for the real lobby/open/play/back workflow.
+- Cycle 57 (`c161c14`): made lazy cabinet navigation cancellation-safe with request-scoped lifecycle coverage.
 - Cycle 56 (`87cce54`): normalized music/dock preferences and constrained restored iframe URLs to canonical stations.
 - Cycle 55 (`ec3d46b`): normalized achievement maps and made every cloud merge change durable.
 - Cycle 54 (`acfddff`): made failed/timed-out lazy cabinet loads retryable.
@@ -61,9 +60,8 @@ Returning to the lobby while a cabinet script was still loading did not cancel t
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency |
 |---|---|---|---|---|---|
-| 1 | Add lobby/game browser smoke coverage | Verification | High | Large / medium | VM/source tests do not execute a full cabinet open/play/back flow in a browser DOM |
-| 2 | Add achievement save-failure observability | Reliability / UX | Low-medium | Small / low | Storage write exceptions remain intentionally silent, so a new badge can look durable when it is not |
+| 1 | Add achievement save-failure observability | Reliability / UX | Low-medium | Small / low | Storage write exceptions remain intentionally silent, so a new badge can look durable when it is not |
 
 ## Next cycle
 
-Local next: add a real browser lobby/open-cabinet/back smoke when the larger dependency and CI cost is justified. Workspace next: rotate to ChristoDay's current backlog after this focused AlpArcade cycle.
+Local next: surface an actionable warning when achievement persistence fails instead of implying the unlock is durable. Workspace next: rotate to ChristoDay's current backlog after this focused AlpArcade cycle.

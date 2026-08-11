@@ -94,10 +94,13 @@ python3 -m http.server 8080
 ### Tests
 
 ```bash
+npm ci --ignore-scripts
 npm test
+npx playwright install chromium
+npm run test:browser
 ```
 
-The dependency-free suite checks the GitHub Actions policy, JavaScript syntax,
+The unit suite checks the GitHub Actions policy, JavaScript syntax,
 HTML/local asset references, CSS block balance, GitHub Pages root entrypoints,
 shared audio/music hydration/error/toast behavior, and Pulse Grid timing/scoring invariants. It
 also executes score rewards, persistence, ranking, cloud-merge validation, and
@@ -106,6 +109,12 @@ push and pull request. Daily coverage fixes the clock at SGT rollover boundaries
 and verifies deterministic targets and idempotent completion persistence. A
 fake-DOM loader fixture verifies lazy cabinet scripts recover after errors and
 timeouts without duplicating concurrent requests.
+
+The locked Playwright smoke opens Tic-Tac-Toe in a real Chromium page, plays
+through the AI response, returns to the lobby, and checks URL, cleanup, focus,
+and runtime-error behavior. External Firebase, font, music, and donation
+requests are stubbed so the workflow stays deterministic and offline-safe. The
+browser dependency is test-only; the deployed arcade remains plain HTML/CSS/JS.
 
 ### Enable GitHub Pages
 

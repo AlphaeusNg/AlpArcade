@@ -81,7 +81,10 @@ manifest.webmanifest
 
 ```bash
 cd /home/alph/projects/AlpArcade
+npm ci --ignore-scripts
 npm test
+npx playwright install chromium
+npm run test:browser
 python3 -m http.server 8080
 # http://127.0.0.1:8080/
 ```
@@ -113,6 +116,6 @@ git push origin main
 
 1. Stay inside this repo for game/music/score changes.
 2. If portfolio *wording/link* about the arcade changes, edit `alphaeusng.github.io` separately.
-3. Test at least lobby + one game path + music dock after UI changes.
+3. Run the browser smoke for the lobby + game path after UI changes; check the music dock manually when touched.
 4. Bump version; push this remote only.
 5. Firebase rules/indexes: edit under `firebase/`; deploy from this root (or combined rules from portfolio if vault shares the project).
