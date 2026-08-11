@@ -8,6 +8,10 @@
   const STORAGE_KEY = "alphaeus-arcade-v1";
   const MAX_HISTORY = 40;
   const MAX_HALL = 15;
+  const SAVE_ERROR_MESSAGE =
+    "Progress couldn't be saved on this device — enable site storage to keep this visit's XP and scores.";
+  let sessionState = null;
+  let saveFailureNotified = false;
 
   /** @type {Record<string, { label: string, higherIsBetter: boolean, unit: string }>} */
   const GAMES = {
@@ -156,38 +160,64 @@
       .filter(Boolean);
   }
 
-  function load() {
+  function normalizeState(data) {
+    if (!isRecord(data)) return defaultState();
+    const base = defaultState();
+    const history = normalizeScoreEntries(data.history, { history: true }).slice(0, MAX_HISTORY);
+    const hallOfFame = rankHall(
+      normalizeScoreEntries(data.hallOfFame)
+    ).slice(0, MAX_HALL);
+    return {
+      ...base,
+      playerName:
+        typeof data.playerName === "string" ? data.playerName.trim().slice(0, 16) || "Player" : base.playerName,
+      xp: nonNegativeNumber(data.xp, 0, { integer: true }),
+      gamesPlayed: nonNegativeNumber(data.gamesPlayed, 0, { integer: true }),
+      highScores: normalizeHighScores(data.highScores),
+      history,
+      hallOfFame,
+    };
+  }
+
+  function loadPersisted() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultState();
-      const data = JSON.parse(raw);
-      if (!isRecord(data)) return defaultState();
-      const base = defaultState();
-      const history = normalizeScoreEntries(data.history, { history: true }).slice(0, MAX_HISTORY);
-      const hallOfFame = rankHall(
-        normalizeScoreEntries(data.hallOfFame)
-      ).slice(0, MAX_HALL);
-      return {
-        ...base,
-        playerName:
-          typeof data.playerName === "string" ? data.playerName.trim().slice(0, 16) || "Player" : base.playerName,
-        xp: nonNegativeNumber(data.xp, 0, { integer: true }),
-        gamesPlayed: nonNegativeNumber(data.gamesPlayed, 0, { integer: true }),
-        highScores: normalizeHighScores(data.highScores),
-        history,
-        hallOfFame,
-      };
+      return normalizeState(JSON.parse(raw));
     } catch {
       return defaultState();
+    }
+  }
+
+  function load() {
+    return sessionState ? normalizeState(sessionState) : loadPersisted();
+  }
+
+  function reportSaveFailure(error) {
+    if (saveFailureNotified) return;
+    saveFailureNotified = true;
+    console.warn("[ArcadeScores] save failed", error);
+    try {
+      if (typeof global.CustomEvent === "function" && typeof global.dispatchEvent === "function") {
+        global.dispatchEvent(new global.CustomEvent("arcade:score-save-error", {
+          detail: { message: SAVE_ERROR_MESSAGE },
+        }));
+      }
+    } catch {
+      /* The in-session fallback still works if event delivery is unavailable. */
     }
   }
 
   function save(state) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (err) {
-      // QuotaExceeded or private-mode storage denial — keep session playable.
-      console.warn("[ArcadeScores] save failed", err);
+      sessionState = null;
+      saveFailureNotified = false;
+      return true;
+    } catch (error) {
+      sessionState = normalizeState(state);
+      reportSaveFailure(error);
+      return false;
     }
   }
 
@@ -311,6 +341,8 @@
 
   function resetAll() {
     localStorage.removeItem(STORAGE_KEY);
+    sessionState = null;
+    saveFailureNotified = false;
     return defaultState();
   }
 

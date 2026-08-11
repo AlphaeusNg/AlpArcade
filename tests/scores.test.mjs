@@ -7,24 +7,49 @@ const root = path.resolve(import.meta.dirname, "..");
 const source = fs.readFileSync(path.join(root, "js/core/scores.js"), "utf8");
 const storageKey = "alphaeus-arcade-v1";
 
-function createScores(initial = new Map()) {
+function createScores(initial = new Map(), { writesFail = false } = {}) {
   const stored = new Map(initial);
+  const events = [];
+  const warnings = [];
+  let rejectWrites = writesFail;
+  const window = {
+    CustomEvent: class {
+      constructor(type, options = {}) {
+        this.type = type;
+        this.detail = options.detail;
+      }
+    },
+    dispatchEvent: (event) => events.push(event),
+  };
   const context = {
-    window: {},
-    console,
+    window,
+    console: {
+      warn: (...args) => warnings.push(args),
+    },
     TextEncoder,
     TextDecoder,
     btoa,
     atob,
     localStorage: {
       getItem: (key) => stored.get(key) ?? null,
-      setItem: (key, value) => stored.set(key, String(value)),
+      setItem: (key, value) => {
+        if (rejectWrites) throw new Error("storage denied");
+        stored.set(key, String(value));
+      },
       removeItem: (key) => stored.delete(key),
     },
   };
   vm.createContext(context);
   vm.runInContext(source, context);
-  return { scores: context.window.ArcadeScores, stored };
+  return {
+    scores: context.window.ArcadeScores,
+    stored,
+    events,
+    warnings,
+    setWritesFail: (value) => {
+      rejectWrites = value;
+    },
+  };
 }
 
 const { scores, stored } = createScores();
@@ -132,4 +157,44 @@ assert.equal(merged.highScores.snake.best, 10, "non-finite cloud bests must not 
 assert.equal(merged.highScores.reaction.best, 200, "invalid reaction bests must not replace local records");
 assert.equal(merged.highScores.tictactoe.wins, 1, "invalid cloud win counts must not replace local totals");
 
-console.log("Score persistence, rewards, ranking, and import contracts passed.");
+const denied = createScores(new Map(), { writesFail: true });
+const deniedFirst = denied.scores.submitScore("snake", 50);
+const deniedSecond = denied.scores.submitScore("snake", 75);
+const deniedState = denied.scores.getState();
+assert.equal(deniedState.gamesPlayed, 2, "denied writes retain every run for the current visit");
+assert.equal(
+  deniedState.xp,
+  deniedFirst.xpGained + deniedSecond.xpGained,
+  "denied writes retain cumulative XP for the current visit",
+);
+assert.equal(deniedState.highScores.snake.best, 75, "denied writes retain the current-visit best");
+assert.equal(deniedState.history.length, 2, "denied writes retain current-visit history");
+assert.equal(denied.events.length, 1, "repeated score write failures warn only once per failure episode");
+assert.equal(denied.events[0].type, "arcade:score-save-error");
+assert.match(
+  denied.events[0].detail?.message || "",
+  /enable site storage/i,
+  "the score warning tells the player how to make progress durable",
+);
+assert.equal(denied.warnings.length, 1, "the score console warning is also deduplicated");
+
+denied.scores.submitScore("reaction", 200);
+denied.scores.submitScore("reaction", 350);
+assert.equal(
+  denied.scores.getState().highScores.reaction.best,
+  200,
+  "denied writes retain lower-is-better records across repeated runs",
+);
+assert.equal(denied.events.length, 1, "additional denied games stay in the same failure episode");
+
+denied.setWritesFail(false);
+denied.scores.setPlayerName("Recovered Player");
+const recoveredState = JSON.parse(denied.stored.get(storageKey));
+assert.equal(recoveredState.playerName, "Recovered Player", "a successful save persists the latest player name");
+assert.equal(recoveredState.gamesPlayed, 4, "a successful save flushes session-only runs");
+assert.equal(recoveredState.highScores.snake.best, 75, "a successful save flushes the session-only best");
+denied.setWritesFail(true);
+denied.scores.submitScore("snake", 100);
+assert.equal(denied.events.length, 2, "a later score failure episode remains observable after recovery");
+
+console.log("Score persistence, rewards, ranking, import, and denied-storage contracts passed.");

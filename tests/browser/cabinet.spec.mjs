@@ -86,3 +86,49 @@ test("keeps achievement progress visible when device storage rejects it", async 
   await expect(page.locator("#toast")).toBeVisible();
   await expect(page.locator("#toast")).toContainText("enable site storage");
 });
+
+test("keeps score progress visible when device storage rejects it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function setItem(key, value) {
+      if (key === "alphaeus-arcade-v1") {
+        throw new DOMException("storage denied", "QuotaExceededError");
+      }
+      return originalSetItem.call(this, key, value);
+    };
+    window.__scoreSaveErrors = 0;
+    window.addEventListener("arcade:score-save-error", () => {
+      window.__scoreSaveErrors += 1;
+    });
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).toContainText("AlpArcade");
+
+  const result = await page.evaluate(() => {
+    window.ArcadeScores.submitScore("snake", 50);
+    window.ArcadeScores.submitScore("snake", 75);
+    document.querySelector("#name-input").value = "Session Player";
+    document.querySelector("#name-form").dispatchEvent(
+      new SubmitEvent("submit", { bubbles: true, cancelable: true })
+    );
+    const state = window.ArcadeScores.getState();
+    return {
+      xp: state.xp,
+      gamesPlayed: state.gamesPlayed,
+      best: state.highScores.snake.best,
+      history: state.history.length,
+      saveErrors: window.__scoreSaveErrors,
+    };
+  });
+
+  expect(result.gamesPlayed).toBe(2);
+  expect(result.best).toBe(75);
+  expect(result.history).toBe(2);
+  expect(result.saveErrors).toBe(1);
+  await expect(page.locator("#player-name-display")).toHaveText("Session Player");
+  await expect(page.locator("#xp-display")).toHaveText(`${result.xp} XP`);
+  await expect(page.locator("#games-played")).toHaveText("2");
+  await expect(page.locator("#toast")).toBeVisible();
+  await expect(page.locator("#toast")).toContainText("enable site storage");
+});

@@ -1029,6 +1029,10 @@
     showToast(event.detail?.message);
   });
 
+  window.addEventListener("arcade:score-save-error", (event) => {
+    showToast(event.detail?.message);
+  });
+
   function paintAchievements() {
     const host = $("#achievements-list");
     const countEl = $("#achievements-count");
