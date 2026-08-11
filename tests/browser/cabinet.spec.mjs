@@ -132,3 +132,34 @@ test("keeps score progress visible when device storage rejects it", async ({ pag
   await expect(page.locator("#toast")).toBeVisible();
   await expect(page.locator("#toast")).toContainText("enable site storage");
 });
+
+test("does not claim a factory reset succeeded when achievement removal is denied", async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = "alparcade-achievements-v1";
+    Storage.prototype.setItem.call(
+      localStorage,
+      key,
+      JSON.stringify({ unlocked: { "first-run": 1000 }, seen: {} }),
+    );
+    const originalRemoveItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function removeItem(storageKey) {
+      if (storageKey === key) {
+        throw new DOMException("storage denied", "SecurityError");
+      }
+      return originalRemoveItem.call(this, storageKey);
+    };
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#achievements-count")).toContainText("1 /");
+  await page.locator("#btn-reset").click();
+
+  await expect(page.locator("#toast")).toContainText(
+    /Reset failed: Achievement data couldn't be reset/i,
+  );
+  await expect(page.locator("#achievements-count")).toContainText("1 /");
+  await expect.poll(() => page.evaluate(() => (
+    window.ArcadeAchievements.isUnlocked("first-run")
+  ))).toBe(true);
+});

@@ -1,16 +1,72 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-11 (Cycle 128 across the projects workspace; AlpArcade Cycle 60)
+Last updated: 2026-08-11 (Cycle 137 across the projects workspace; AlpArcade Cycle 61)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.11.4`.
+- Deployment version: `2026.08.11.5`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied achievement storage in Chromium.
 
-## Latest cycle: retain and report score progress when device storage fails
+## Latest cycle: report denied achievement resets truthfully
+
+### Why this was selected
+
+The previous save-failure fallbacks were green, but the highest recorded local
+backlog item remained: `ArcadeAchievements.resetAll()` swallowed a denied
+`localStorage.removeItem()` and returned an empty-looking result. The factory
+reset UI then announced “Local scores wiped” even though achievement data and
+the displayed badge still survived on the device.
+
+### Changes
+
+- A denied achievement removal now throws one sanitized, actionable error while
+  preserving persisted and session achievement state.
+- The existing factory-reset error boundary converts that failure into a
+  “Reset failed” toast, so its later success path cannot run.
+- Expanded the achievement harness from 29 to 32 contracts for reported denial,
+  retained state, and a later successful recovery.
+- Added a real Chromium factory-reset journey that rejects only the achievement
+  removal, accepts the confirmation, verifies the failure toast, and proves the
+  badge remains visible and unlocked.
+- Documented truthful reset behavior and bumped the deployment version to
+  `2026.08.11.5`.
+
+### Verification and scores
+
+- Test-first evidence: the unit contract reported a missing exception and the
+  browser observed the false “Local scores wiped” success while the key
+  survived.
+- Focused achievement contracts passed after the fix; the new Chromium journey
+  passed 5/5 repeated runs. An initial two-step toast assertion exposed a race
+  with a later Firebase status toast, so it was replaced by one atomic message
+  assertion without changing runtime timing.
+- The complete unit, browser, dependency-audit, recursive syntax, JSON, diff,
+  hosted CI, Pages, and live-version results are recorded in the Cycle 137
+  completion summary.
+- Correctness/reliability: 3/10 → 10/10 (reset success now means removal worked).
+- Verifiability: 4/10 → 10/10 (denial, retention, recovery, and real UI messaging
+  are directly covered).
+- Maintainability: 8/10 → 9/10 (achievement reset now matches the throwing score
+  reset contract and uses one safe domain message).
+- Performance: 10/10 → 10/10 (only the exceptional path changed).
+- Security/robustness: 7/10 → 10/10 (raw storage exception details stay behind
+  a safe public error while retained data is not misrepresented).
+- User experience: 2/10 → 10/10 (a destructive action no longer reports a
+  clean slate when badges remain).
+
+### Lessons and process improvements
+
+- Destructive operations must report confirmed outcomes, not intended state;
+  returning an empty model after a failed removal creates a dangerous illusion.
+- Preserve state variables until the durable removal succeeds so recovery and
+  the visible UI remain truthful.
+- Toast assertions should capture one semantic message atomically when other
+  asynchronous services legitimately share the status surface.
+
+## Previous cycle: retain and report score progress when device storage fails
 
 ### Why this was selected
 
@@ -125,13 +181,14 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Prioritized opportunities
 
-| Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency |
-|---|---|---|---|---|---|
-| 1 | Report failed achievement resets | Reliability / UX | Low | Small / low | `resetAll()` still catches removal denial silently, so a factory reset can appear to clear data that the browser retained |
+| Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
+|---|---|---|---|---|---|---|
+| 1 | Report denied daily-progress resets | Reliability / UX | Low | Small / low | `ArcadeDaily.resetAll()` still catches removal denial silently; defer until the next local rotation to avoid another same-area cycle | Planned |
+| — | Report failed achievement resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in Chromium | Completed in Cycle 61 |
 | — | Preserve and report score progress when device storage rejects writes | Reliability / UX | Medium-high | Medium / low | Full session fallback, recovery flush, warning episodes, and real HUD behavior are covered | Completed in Cycle 60 |
 
 ## Next cycle
 
-Local next: make achievement reset denial observable so factory reset cannot
-claim success while retained device data remains. Workspace next: rotate to
-ChristoDay's current backlog after this focused AlpArcade cycle.
+Local next: report denied daily-progress resets, but defer another storage-path
+cycle to avoid diminishing returns. Workspace next: rotate to ChristoDay and
+select its highest current correctness or verification opportunity.

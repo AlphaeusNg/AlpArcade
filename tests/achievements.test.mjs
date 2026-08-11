@@ -9,12 +9,13 @@ const storageKey = "alparcade-achievements-v1";
 
 function createAchievements(
   rawState = null,
-  { level = 1, now = 9000, writesFail = false } = {},
+  { level = 1, now = 9000, writesFail = false, removalsFail = false } = {},
 ) {
   const stored = new Map();
   const events = [];
   const warnings = [];
   let rejectWrites = writesFail;
+  let rejectRemovals = removalsFail;
   if (rawState != null) stored.set(storageKey, rawState);
   class FakeDate extends Date {
     static now() {
@@ -46,7 +47,10 @@ function createAchievements(
         if (rejectWrites) throw new Error("storage denied");
         stored.set(key, String(value));
       },
-      removeItem: (key) => stored.delete(key),
+      removeItem: (key) => {
+        if (rejectRemovals) throw new Error("storage denied");
+        stored.delete(key);
+      },
     },
   };
   vm.createContext(context);
@@ -58,6 +62,9 @@ function createAchievements(
     warnings,
     setWritesFail: (value) => {
       rejectWrites = value;
+    },
+    setRemovalsFail: (value) => {
+      rejectRemovals = value;
     },
   };
 }
@@ -185,4 +192,22 @@ denied.setWritesFail(true);
 denied.achievements.unlock("daily");
 assert.equal(denied.events.length, 2, "a later failure episode remains observable after recovery");
 
-console.log("Achievement persistence and cloud merge passed (29 contracts).");
+const deniedReset = createAchievements(
+  JSON.stringify({ unlocked: { "first-run": 1000 }, seen: {} }),
+  { removalsFail: true },
+);
+assert.throws(
+  () => deniedReset.achievements.resetAll(),
+  /achievement data couldn't be reset/i,
+  "a denied achievement reset is reported to its caller",
+);
+assert.equal(
+  deniedReset.achievements.isUnlocked("first-run"),
+  true,
+  "a denied reset keeps the retained achievement visible",
+);
+deniedReset.setRemovalsFail(false);
+deniedReset.achievements.resetAll();
+assert.equal(deniedReset.achievements.count().have, 0, "a later permitted reset recovers cleanly");
+
+console.log("Achievement persistence and cloud merge passed (32 contracts).");

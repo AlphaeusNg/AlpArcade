@@ -74,6 +74,8 @@
   const DEFINITION_IDS = new Set(DEFS.map((definition) => definition.id));
   const SAVE_ERROR_MESSAGE =
     "Achievement couldn't be saved on this device — enable site storage to keep it.";
+  const RESET_ERROR_MESSAGE =
+    "Achievement data couldn't be reset — enable site storage and try again.";
   let sessionState = null;
   let saveFailureNotified = false;
 
@@ -202,8 +204,8 @@
       localStorage.removeItem(KEY);
       sessionState = null;
       saveFailureNotified = false;
-    } catch {
-      /* ignore */
+    } catch (error) {
+      throw new Error(RESET_ERROR_MESSAGE, { cause: error });
     }
     return { unlocked: {}, seen: {} };
   }
