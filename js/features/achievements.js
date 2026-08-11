@@ -72,6 +72,10 @@
   };
 
   const DEFINITION_IDS = new Set(DEFS.map((definition) => definition.id));
+  const SAVE_ERROR_MESSAGE =
+    "Achievement couldn't be saved on this device — enable site storage to keep it.";
+  let sessionState = null;
+  let saveFailureNotified = false;
 
   function isRecord(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
@@ -106,7 +110,19 @@
     return seen;
   }
 
-  function load() {
+  function mergeStates(primary, secondary) {
+    if (!secondary) return primary;
+    const unlocked = { ...primary.unlocked };
+    for (const [id, at] of Object.entries(secondary.unlocked)) {
+      if (!unlocked[id] || at < unlocked[id]) unlocked[id] = at;
+    }
+    return {
+      unlocked,
+      seen: { ...primary.seen, ...secondary.seen },
+    };
+  }
+
+  function loadPersisted() {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return { unlocked: {}, seen: {} };
@@ -121,11 +137,38 @@
     }
   }
 
+  function load() {
+    return mergeStates(loadPersisted(), sessionState);
+  }
+
+  function reportSaveFailure(error) {
+    if (saveFailureNotified) return;
+    saveFailureNotified = true;
+    console.warn("[ArcadeAchievements] save failed", error);
+    try {
+      if (typeof global.CustomEvent === "function" && typeof global.dispatchEvent === "function") {
+        global.dispatchEvent(new global.CustomEvent("arcade:achievement-save-error", {
+          detail: { message: SAVE_ERROR_MESSAGE },
+        }));
+      }
+    } catch {
+      /* The in-session fallback still works if event delivery is unavailable. */
+    }
+  }
+
   function save(state) {
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
-    } catch {
-      /* ignore */
+      sessionState = null;
+      saveFailureNotified = false;
+      return true;
+    } catch (error) {
+      sessionState = {
+        unlocked: { ...state.unlocked },
+        seen: { ...state.seen },
+      };
+      reportSaveFailure(error);
+      return false;
     }
   }
 
@@ -157,6 +200,8 @@
   function resetAll() {
     try {
       localStorage.removeItem(KEY);
+      sessionState = null;
+      saveFailureNotified = false;
     } catch {
       /* ignore */
     }

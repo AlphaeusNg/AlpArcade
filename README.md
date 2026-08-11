@@ -13,7 +13,7 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 ### Daily & achievements
 
 - **Daily challenge** — one seeded target per **Singapore (SGT)** calendar day (local completion flag).
-- **Achievements** — unlocks stored in `localStorage` (no account required).
+- **Achievements** — unlocks stored in `localStorage` (no account required). If device storage is unavailable, unlocks remain visible for the visit and the arcade explains how to make them durable.
 - **Unlock notice** — dismissible three-second achievement banner stays in play chrome, never over the game surface.
 
 ### Scoreboard
@@ -112,7 +112,7 @@ timeouts without duplicating concurrent requests.
 
 The locked Playwright smoke opens Tic-Tac-Toe in a real Chromium page, plays
 through the AI response, returns to the lobby, and checks URL, cleanup, focus,
-and runtime-error behavior. External Firebase, font, music, and donation
+runtime-error behavior, and the achievement storage-denial fallback. External Firebase, font, music, and donation
 requests are stubbed so the workflow stays deterministic and offline-safe. The
 browser dependency is test-only; the deployed arcade remains plain HTML/CSS/JS.
 

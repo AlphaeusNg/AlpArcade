@@ -53,3 +53,36 @@ test("opens, plays, and leaves a lazy-loaded cabinet", async ({ page }) => {
   await expect(page).not.toHaveURL(/#play\//);
   await expect(cabinet).toBeFocused();
 });
+
+test("keeps achievement progress visible when device storage rejects it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function setItem(key, value) {
+      if (key === "alparcade-achievements-v1") {
+        throw new DOMException("storage denied", "QuotaExceededError");
+      }
+      return originalSetItem.call(this, key, value);
+    };
+    window.__achievementSaveErrors = 0;
+    window.addEventListener("arcade:achievement-save-error", () => {
+      window.__achievementSaveErrors += 1;
+    });
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).toContainText("AlpArcade");
+
+  const result = await page.evaluate(() => {
+    window.ArcadeAchievements.unlock("first-run");
+    window.ArcadeAchievements.unlock("ttt-win");
+    return {
+      count: window.ArcadeAchievements.count().have,
+      firstRun: window.ArcadeAchievements.isUnlocked("first-run"),
+      saveErrors: window.__achievementSaveErrors,
+    };
+  });
+
+  expect(result).toEqual({ count: 2, firstRun: true, saveErrors: 1 });
+  await expect(page.locator("#toast")).toBeVisible();
+  await expect(page.locator("#toast")).toContainText("enable site storage");
+});

@@ -49,5 +49,12 @@ assert(
     && app.includes("drainAchievementToast();"),
   "Fullscreen unlock notices must wait until non-overlay play chrome returns"
 );
+const saveErrorListener = app.match(
+  /window\.addEventListener\("arcade:achievement-save-error",([\s\S]*?)\n  \}\);/
+)?.[1] || "";
+assert(
+  saveErrorListener.includes("showToast(event.detail?.message)"),
+  "Achievement save failures must surface the module's actionable warning in the UI"
+);
 
 console.log("Achievement toast placement and timing passed.");

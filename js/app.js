@@ -1025,6 +1025,10 @@
     if (event.detail?.id) notifyAchievements([event.detail]);
   });
 
+  window.addEventListener("arcade:achievement-save-error", (event) => {
+    showToast(event.detail?.message);
+  });
+
   function paintAchievements() {
     const host = $("#achievements-list");
     const countEl = $("#achievements-count");
