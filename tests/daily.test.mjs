@@ -7,8 +7,12 @@ const root = path.resolve(import.meta.dirname, "..");
 const source = fs.readFileSync(path.join(root, "js/features/daily.js"), "utf8");
 const storageKey = "alparcade-daily-v1";
 
-function createDaily(initialNow = Date.parse("2026-08-08T16:00:00Z"), { intl = Intl } = {}) {
+function createDaily(
+  initialNow = Date.parse("2026-08-08T16:00:00Z"),
+  { intl = Intl, removalsFail = false } = {},
+) {
   let nowMs = initialNow;
+  let rejectRemovals = removalsFail;
   const stored = new Map();
   const unlocked = [];
   class FakeDate extends Date {
@@ -35,7 +39,10 @@ function createDaily(initialNow = Date.parse("2026-08-08T16:00:00Z"), { intl = I
     localStorage: {
       getItem: (key) => stored.get(key) ?? null,
       setItem: (key, value) => stored.set(key, String(value)),
-      removeItem: (key) => stored.delete(key),
+      removeItem: (key) => {
+        if (rejectRemovals) throw new Error("storage denied");
+        stored.delete(key);
+      },
     },
   };
   vm.createContext(context);
@@ -45,6 +52,7 @@ function createDaily(initialNow = Date.parse("2026-08-08T16:00:00Z"), { intl = I
     stored,
     unlocked,
     setNow: (value) => { nowMs = Date.parse(value); },
+    setRemovalsFail: (value) => { rejectRemovals = value; },
   };
 }
 
@@ -138,6 +146,31 @@ assert.equal(JSON.parse(stored.get(storageKey))[challenge.day].done, true);
 
 daily.resetAll();
 assert.equal(daily.isComplete(challenge.day), false);
+
+const deniedReset = createDaily(undefined, { removalsFail: true });
+const deniedChallenge = deniedReset.daily.challengeFor();
+const deniedAttempt = successfulAttempt(deniedChallenge);
+deniedReset.stored.set(
+  storageKey,
+  JSON.stringify({ [deniedChallenge.day]: { done: true, score: deniedAttempt.score, at: 1 } }),
+);
+assert.throws(
+  () => deniedReset.daily.resetAll(),
+  /daily challenge progress couldn't be reset/i,
+  "a denied daily reset is reported to its caller",
+);
+assert.equal(
+  deniedReset.daily.isComplete(deniedChallenge.day),
+  true,
+  "a denied reset keeps retained daily progress visible",
+);
+deniedReset.setRemovalsFail(false);
+deniedReset.daily.resetAll();
+assert.equal(
+  deniedReset.daily.isComplete(deniedChallenge.day),
+  false,
+  "a later permitted reset recovers cleanly",
+);
 
 stored.set(storageKey, JSON.stringify("wrong-shape"));
 assert.doesNotThrow(

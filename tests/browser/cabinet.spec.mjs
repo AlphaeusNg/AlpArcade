@@ -163,3 +163,38 @@ test("does not claim a factory reset succeeded when achievement removal is denie
     window.ArcadeAchievements.isUnlocked("first-run")
   ))).toBe(true);
 });
+
+test("does not claim a factory reset succeeded when daily-progress removal is denied", async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = "alparcade-daily-v1";
+    const day = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Singapore",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    Storage.prototype.setItem.call(
+      localStorage,
+      key,
+      JSON.stringify({ [day]: { done: true, score: 999999, at: Date.now() } }),
+    );
+    const originalRemoveItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function removeItem(storageKey) {
+      if (storageKey === key) {
+        throw new DOMException("storage denied", "SecurityError");
+      }
+      return originalRemoveItem.call(this, storageKey);
+    };
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
+  await page.locator("#btn-reset").click();
+
+  await expect(page.locator("#toast")).toContainText(
+    /Reset failed: Daily challenge progress couldn't be reset/i,
+  );
+  await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
+  await expect.poll(() => page.evaluate(() => window.ArcadeDaily.isComplete())).toBe(true);
+});

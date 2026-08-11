@@ -5,6 +5,8 @@
   "use strict";
 
   const KEY = "alparcade-daily-v1";
+  const RESET_ERROR_MESSAGE =
+    "Daily challenge progress couldn't be reset — enable site storage and try again.";
   const TZ = "Asia/Singapore"; // SGT year-round (no DST)
   const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe", "jubeat", "breaker"];
 
@@ -122,8 +124,8 @@
   function resetAll() {
     try {
       localStorage.removeItem(KEY);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      throw new Error(RESET_ERROR_MESSAGE, { cause: error });
     }
     return {};
   }

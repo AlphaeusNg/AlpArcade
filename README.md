@@ -12,7 +12,7 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 
 ### Daily & achievements
 
-- **Daily challenge** — one seeded target per **Singapore (SGT)** calendar day (local completion flag).
+- **Daily challenge** — one seeded target per **Singapore (SGT)** calendar day (local completion flag). A denied factory reset is reported instead of claiming retained daily progress was removed.
 - **Achievements** — unlocks stored in `localStorage` (no account required). If device storage is unavailable, unlocks remain visible for the visit and the arcade explains how to make them durable; a denied factory reset is reported instead of claiming those badges were removed.
 - **Unlock notice** — dismissible three-second achievement banner stays in play chrome, never over the game surface.
 
