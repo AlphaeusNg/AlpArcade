@@ -13,7 +13,7 @@
   let activeGame = null;
   let activeGameId = null;
   let lastCabinet = null;
-  let opening = false;
+  const cabinetSession = window.ArcadeCabinetSession.create();
   let releaseActiveGameScreenLock = null;
 
   function releaseCabinetScreen() {
@@ -1079,7 +1079,7 @@
 
   // ----- Navigation -----
   async function openGame(id) {
-    if (!GAME_SCRIPTS[id] || opening) return;
+    if (!GAME_SCRIPTS[id]) return;
     // Always re-check level (never trust UI-only locks)
     if (cabinetIsLocked(id)) {
       showToast(cabinetLockMessage(id) || "Cabinet locked");
@@ -1089,7 +1089,8 @@
     // Re-activating the same game via hash is a no-op once mounted.
     if (activeGameId === id && activeGame && !playView.hidden) return;
 
-    opening = true;
+    const requestToken = cabinetSession.begin();
+    if (!requestToken) return;
     lastCabinet = document.querySelector(`[data-game="${id}"]`);
 
     try {
@@ -1110,6 +1111,7 @@
       if (playSub) playSub.textContent = ArcadeScores.GAMES[id]?.label || id;
 
       const game = await ensureGame(id);
+      if (!cabinetSession.isCurrent(requestToken)) return;
       if (!game) {
         showToast("Game failed to load");
         backToLobby();
@@ -1117,7 +1119,7 @@
       }
 
       gameMount.innerHTML = "";
-      activeGame = game.mount(gameMount, {
+      const mountedGame = game.mount(gameMount, {
         onExit: backToLobby,
         onScore({ score, result, meta }) {
           const { isHighScore, xpGained } = ArcadeScores.submitScore(id, score, {
@@ -1161,6 +1163,11 @@
           });
         },
       });
+      if (!cabinetSession.isCurrent(requestToken)) {
+        mountedGame?.destroy?.();
+        return;
+      }
+      activeGame = mountedGame;
       activeGameId = id;
       const ctrl = $("#play-controls");
       if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Have fun";
@@ -1175,15 +1182,17 @@
       // Move focus into the play chrome for keyboard users
       $("#btn-back")?.focus({ preventScroll: true });
     } catch (err) {
+      if (!cabinetSession.isCurrent(requestToken)) return;
       console.error(err);
       showToast("Game failed to load");
       backToLobby();
     } finally {
-      opening = false;
+      cabinetSession.finish(requestToken);
     }
   }
 
   async function backToLobby() {
+    cabinetSession.cancel();
     await window.ArcadeGameScreen?.exitFullscreen?.(playView)?.catch?.(() => {});
     releaseCabinetScreen();
     if (activeGame?.destroy) activeGame.destroy();

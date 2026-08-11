@@ -1,56 +1,56 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-10 (Cycle 85 across the projects workspace; AlpArcade Cycle 56)
+Last updated: 2026-08-11 (Cycle 98 across the projects workspace; AlpArcade Cycle 57)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.10.2`.
+- Deployment version: `2026.08.11.1`.
 - Local verification: dependency-free `npm test` plus syntax checks across all JavaScript and test modules.
-- Automated verification: least-privilege GitHub Actions runs workflow policy, static structure, score persistence/import, achievement persistence/cloud merge, SGT daily scheduling, lazy script loading, shared audio/music hydration, achievement-toast, persistent error-log, and Pulse Grid suites on Node 24.
+- Automated verification: least-privilege GitHub Actions runs workflow policy, static structure, score persistence/import, achievement persistence/cloud merge, SGT daily scheduling, lazy script and cabinet-request lifecycles, shared audio/music hydration, achievement-toast, persistent error-log, and Pulse Grid suites on Node 24.
 
-## Latest cycle: normalize music preference and dock hydration
+## Latest cycle: cancel stale lazy cabinet navigation
 
 ### Why this was selected
 
-Music hydration trusted truthiness and raw fields from local storage. The string `"false"` suppressed autoplay as if it were a real stopped flag, `"false"` could reopen the dock, and an arbitrary persisted embed URL could become the Spotify iframe source. None of the music boot, stop, dock, or autoplay-retry paths executed in tests.
+Returning to the lobby while a cabinet script was still loading did not cancel the pending continuation. When that fetch later resolved, the stale request could mount a hidden game and rewrite the URL. If the player started another cabinet first, a stale rejection could call the shared lobby cleanup and cancel the replacement request.
 
 ### Changes
 
-- Added plain-record and exact-boolean validation for stored music and dock state.
-- Resolved restored station IDs/embeds through canonical station buttons already shipped in the page; persisted data can no longer inject a foreign iframe URL.
-- Canonicalized valid stopped state, repaired malformed dock state, and preserved safe default autoplay when preferences are corrupt or blocked.
-- Consolidated preference writes so play, stop, and hydration share one boolean-safe serializer.
-- Added a direct fake-DOM/VM fixture with 25 boot, restore, stop, corruption, canonical URL, dock ARIA/scrim, blocked-storage, and one-shot autoplay-retry contracts.
-- Bumped the deployment version to `2026.08.10.2`.
+- Added a small request-token lifecycle module for beginning, cancelling, validating, and finishing lazy cabinet opens.
+- Invalidated an in-flight token immediately when returning to the lobby, before the fullscreen-history wait can yield.
+- Guarded post-load mounting, synchronous mount completion, error handling, and final cleanup by request identity so stale work cannot affect a replacement.
+- Added an 11-contract VM fixture covering concurrent opens, cancellation, unique replacements, stale cleanup, and the delayed-load race.
+- Enforced the helper's script order and app integration in the static suite.
+- Bumped the deployment version to `2026.08.11.1`.
 
 ### Verification and scores
 
-- Test-first music fixture: hydration treated stored `"false"` as a stopped preference and failed the autoplay contract.
-- `node tests/music.test.mjs`: 25 music preference, dock hydration, canonical URL, and autoplay recovery contracts passed.
-- `npm test`: workflow policy, all persistence/loader/music contracts, and all existing suites passed across 21 JavaScript modules.
+- Test-first lifecycle fixture failed because no cancellation-aware cabinet session existed.
+- `node tests/cabinet-session.test.mjs`: 11 navigation lifecycle and delayed-load contracts passed.
+- `npm test`: workflow policy, all persistence/loader/music/navigation contracts, and all existing suites passed across 22 JavaScript modules.
 - `find js tests ... | xargs -n1 node --check`: passed for every JavaScript and test module.
 - Manifest, Firebase CLI, and Firestore index JSON parsing: passed.
-- Retrying local HTTP preview smoke: served the music dock entrypoint, hardened module, and `2026.08.10.2` version successfully.
+- Retrying local HTTP preview smoke: served the cabinet lifecycle module and `2026.08.11.1` version successfully.
 - `git diff --check`: passed.
-- Correctness/reliability: 9/10 (only exact preferences and canonical stations influence startup state).
-- Verifiability: 10/10 (the real module boots through 25 deterministic DOM/storage/gesture contracts).
-- Maintainability: 9/10 (station resolution and preference serialization each have one named path).
-- Performance: 9/10 (two station buttons are scanned only during hydration; the complete suite remains sub-second).
-- Security/robustness: 9/10 (local storage can no longer choose an unlisted iframe source).
+- Correctness/reliability: 10/10 (stale lazy-load success and failure paths cannot mutate the active view).
+- Verifiability: 9/10 (the lifecycle race is deterministic; a full browser cabinet flow remains uncovered).
+- Maintainability: 9/10 (request identity is isolated behind four named lifecycle operations).
+- Performance: 10/10 (constant-time numeric token checks; no new runtime dependency).
+- Security/robustness: 9/10 (navigation state remains internally consistent under delayed or failed network loads).
 
 ### Lessons and process improvements
 
-- Treat local storage as untrusted even when only the same origin can normally write it; extensions, old builds, manual edits, and past bugs can leave hostile shapes behind.
-- Persist identifiers, but resolve executable/embed destinations through the current application catalog rather than replaying stored URLs.
-- Truthiness is not a schema: UI and stop flags require exact booleans.
-- Full-suite verification caught an over-specific test expectation: invalid dock state is removed, then immediately rewritten in normalized form by autoplay. Require the stronger repaired state, not the transient implementation step.
-- Local preview probes should retry connection refusal while the server binds; the first no-retry attempt measured a startup race rather than the application.
+- A boolean prevents overlap but cannot distinguish a stale continuation from the request that replaced it; asynchronous UI work needs request identity.
+- Cancellation must happen before the first `await` in teardown, or pending work can resume during cleanup.
+- Stale error handlers are as dangerous as stale success handlers because shared cleanup can destroy newer state.
+- A tiny dependency-free state machine gave deterministic race coverage without imposing a browser package and download on every CI run.
 
 ## Recent project evolution
 
-- Cycle 56: normalized music/dock preferences and constrained restored iframe URLs to canonical stations.
+- Cycle 57: made lazy cabinet navigation cancellation-safe with request-scoped lifecycle coverage.
+- Cycle 56 (`87cce54`): normalized music/dock preferences and constrained restored iframe URLs to canonical stations.
 - Cycle 55 (`ec3d46b`): normalized achievement maps and made every cloud merge change durable.
 - Cycle 54 (`acfddff`): made failed/timed-out lazy cabinet loads retryable.
 - Cycle 53 (`586bf73`): verified SGT scheduling/completion and recovered wrong-shape daily storage.

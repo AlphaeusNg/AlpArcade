@@ -39,9 +39,20 @@ assert(
   "the shared lazy script loader must initialize before app.js",
 );
 assert(
+  indexHtml.indexOf('src="js/core/cabinet-session.js"') >= 0
+    && indexHtml.indexOf('src="js/core/cabinet-session.js"') < indexHtml.indexOf('src="js/app.js"'),
+  "the cabinet lifecycle helper must initialize before app.js",
+);
+assert(
   app.includes("window.ArcadeScriptLoader.create().load")
     && !app.includes("const scriptPromises ="),
   "app.js must use the tested retryable loader instead of an app-local promise cache",
+);
+assert(
+  app.includes("cabinetSession.isCurrent(requestToken)")
+    && app.includes("cabinetSession.cancel()")
+    && !app.includes("let opening = false"),
+  "app.js must cancel stale lazy cabinet requests by identity",
 );
 localRefs.push(...[...app.matchAll(/"(js\/games\/[^"]+\.js)"/g)].map((match) => match[1]));
 for (const ref of new Set(localRefs)) {

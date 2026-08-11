@@ -3,6 +3,7 @@ import "./static-structure.test.mjs";
 import "./scores.test.mjs";
 import "./daily.test.mjs";
 import "./script-loader.test.mjs";
+import "./cabinet-session.test.mjs";
 import "./audio.test.mjs";
 import "./music.test.mjs";
 import "./achievement-toast.test.mjs";
