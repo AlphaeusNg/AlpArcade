@@ -18,7 +18,7 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 
 ### Scoreboard
 
-- **Local:** player tag, XP, personal bests — `localStorage` with export/import codes. If a device write is denied, current-visit score progress stays visible and the arcade explains how to make it durable. No account needed to play.
+- **Local:** player tag, XP, personal bests — `localStorage` with export/import codes. If a device write is denied, current-visit score progress stays visible and the arcade explains how to make it durable; a denied factory reset is reported instead of claiming retained XP and scores were removed. No account needed to play.
 - **Cloud (optional):** Global leaderboards via Firebase. **Google sign-in** to post. One best per user per game (anti-spam). Filter boards by cabinet on the lobby and in-game.
 
 ### Version stamp
@@ -113,7 +113,7 @@ timeouts without duplicating concurrent requests.
 The locked Playwright smoke opens Tic-Tac-Toe in a real Chromium page, plays
 through the AI response, returns to the lobby, and checks URL, cleanup, focus,
 runtime-error behavior, achievement/score/daily storage-denial fallbacks, and truthful
-factory-reset handling when achievement or daily-progress removal is denied. External Firebase, font, music, and donation
+factory-reset handling when score, achievement, or daily-progress removal is denied. External Firebase, font, music, and donation
 requests are stubbed so the workflow stays deterministic and offline-safe. The
 browser dependency is test-only; the deployed arcade remains plain HTML/CSS/JS.
 

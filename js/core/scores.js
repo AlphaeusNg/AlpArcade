@@ -10,6 +10,8 @@
   const MAX_HALL = 15;
   const SAVE_ERROR_MESSAGE =
     "Progress couldn't be saved on this device — enable site storage to keep this visit's XP and scores.";
+  const RESET_ERROR_MESSAGE =
+    "Score data couldn't be reset — enable site storage and try again.";
   let sessionState = null;
   let saveFailureNotified = false;
 
@@ -340,9 +342,13 @@
   }
 
   function resetAll() {
-    localStorage.removeItem(STORAGE_KEY);
-    sessionState = null;
-    saveFailureNotified = false;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionState = null;
+      saveFailureNotified = false;
+    } catch (error) {
+      throw new Error(RESET_ERROR_MESSAGE, { cause: error });
+    }
     return defaultState();
   }
 

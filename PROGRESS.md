@@ -1,16 +1,71 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-18 (Cycle 156 across the projects workspace; AlpArcade Cycle 63)
+Last updated: 2026-08-18 (Cycle 159 across the projects workspace; AlpArcade Cycle 64)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.18.1`.
+- Deployment version: `2026.08.18.2`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: retain and report daily progress when device writes fail
+## Latest cycle: report denied score-key resets truthfully
+
+### Why this was selected
+
+Workspace rotation returned here after the daily-save fallback. Achievement
+and daily resets already throw sanitized errors, but `ArcadeScores.resetAll()`
+still forwarded a raw `removeItem` exception. Inspection showed the factory
+reset could not reach “Local scores wiped”, yet the toast exposed the
+browser error and no contract locked the score key.
+
+### Changes
+
+- A denied score-key removal now throws one sanitized, actionable error;
+  persisted and session-only XP remain the source of truth.
+- The existing factory-reset error boundary converts that failure into a
+  “Reset failed” toast and cannot reach its later success message.
+- Expanded the score VM harness with removal denial, retained persisted and
+  session state, and later recovery contracts.
+- Added a real Chromium factory-reset journey that rejects only the score
+  key, verifies the failure toast, and proves HUD XP, games played, and the
+  player name remain both rendered and queryable.
+- Documented the behavior and bumped the deployment version to
+  `2026.08.18.2`.
+
+### Verification and scores
+
+- Test-first evidence: the new unit assertion failed because the thrown
+  error was the raw `storage denied` exception, not a score-domain message.
+- Focused score unit contracts passed after the sanitized throw landed.
+- `npm test`: all suites passed across 22 JavaScript modules.
+- `npm run test:browser`: 7/7 real Chromium journeys passed, including the
+  score-key denial toast and retained HUD values.
+- Recursive runtime syntax and `git diff --check` passed.
+- Correctness/reliability: 8/10 → 10/10 (reset success now requires actual
+  score-key removal, matching achievements and daily progress).
+- Verifiability: 4/10 → 10/10 (denial, retained persisted and session
+  state, recovery, rendered HUD, and messaging are directly covered).
+- Maintainability: 8/10 → 9/10 (score reset now matches the achievement and
+  daily throwing contracts).
+- Performance: 10/10 → 10/10 (only the exceptional path changed).
+- Security/robustness: 6/10 → 10/10 (raw storage errors stay behind a safe
+  domain message).
+- User experience: 6/10 → 10/10 (a denied wipe explains site storage
+  instead of leaking a browser exception).
+
+### Lessons and process improvements
+
+- A raw throw can already stop a false success toast and still be the wrong
+  public contract; sanitize the message and lock it before calling the
+  family done.
+- Session-only score snapshots need the same “do not clear until removal
+  succeeds” rule as persisted keys, or a denied reset erases the visit.
+- After finishing the last sibling in a storage-path family, inspect the
+  remaining key even when the success toast already looks blocked.
+
+## Previous cycle: retain and report daily progress when device writes fail
 
 ### Why this was selected
 
@@ -275,6 +330,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 64: reported denied score-key resets and verified retained XP through
+  the factory-reset UI.
 - Cycle 63: retained session daily-completion state across denied device writes
   and surfaced one actionable warning per failure episode.
 - Cycle 62: reported denied daily-progress resets and verified retained daily
@@ -297,7 +354,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
-| 1 | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Achievement and daily resets now throw; inspect whether score-key removal can still announce a clean slate | Planned |
+| — | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Denial now propagates a sanitized score-domain error through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 64 |
 | — | Retain and report completed daily progress when device writes are denied | Reliability / UX | Medium | Small / low | Session snapshot, one-episode warning, recovery flush, and Chromium “Done ✓” are covered | Completed in Cycle 63 |
 | — | Report denied daily-progress resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 62 |
 | — | Report failed achievement resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in Chromium | Completed in Cycle 61 |
@@ -305,7 +362,6 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: inspect whether a denied score-key factory reset can still announce
-a clean slate now that achievements and daily progress throw. Workspace next:
-rotate to ChristoDay and select its highest current correctness or verification
-opportunity.
+Local next: inspect whether the console `factoryReset()` helper can still
+report `local: true` after a denied score, achievement, or daily removal.
+Workspace next: continue rotation, skip Car-Type-Classification-Service.

@@ -201,6 +201,44 @@ test("does not claim a factory reset succeeded when achievement removal is denie
   ))).toBe(true);
 });
 
+test("does not claim a factory reset succeeded when score removal is denied", async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = "alphaeus-arcade-v1";
+    Storage.prototype.setItem.call(
+      localStorage,
+      key,
+      JSON.stringify({
+        playerName: "Reset Player",
+        xp: 42,
+        gamesPlayed: 3,
+        highScores: { snake: { best: 75 } },
+      }),
+    );
+    const originalRemoveItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function removeItem(storageKey) {
+      if (storageKey === key) {
+        throw new DOMException("storage denied", "SecurityError");
+      }
+      return originalRemoveItem.call(this, storageKey);
+    };
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#player-name-display")).toHaveText("Reset Player");
+  await expect(page.locator("#xp-display")).toHaveText("42 XP");
+  await expect(page.locator("#games-played")).toHaveText("3");
+  await page.locator("#btn-reset").click();
+
+  await expect(page.locator("#toast")).toContainText(
+    /Reset failed: Score data couldn't be reset/i,
+  );
+  await expect(page.locator("#player-name-display")).toHaveText("Reset Player");
+  await expect(page.locator("#xp-display")).toHaveText("42 XP");
+  await expect(page.locator("#games-played")).toHaveText("3");
+  await expect.poll(() => page.evaluate(() => window.ArcadeScores.getState().xp)).toBe(42);
+});
+
 test("does not claim a factory reset succeeded when daily-progress removal is denied", async ({ page }) => {
   await page.addInitScript(() => {
     const key = "alparcade-daily-v1";

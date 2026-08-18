@@ -7,11 +7,12 @@ const root = path.resolve(import.meta.dirname, "..");
 const source = fs.readFileSync(path.join(root, "js/core/scores.js"), "utf8");
 const storageKey = "alphaeus-arcade-v1";
 
-function createScores(initial = new Map(), { writesFail = false } = {}) {
+function createScores(initial = new Map(), { writesFail = false, removalsFail = false } = {}) {
   const stored = new Map(initial);
   const events = [];
   const warnings = [];
   let rejectWrites = writesFail;
+  let rejectRemovals = removalsFail;
   const window = {
     CustomEvent: class {
       constructor(type, options = {}) {
@@ -36,7 +37,10 @@ function createScores(initial = new Map(), { writesFail = false } = {}) {
         if (rejectWrites) throw new Error("storage denied");
         stored.set(key, String(value));
       },
-      removeItem: (key) => stored.delete(key),
+      removeItem: (key) => {
+        if (rejectRemovals) throw new Error("storage denied");
+        stored.delete(key);
+      },
     },
   };
   vm.createContext(context);
@@ -48,6 +52,9 @@ function createScores(initial = new Map(), { writesFail = false } = {}) {
     warnings,
     setWritesFail: (value) => {
       rejectWrites = value;
+    },
+    setRemovalsFail: (value) => {
+      rejectRemovals = value;
     },
   };
 }
@@ -196,5 +203,41 @@ assert.equal(recoveredState.highScores.snake.best, 75, "a successful save flushe
 denied.setWritesFail(true);
 denied.scores.submitScore("snake", 100);
 assert.equal(denied.events.length, 2, "a later score failure episode remains observable after recovery");
+
+const deniedReset = createScores(new Map([
+  [storageKey, JSON.stringify({
+    playerName: "Reset Player",
+    xp: 42,
+    gamesPlayed: 3,
+    highScores: { snake: { best: 75 } },
+  })],
+]), { removalsFail: true });
+assert.throws(
+  () => deniedReset.scores.resetAll(),
+  /score data couldn't be reset/i,
+  "a denied score reset is reported to its caller",
+);
+const retainedReset = deniedReset.scores.getState();
+assert.equal(retainedReset.xp, 42, "a denied reset keeps retained XP visible");
+assert.equal(retainedReset.gamesPlayed, 3, "a denied reset keeps retained games-played visible");
+assert.equal(retainedReset.highScores.snake.best, 75, "a denied reset keeps retained bests visible");
+assert.equal(deniedReset.stored.has(storageKey), true, "a denied reset leaves score storage in place");
+deniedReset.setRemovalsFail(false);
+deniedReset.scores.resetAll();
+assert.equal(deniedReset.scores.getState().xp, 0, "a later permitted reset recovers cleanly");
+assert.equal(deniedReset.stored.has(storageKey), false, "a later permitted reset removes score storage");
+
+const deniedSessionReset = createScores(new Map(), { writesFail: true, removalsFail: true });
+deniedSessionReset.scores.submitScore("snake", 50);
+assert.throws(
+  () => deniedSessionReset.scores.resetAll(),
+  /score data couldn't be reset/i,
+  "a denied reset is reported even when progress exists only in the visit",
+);
+assert.equal(
+  deniedSessionReset.scores.getState().highScores.snake.best,
+  50,
+  "a denied reset keeps session-only scores visible",
+);
 
 console.log("Score persistence, rewards, ranking, import, and denied-storage contracts passed.");
