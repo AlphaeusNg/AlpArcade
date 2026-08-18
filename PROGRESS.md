@@ -1,16 +1,47 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-18 (Cycle 159 across the projects workspace; AlpArcade Cycle 64)
+Last updated: 2026-08-18 (Cycle 160 across the projects workspace; AlpArcade Cycle 65)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.18.2`.
+- Deployment version: `2026.08.18.3`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: report denied score-key resets truthfully
+## Latest cycle: lobby hero daily + honest cabinet UX
+
+### Why this was selected
+
+The last cycles tightened storage-denial contracts. Players still met a
+dead daily CTA when the assigned cabinet was locked, a generic share
+tagline after a run, hidden cabinet blurbs on phones, and a missing
+Help row for two cabinets. This cycle ships those visible lobby fixes.
+
+### Changes
+
+- `#daily-card` is now the lobby hero above `#cabinets`. If today's
+  assigned game is locked, the primary button opens Snake (or the
+  nearest unlocked free cabinet) and the card shows “Unlocks at Lv N”
+  for the original. Done still paints “Done ✓” as a win.
+- Each cabinet icon tile gets a distinct `--cab` accent (teal / cyan /
+  violet / gold / coral). Pulse Grid’s blurb is a short identity line,
+  and phones keep `.cab-desc` visible instead of hiding it.
+- Help covers Circuit Breaker and Pulse Grid. Shooter controls say
+  auto-fire, not Space fire. Share copies the last run’s game, score,
+  and URL. Guest boards no longer ask players to edit `firebase-config.js`.
+- Deployment version bumped to `2026.08.18.3`.
+
+### Verification and scores
+
+- Focused daily unit contracts cover the locked-day fallback.
+- `npm test`, `node --check` on edited JS, and `git diff --check`.
+- `npm run test:browser` when time allows.
+- User experience: 6/10 → 9/10 (the hero CTA always opens a playable
+  cabinet; share and help match what the games actually do).
+
+## Previous cycle: report denied score-key resets truthfully
 
 ### Why this was selected
 

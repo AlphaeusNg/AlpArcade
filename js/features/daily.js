@@ -13,6 +13,8 @@
   let sessionProgress = null;
   let saveFailureNotified = false;
   const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe", "jubeat", "breaker"];
+  const FALLBACK_ORDER = ["snake", "tictactoe", "breaker", "tapper", "reaction", "shooter", "memory", "jubeat"];
+  const UNLOCK_LEVELS = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
 
   /**
    * YYYY-MM-DD for the calendar day in Singapore time.
@@ -164,6 +166,55 @@
     return `≥ ${ch.target} pts`;
   }
 
+  function unlockLevelFor(gameId) {
+    return UNLOCK_LEVELS[gameId] || 0;
+  }
+
+  function gameLabel(gameId) {
+    return global.ArcadeScores?.GAMES?.[gameId]?.label || gameId;
+  }
+
+  /**
+   * First free / unlocked cabinet the hero button can actually open.
+   * Prefers Snake, then other always-free cabinets, then the nearest unlocked gate.
+   */
+  function fallbackPlayable(isUnlocked) {
+    const check = typeof isUnlocked === "function" ? isUnlocked : () => true;
+    for (const id of FALLBACK_ORDER) {
+      if (check(id)) return id;
+    }
+    return "snake";
+  }
+
+  /**
+   * Today's challenge plus a guaranteed playable cabinet for the lobby CTA.
+   * When the assigned game is locked, `playGame` is Snake (or nearest unlocked).
+   */
+  function playableChallenge(opts = {}) {
+    const ch = challengeFor(opts.date);
+    const isUnlocked = typeof opts.isUnlocked === "function" ? opts.isUnlocked : () => true;
+    const locked = !isUnlocked(ch.game);
+    if (!locked) {
+      return {
+        ...ch,
+        playGame: ch.game,
+        playLabel: ch.label,
+        locked: false,
+        unlockLevel: 0,
+        fallback: null,
+      };
+    }
+    const fallback = fallbackPlayable(isUnlocked);
+    return {
+      ...ch,
+      playGame: fallback,
+      playLabel: gameLabel(fallback),
+      locked: true,
+      unlockLevel: unlockLevelFor(ch.game),
+      fallback,
+    };
+  }
+
   function resetAll() {
     try {
       localStorage.removeItem(KEY);
@@ -177,6 +228,9 @@
 
   global.ArcadeDaily = {
     challengeFor,
+    playableChallenge,
+    fallbackPlayable,
+    unlockLevelFor,
     isComplete,
     markAttempt,
     formatTarget,

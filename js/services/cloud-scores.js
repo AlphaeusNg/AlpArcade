@@ -178,7 +178,7 @@
 
   async function init() {
     if (!isConfigured()) {
-      setStatus("off", "Cloud disabled — set enabled:true in js/firebase-config.js");
+      setStatus("off", "Play free. Sign in with Google to appear here.");
       return false;
     }
     if (ready && db) {

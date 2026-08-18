@@ -269,4 +269,23 @@ const fallbackIntl = {
 const fallback = createDaily(Date.parse("2026-08-08T16:00:00Z"), { intl: fallbackIntl }).daily;
 assert.equal(fallback.dayKey(), "2026-08-09", "the fixed UTC+8 fallback should match SGT rollover");
 
+const lockedDay = harnessForGame("jubeat");
+const lockedView = lockedDay.daily.playableChallenge({
+  isUnlocked: (id) => id !== "jubeat",
+});
+assert.equal(lockedView.game, "jubeat", "the assigned challenge stays on the locked cabinet");
+assert.equal(lockedView.locked, true);
+assert.equal(lockedView.unlockLevel, 15);
+assert.equal(lockedView.playGame, "snake", "a locked daily CTA falls back to Snake");
+assert.equal(lockedView.fallback, "snake");
+assert.ok(lockedView.playLabel, "the fallback cabinet should have a player-facing label");
+
+const unlockedView = lockedDay.daily.playableChallenge({ isUnlocked: () => true });
+assert.equal(unlockedView.locked, false);
+assert.equal(unlockedView.playGame, "jubeat");
+assert.equal(unlockedView.fallback, null);
+
+const noSnake = lockedDay.daily.fallbackPlayable((id) => id === "breaker");
+assert.equal(noSnake, "breaker", "if Snake is unavailable the nearest unlocked free cabinet is used");
+
 console.log("Daily SGT schedule and completion persistence passed.");

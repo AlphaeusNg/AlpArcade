@@ -239,6 +239,15 @@
   position: relative;
 }
 
+.cabinet[data-game="tictactoe"] { --cab: var(--coral); }
+.cabinet[data-game="snake"] { --cab: var(--teal); }
+.cabinet[data-game="breaker"] { --cab: var(--gold); }
+.cabinet[data-game="tapper"] { --cab: var(--cyan); }
+.cabinet[data-game="reaction"] { --cab: var(--violet); }
+.cabinet[data-game="shooter"] { --cab: var(--cyan); }
+.cabinet[data-game="memory"] { --cab: var(--coral); }
+.cabinet[data-game="jubeat"] { --cab: var(--gold); }
+
 .cabinets-unlock-hint {
   margin: 0.55rem 0 0;
   font-size: 0.72rem;
@@ -253,7 +262,8 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: rgba(45, 212, 191, 0.08);
+  background: color-mix(in srgb, var(--cab, var(--teal)) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cab, var(--teal)) 34%, transparent);
   flex-shrink: 0;
 }
 

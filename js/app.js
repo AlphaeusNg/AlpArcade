@@ -55,7 +55,7 @@
 
   const GAME_CONTROLS = {
     tictactoe: "Click a cell · change AI difficulty anytime",
-    shooter: "WASD / arrows move · Space fire · P pause",
+    shooter: "WASD / arrows move · auto-fire · P pause",
     snake: "WASD / arrows · swipe on mobile · P pause",
     reaction: "Click / tap the pad · wait for green",
     memory: "Tap cards to match pairs · hearts are lives",
@@ -79,9 +79,11 @@
       showToast("Finish a run first");
       return;
     }
-    // Always copy blurb + arcade link (no native share sheet)
+    // Copy last run (game + score) plus arcade link (no native share sheet)
     const link = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
-    const text = `${SHARE_BLURB}\n${link}`;
+    const formatted = window.ArcadeScores?.formatScore?.(lastRunShare.gameId, lastRunShare.score)
+      ?? String(lastRunShare.score);
+    const text = `${lastRunShare.label} — ${formatted}\n${SHARE_BLURB}\n${link}`;
     try {
       await navigator.clipboard.writeText(text);
       showToast("Link copied");
@@ -542,7 +544,7 @@
     } else if (minimizedError) {
       msg = "Cloud error minimized — select Show error to reopen";
     } else if (!s.configured) {
-      msg = "Cloud disabled — set enabled:true in js/firebase-config.js";
+      msg = "Play free. Sign in with Google to appear here.";
     } else if (status === "connecting") {
       msg = "Cloud: connecting…";
     } else if (status === "error") {
@@ -641,7 +643,7 @@
     const err = s.lastError || "";
 
     if (status === "off" && !s.configured) {
-      listEl.innerHTML = `<li class="empty">Enable Firebase in <code>js/firebase-config.js</code>.</li>`;
+      listEl.innerHTML = `<li class="empty">Play free. Sign in with Google to appear here.</li>`;
       return;
     }
     if (status === "connecting") {
@@ -1063,9 +1065,19 @@
   function paintDaily() {
     const el = $("#daily-card");
     if (!el || !window.ArcadeDaily) return;
-    const ch = window.ArcadeDaily.challengeFor();
+    const isUnlocked = (id) => !cabinetIsLocked(id);
+    const ch = window.ArcadeDaily.playableChallenge
+      ? window.ArcadeDaily.playableChallenge({ isUnlocked })
+      : window.ArcadeDaily.challengeFor();
     const done = window.ArcadeDaily.isComplete();
     const target = window.ArcadeDaily.formatTarget(ch);
+    const playGame = ch.playGame || ch.game;
+    const playLabel = ch.playLabel || ch.label;
+    el.classList.toggle("is-complete", !!done);
+    const unlockLine = ch.locked && !done
+      ? `<p class="daily-unlock mono">Unlocks at Lv ${escapeHtml(String(ch.unlockLevel))} · play ${escapeHtml(playLabel)}</p>`
+      : "";
+    const btnText = done ? "Play again" : ch.locked ? `Play ${playLabel}` : "Play challenge";
     el.innerHTML = `
       <div class="daily-head">
         <p class="eyebrow">Daily challenge · SGT</p>
@@ -1077,16 +1089,23 @@
         <strong>${escapeHtml(ch.label)}</strong>
         <span>${escapeHtml(target)}</span>
       </p>
-      <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(ch.game)}">
-        ${done ? "Play again" : "Play challenge"}
+      ${unlockLine}
+      <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(playGame)}">
+        ${escapeHtml(btnText)}
       </button>
     `;
     $("#btn-daily-play")?.addEventListener("click", () => {
-      if (cabinetIsLocked(ch.game)) {
-        showToast(cabinetLockMessage(ch.game) || "Cabinet locked — play free cabinets for XP first");
+      const playId = $("#btn-daily-play")?.dataset.dailyGame || playGame;
+      if (!cabinetIsLocked(playId)) {
+        openGame(playId);
         return;
       }
-      openGame(ch.game);
+      const fallback = window.ArcadeDaily.fallbackPlayable?.(isUnlocked) || "snake";
+      if (!cabinetIsLocked(fallback)) {
+        openGame(fallback);
+        return;
+      }
+      showToast(cabinetLockMessage(ch.game) || "Cabinet locked — play free cabinets for XP first");
     });
   }
 

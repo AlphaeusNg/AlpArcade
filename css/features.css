@@ -6,10 +6,15 @@ body.salmon-mode {
   --grad: linear-gradient(135deg, #fb7185 0%, #fb923c 50%, #fbbf24 100%);
 }
 
-/* Daily challenge */
+/* Daily challenge — lobby hero above cabinets */
 .daily-row {
-  padding: 1rem 1.15rem;
-  margin-bottom: 1rem;
+  padding: 1.05rem 1.15rem;
+  margin-bottom: 1.15rem;
+  border-color: rgba(45, 212, 191, 0.28);
+}
+
+.daily-row.is-complete {
+  border-color: rgba(251, 191, 36, 0.42);
 }
 
 .daily-head {
@@ -29,8 +34,9 @@ body.salmon-mode {
 }
 
 .daily-badge.is-done {
-  color: var(--teal);
-  border-color: rgba(45, 212, 191, 0.35);
+  color: var(--gold);
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.08);
 }
 
 .daily-task {
@@ -45,6 +51,12 @@ body.salmon-mode {
 .daily-task strong {
   color: var(--text);
   font-size: 1.05rem;
+}
+
+.daily-unlock {
+  margin: -0.35rem 0 0.7rem;
+  font-size: 0.72rem;
+  color: var(--gold);
 }
 
 /* Achievements */

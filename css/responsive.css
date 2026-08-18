@@ -116,7 +116,10 @@
   }
 
   .cab-desc {
-    display: none;
+    display: block;
+    font-size: 0.62rem;
+    line-height: 1.2;
+    max-width: 100%;
   }
 
   .cab-best {
