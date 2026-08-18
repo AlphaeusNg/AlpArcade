@@ -54,6 +54,25 @@ assert(
     && !app.includes("let opening = false"),
   "app.js must cancel stale lazy cabinet requests by identity",
 );
+assert(
+  app.includes("function cabinetLockChip")
+    && app.includes("lockEl.textContent = cabinetLockChip(id)")
+    && !app.includes("bestEl.textContent = req?.message"),
+  "locked cabinets must show a compact Lv chip instead of replacing .cab-best",
+);
+assert(
+  app.includes('id="btn-daily-play"')
+    && app.includes('id="btn-daily-continue"')
+    && app.includes("alparcade-last-cabinet-v1")
+    && app.includes("persistLastCabinet")
+    && /Continue \$\{escapeHtml\(continueLabel\)\}/.test(app),
+  "daily card must keep the play CTA and add Continue last cabinet",
+);
+assert(
+  app.includes("Mute game SFX (music is in the ♪ dock)")
+    && indexHtml.includes('title="Mute game SFX (music is in the ♪ dock)"'),
+  "mute tooltip must distinguish game SFX from the music dock",
+);
 localRefs.push(...[...app.matchAll(/"(js\/games\/[^"]+\.js)"/g)].map((match) => match[1]));
 for (const ref of new Set(localRefs)) {
   assert(fs.existsSync(path.join(root, ref)), `Missing local reference: ${ref}`);

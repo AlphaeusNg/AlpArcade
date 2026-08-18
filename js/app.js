@@ -13,6 +13,10 @@
   let activeGame = null;
   let activeGameId = null;
   let lastCabinet = null;
+  const LAST_CABINET_KEY = "alparcade-last-cabinet-v1";
+  const CABINET_LEVEL_GATES = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
+  const MUTE_SFX_TITLE = "Mute game SFX (music is in the ♪ dock)";
+  const UNMUTE_SFX_TITLE = "Unmute game SFX (music is in the ♪ dock)";
   const cabinetSession = window.ArcadeCabinetSession.create();
   let releaseActiveGameScreenLock = null;
 
@@ -280,8 +284,7 @@
       return !window.ArcadeAchievements.isGameUnlocked(id);
     }
     // Fail closed if module missing: known gates by level
-    const FALLBACK = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
-    const need = FALLBACK[id];
+    const need = CABINET_LEVEL_GATES[id];
     if (need == null) return false;
     const xp = ArcadeScores.getState()?.xp || 0;
     const level = ArcadeScores.getLevel?.(xp)?.level || 1;
@@ -291,12 +294,38 @@
   function cabinetLockMessage(id) {
     const req = window.ArcadeAchievements?.unlockRequirement?.(id);
     if (req?.message) return req.message;
-    const FALLBACK = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
-    const need = FALLBACK[id];
+    const need = CABINET_LEVEL_GATES[id];
     if (need == null) return "Cabinet locked";
     const xp = ArcadeScores.getState()?.xp || 0;
     const level = ArcadeScores.getLevel?.(xp)?.level || 1;
     return `Reach Lv ${need} to unlock (you are Lv ${level})`;
+  }
+
+  function cabinetLockChip(id) {
+    const req = window.ArcadeAchievements?.unlockRequirement?.(id);
+    if (req?.chip) return req.chip;
+    const need = CABINET_LEVEL_GATES[id];
+    return need != null ? `Lv ${need}` : "Locked";
+  }
+
+  function persistLastCabinet(id) {
+    if (!id || !GAME_SCRIPTS[id] || cabinetIsLocked(id)) return;
+    try {
+      localStorage.setItem(LAST_CABINET_KEY, id);
+    } catch {
+      /* Preference only — Continue stays hidden if storage is denied. */
+    }
+  }
+
+  function lastPlayableCabinet() {
+    let id = null;
+    try {
+      id = localStorage.getItem(LAST_CABINET_KEY);
+    } catch {
+      return null;
+    }
+    if (!id || !GAME_SCRIPTS[id] || cabinetIsLocked(id)) return null;
+    return id;
   }
 
   function paintCabinetBests() {
@@ -307,18 +336,28 @@
       if (!g) return;
       const locked = cabinetIsLocked(id);
       const req = window.ArcadeAchievements?.unlockRequirement?.(id);
+      const lockHint = req?.message || cabinetLockMessage(id) || "Cabinet locked";
       card.classList.toggle("is-locked", !!locked);
       card.setAttribute("aria-disabled", locked ? "true" : "false");
-      if (locked) card.setAttribute("tabindex", "0");
+      card.setAttribute("aria-label", locked ? `${g.label} locked, ${cabinetLockChip(id)}` : `Play ${g.label}`);
+      if (locked) {
+        card.setAttribute("tabindex", "0");
+        card.title = lockHint;
+      } else {
+        card.removeAttribute("title");
+      }
+      const goEl = card.querySelector(".cab-go");
+      if (goEl) goEl.hidden = !!locked;
       let lockEl = card.querySelector(".cab-lock");
       if (locked) {
         if (!lockEl) {
           lockEl = document.createElement("span");
-          lockEl.className = "cab-lock";
+          lockEl.className = "cab-lock mono";
           lockEl.setAttribute("aria-hidden", "true");
           card.appendChild(lockEl);
         }
-        lockEl.textContent = "🔒";
+        lockEl.textContent = cabinetLockChip(id);
+        lockEl.title = lockHint;
       } else if (lockEl) {
         lockEl.remove();
       }
@@ -327,10 +366,6 @@
         bestEl = document.createElement("span");
         bestEl.className = "cab-best mono";
         card.querySelector(".cab-body")?.appendChild(bestEl);
-      }
-      if (locked) {
-        bestEl.textContent = req?.message || cabinetLockMessage(id) || "Locked";
-        return;
       }
       const hs = state.highScores[id];
       if (id === "tictactoe") {
@@ -1078,6 +1113,13 @@
       ? `<p class="daily-unlock mono">Unlocks at Lv ${escapeHtml(String(ch.unlockLevel))} · play ${escapeHtml(playLabel)}</p>`
       : "";
     const btnText = done ? "Play again" : ch.locked ? `Play ${playLabel}` : "Play challenge";
+    const continueId = lastPlayableCabinet();
+    const continueLabel = continueId
+      ? ArcadeScores.GAMES[continueId]?.label || continueId
+      : "";
+    const continueBtn = continueId
+      ? `<button type="button" class="btn small ghost" id="btn-daily-continue" data-continue-game="${escapeHtml(continueId)}">Continue ${escapeHtml(continueLabel)}</button>`
+      : "";
     el.innerHTML = `
       <div class="daily-head">
         <p class="eyebrow">Daily challenge · SGT</p>
@@ -1090,9 +1132,12 @@
         <span>${escapeHtml(target)}</span>
       </p>
       ${unlockLine}
-      <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(playGame)}">
-        ${escapeHtml(btnText)}
-      </button>
+      <div class="daily-actions">
+        <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(playGame)}">
+          ${escapeHtml(btnText)}
+        </button>
+        ${continueBtn}
+      </div>
     `;
     $("#btn-daily-play")?.addEventListener("click", () => {
       const playId = $("#btn-daily-play")?.dataset.dailyGame || playGame;
@@ -1107,6 +1152,14 @@
       }
       showToast(cabinetLockMessage(ch.game) || "Cabinet locked — play free cabinets for XP first");
     });
+    $("#btn-daily-continue")?.addEventListener("click", () => {
+      const continuePlay = $("#btn-daily-continue")?.dataset.continueGame || continueId;
+      if (continuePlay && !cabinetIsLocked(continuePlay)) {
+        openGame(continuePlay);
+        return;
+      }
+      paintDaily();
+    });
   }
 
   // ----- Navigation -----
@@ -1118,6 +1171,7 @@
       paintCabinetBests();
       return;
     }
+    persistLastCabinet(id);
     // Re-activating the same game via hash is a no-op once mounted.
     if (activeGameId === id && activeGame && !playView.hidden) return;
 
@@ -1240,6 +1294,7 @@
     // Restore dashboard leaderboard filter to All
     window.ArcadeCloud?.setLeaderboardGame?.("all");
     refreshHud();
+    paintDaily();
     updateCloudChrome();
     renderGlobalHall();
     // Restore focus to the cabinet that opened the game
@@ -1693,7 +1748,8 @@
     $$(".mute-btn").forEach((btn) => {
       btn.textContent = muted ? "🔇" : "🔊";
       btn.setAttribute("aria-pressed", muted ? "true" : "false");
-      btn.title = muted ? "Unmute" : "Mute";
+      btn.title = muted ? UNMUTE_SFX_TITLE : MUTE_SFX_TITLE;
+      btn.setAttribute("aria-label", muted ? UNMUTE_SFX_TITLE : MUTE_SFX_TITLE);
     });
   }
   $$(".mute-btn, #btn-mute, #btn-mute-play").forEach((btn) => {

@@ -26,6 +26,36 @@ test.afterEach(async ({ page }) => {
   expect(runtimeErrors.get(page), "unexpected browser runtime errors").toEqual([]);
 });
 
+test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const cabinet = page.locator('[data-game="jubeat"]');
+  await expect(cabinet).toBeVisible();
+  await expect(cabinet).toHaveClass(/is-locked/);
+  await expect(cabinet.locator(".cab-lock")).toHaveText("Lv 15");
+  await expect(cabinet.locator(".cab-desc")).toContainText("Lv 15");
+  await expect(cabinet.locator(".cab-best")).toHaveText("No runs yet");
+  await expect(cabinet.locator(".cab-best")).not.toContainText("Reach Lv");
+  await cabinet.click({ force: true });
+  await expect(page.locator("#lobby")).toBeVisible();
+  await expect(page.locator("#play-view")).toBeHidden();
+  await expect(page.locator("#toast")).toContainText("Reach Lv 15");
+});
+
+test("continue last cabinet sits beside the daily play CTA", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#btn-daily-play")).toBeVisible();
+  await expect(page.locator("#btn-daily-continue")).toHaveCount(0);
+
+  await page.locator('[data-game="tictactoe"]').click();
+  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+  await page.locator("#btn-back").click();
+
+  await expect(page.locator("#btn-daily-play")).toBeVisible();
+  await expect(page.locator("#btn-daily-continue")).toHaveText("Continue Tic-Tac-Toe");
+  await page.locator("#btn-daily-continue").click();
+  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+});
+
 test("opens, plays, and leaves a lazy-loaded cabinet", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#site-version")).toContainText("AlpArcade");

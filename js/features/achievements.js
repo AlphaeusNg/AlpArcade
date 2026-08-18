@@ -280,6 +280,7 @@
     return {
       ...gate,
       currentLevel: level,
+      chip: gate.requireLevel ? `Lv ${gate.requireLevel}` : "Locked",
       message: gate.requireLevel
         ? `Reach Lv ${gate.requireLevel} to unlock (you are Lv ${level})`
         : "Achievement required",

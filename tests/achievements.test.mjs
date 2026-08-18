@@ -142,6 +142,21 @@ assert.equal(
   false,
   "a merged badge still cannot bypass the player-level cabinet gate",
 );
+const gated = createAchievements(null, { level: 3 }).achievements;
+const jubeatGate = gated.unlockRequirement("jubeat");
+assert.equal(jubeatGate.requireLevel, 15);
+assert.equal(jubeatGate.chip, "Lv 15", "locked cabinets expose a compact level chip");
+assert.equal(
+  jubeatGate.message,
+  "Reach Lv 15 to unlock (you are Lv 3)",
+  "toasts still explain the full level gate",
+);
+assert.equal(gated.unlockRequirement("snake"), null, "free cabinets have no lock copy");
+assert.equal(
+  createAchievements(null, { level: 15 }).achievements.unlockRequirement("jubeat"),
+  null,
+  "a high enough level clears the gate copy",
+);
 assert.deepEqual(
   JSON.parse(JSON.stringify(cloud.achievements.mergeUnlocked(null))),
   [],
@@ -210,4 +225,4 @@ deniedReset.setRemovalsFail(false);
 deniedReset.achievements.resetAll();
 assert.equal(deniedReset.achievements.count().have, 0, "a later permitted reset recovers cleanly");
 
-console.log("Achievement persistence and cloud merge passed (32 contracts).");
+console.log("Achievement persistence and cloud merge passed (37 contracts).");

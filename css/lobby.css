@@ -229,10 +229,18 @@
 
 .cabinet .cab-lock {
   position: absolute;
-  top: 0.35rem;
-  right: 0.4rem;
-  font-size: 0.85rem;
-  line-height: 1;
+  top: 0.32rem;
+  right: 0.32rem;
+  padding: 0.14rem 0.38rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.42);
+  background: rgba(8, 14, 26, 0.9);
+  color: var(--gold);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .cabinet {

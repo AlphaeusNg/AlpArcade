@@ -1,16 +1,43 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-18 (Cycle 161 across the projects workspace; AlpArcade Cycle 66)
+Last updated: 2026-08-18 (Cycle 162 across the projects workspace; AlpArcade Cycle 67)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.18.4`.
+- Deployment version: `2026.08.18.5`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: lead the lobby with daily + cabinets
+## Latest cycle: compact cabinet locks + continue last cabinet
+
+### Why this was selected
+
+Locked cabinets still replaced `.cab-best` with a long “Reach Lv N…”
+sentence, so the tile lost its score identity. Returning players also
+had no lobby shortcut back to the last unlocked cabinet they opened.
+
+### Changes
+
+- Locked cabinets now keep `.cab-desc` and `.cab-best`, and show a
+  compact `Lv N` chip instead of the long lock sentence. Click/keyboard
+  still toast the full requirement and refuse to open the game.
+- Last opened unlocked cabinet id is persisted. The daily card keeps
+  its play CTA and adds a sibling “Continue {name}” when that cabinet
+  is still unlocked.
+- Mute tooltip now says SFX are muted here and music lives in the ♪
+  dock.
+- Deployment version bumped to `2026.08.18.5`.
+
+### Verification and scores
+
+- `npm test`, `npm run test:browser`, `node --check` on edited JS, and
+  `git diff --check`.
+- User experience: 8/10 → 9/10 (locked tiles stay identifiable; last
+  cabinet is one tap from the daily card).
+
+## Previous cycle: lead the lobby with daily + cabinets
 
 ### Why this was selected
 

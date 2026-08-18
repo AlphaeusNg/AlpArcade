@@ -59,6 +59,13 @@ body.salmon-mode {
   color: var(--gold);
 }
 
+.daily-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
 /* Achievements */
 .achievements {
   padding: 0.85rem 1rem 0.95rem;
