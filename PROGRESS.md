@@ -1,16 +1,38 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-18 (Cycle 160 across the projects workspace; AlpArcade Cycle 65)
+Last updated: 2026-08-18 (Cycle 161 across the projects workspace; AlpArcade Cycle 66)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.18.3`.
+- Deployment version: `2026.08.18.4`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: lobby hero daily + honest cabinet UX
+## Latest cycle: lead the lobby with daily + cabinets
+
+### Why this was selected
+
+The daily card already sat above the cabinet grid, but the first screen
+was still the ASCII intro, fun-facts column, and player bar. Players
+should meet today’s challenge and the cabinets first.
+
+### Changes
+
+- `#daily-card` and `#cabinets` now open the lobby. `#intro`, `#fun-facts`,
+  and `#player-bar` stay below with every existing ID intact.
+- `#intro-tip` no longer points “below” at the daily challenge; the tip
+  is hidden on desktop as well as phone (Help still covers Esc / P).
+- Deployment version bumped to `2026.08.18.4`.
+
+### Verification and scores
+
+- `npm test`, `npm run test:browser`, `node --check` on edited JS, and
+  `git diff --check`.
+- User experience: 8/10 → 9/10 (first screen is play, not lore).
+
+## Previous cycle: lobby hero daily + honest cabinet UX
 
 ### Why this was selected
 

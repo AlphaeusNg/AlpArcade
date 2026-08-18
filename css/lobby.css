@@ -409,10 +409,7 @@
 }
 
 .intro-tip {
-  margin: 0.65rem 0 0;
-  font-size: 0.72rem;
-  color: var(--dim);
-  line-height: 1.45;
+  display: none;
 }
 
 /* —— Left music dock (match VK stacking: panel above page, tab on outer edge) —— */
