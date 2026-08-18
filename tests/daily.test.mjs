@@ -9,12 +9,15 @@ const storageKey = "alparcade-daily-v1";
 
 function createDaily(
   initialNow = Date.parse("2026-08-08T16:00:00Z"),
-  { intl = Intl, removalsFail = false } = {},
+  { intl = Intl, removalsFail = false, writesFail = false } = {},
 ) {
   let nowMs = initialNow;
   let rejectRemovals = removalsFail;
+  let rejectWrites = writesFail;
   const stored = new Map();
   const unlocked = [];
+  const events = [];
+  const warnings = [];
   class FakeDate extends Date {
     constructor(...args) {
       super(...(args.length ? args : [nowMs]));
@@ -31,14 +34,27 @@ function createDaily(
       ),
     },
     ArcadeAchievements: { unlock: (id) => unlocked.push(id) },
+    CustomEvent: class {
+      constructor(type, options = {}) {
+        this.type = type;
+        this.detail = options.detail;
+      }
+    },
+    dispatchEvent: (event) => events.push(event),
   };
   const context = {
     window,
     Date: FakeDate,
     Intl: intl,
+    console: {
+      warn: (...args) => warnings.push(args),
+    },
     localStorage: {
       getItem: (key) => stored.get(key) ?? null,
-      setItem: (key, value) => stored.set(key, String(value)),
+      setItem: (key, value) => {
+        if (rejectWrites) throw new Error("storage denied");
+        stored.set(key, String(value));
+      },
       removeItem: (key) => {
         if (rejectRemovals) throw new Error("storage denied");
         stored.delete(key);
@@ -51,8 +67,11 @@ function createDaily(
     daily: window.ArcadeDaily,
     stored,
     unlocked,
+    events,
+    warnings,
     setNow: (value) => { nowMs = Date.parse(value); },
     setRemovalsFail: (value) => { rejectRemovals = value; },
+    setWritesFail: (value) => { rejectWrites = value; },
   };
 }
 
@@ -171,6 +190,64 @@ assert.equal(
   false,
   "a later permitted reset recovers cleanly",
 );
+
+const deniedWrite = createDaily(undefined, { writesFail: true });
+const deniedWriteChallenge = deniedWrite.daily.challengeFor();
+const deniedWriteAttempt = successfulAttempt(deniedWriteChallenge);
+const deniedFirst = deniedWrite.daily.markAttempt(
+  deniedWriteChallenge.game,
+  deniedWriteAttempt.score,
+  deniedWriteAttempt.meta,
+);
+assert.equal(deniedFirst.completed, true, "a denied write still records completion for this visit");
+assert.equal(deniedFirst.firstTime, true, "the first denied completion is still first-time");
+assert.equal(
+  deniedWrite.daily.isComplete(deniedWriteChallenge.day),
+  true,
+  "a failed device save remains visible for the current visit",
+);
+assert.equal(
+  deniedWrite.stored.has(storageKey),
+  false,
+  "denied daily progress is not treated as durable device state",
+);
+deniedWrite.daily.markAttempt(
+  deniedWriteChallenge.game,
+  deniedWriteAttempt.score,
+  deniedWriteAttempt.meta,
+);
+assert.equal(deniedWrite.events.length, 1, "repeated write failures warn only once per failure episode");
+assert.equal(deniedWrite.events[0].type, "arcade:daily-save-error");
+assert.match(
+  deniedWrite.events[0].detail?.message || "",
+  /enable site storage/i,
+  "the warning tells the player how to make daily progress durable",
+);
+assert.equal(deniedWrite.warnings.length, 1, "the console warning is also deduplicated");
+
+deniedWrite.setWritesFail(false);
+const laterDay = "2026-08-10T16:00:00Z";
+deniedWrite.setNow(laterDay);
+const recoveredChallenge = deniedWrite.daily.challengeFor();
+const recoveredAttempt = successfulAttempt(recoveredChallenge);
+deniedWrite.daily.markAttempt(
+  recoveredChallenge.game,
+  recoveredAttempt.score,
+  recoveredAttempt.meta,
+);
+const persisted = JSON.parse(deniedWrite.stored.get(storageKey));
+assert.equal(
+  persisted[deniedWriteChallenge.day].done,
+  true,
+  "the next successful save flushes the session-only completion to device storage",
+);
+assert.equal(persisted[recoveredChallenge.day].done, true, "the recovered save includes the later completion");
+deniedWrite.setWritesFail(true);
+deniedWrite.setNow("2026-08-11T16:00:00Z");
+const laterChallenge = deniedWrite.daily.challengeFor();
+const laterAttempt = successfulAttempt(laterChallenge);
+deniedWrite.daily.markAttempt(laterChallenge.game, laterAttempt.score, laterAttempt.meta);
+assert.equal(deniedWrite.events.length, 2, "a later failure episode remains observable after recovery");
 
 stored.set(storageKey, JSON.stringify("wrong-shape"));
 assert.doesNotThrow(

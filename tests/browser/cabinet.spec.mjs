@@ -133,6 +133,43 @@ test("keeps score progress visible when device storage rejects it", async ({ pag
   await expect(page.locator("#toast")).toContainText("enable site storage");
 });
 
+test("keeps completed daily progress visible when device storage rejects it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function setItem(key, value) {
+      if (key === "alparcade-daily-v1") {
+        throw new DOMException("storage denied", "QuotaExceededError");
+      }
+      return originalSetItem.call(this, key, value);
+    };
+    window.__dailySaveErrors = 0;
+    window.addEventListener("arcade:daily-save-error", () => {
+      window.__dailySaveErrors += 1;
+    });
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).toContainText("AlpArcade");
+
+  const result = await page.evaluate(() => {
+    const challenge = window.ArcadeDaily.challengeFor();
+    const score = challenge.game === "tictactoe" ? 1 : challenge.target;
+    const meta = challenge.game === "tictactoe" ? { result: "win" } : {};
+    window.ArcadeDaily.markAttempt(challenge.game, score, meta);
+    window.ArcadeDaily.markAttempt(challenge.game, score, meta);
+    return {
+      complete: window.ArcadeDaily.isComplete(),
+      durable: Boolean(window.localStorage.getItem("alparcade-daily-v1")),
+      saveErrors: window.__dailySaveErrors,
+    };
+  });
+
+  expect(result).toEqual({ complete: true, durable: false, saveErrors: 1 });
+  await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
+  await expect(page.locator("#toast")).toBeVisible();
+  await expect(page.locator("#toast")).toContainText("enable site storage");
+});
+
 test("does not claim a factory reset succeeded when achievement removal is denied", async ({ page }) => {
   await page.addInitScript(() => {
     const key = "alparcade-achievements-v1";

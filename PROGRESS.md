@@ -1,16 +1,68 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-11 (Cycle 146 across the projects workspace; AlpArcade Cycle 62)
+Last updated: 2026-08-18 (Cycle 156 across the projects workspace; AlpArcade Cycle 63)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.11.6`.
+- Deployment version: `2026.08.18.1`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
-- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, and reset storage paths in Chromium.
+- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: report denied daily-progress resets truthfully
+## Latest cycle: retain and report daily progress when device writes fail
+
+### Why this was selected
+
+Workspace rotation returned here after CardFitSG. The remaining storage-family
+gap was still the highest recorded local defect: `saveProgress()` swallowed a
+denied `localStorage.setItem()`, so a just-completed challenge disappeared on
+the next read and the player got no guidance.
+
+### Changes
+
+- A denied daily write now keeps a session snapshot as the current-visit source
+  of truth and emits one sanitized `arcade:daily-save-error` per failure episode.
+- A later successful write flushes the complete snapshot and resets notification
+  state; a successful reset also clears any session-only progress.
+- The lobby listener shows the site-storage toast and immediately repaints the
+  daily card so “Done ✓” remains visible.
+- Expanded the daily VM harness with denial, retention, recovery, and
+  recurrence contracts, plus a real Chromium journey.
+- Documented the fallback and bumped the deployment version to `2026.08.18.1`.
+
+### Verification and scores
+
+- Test-first evidence: `isComplete()` returned false after a successful attempt
+  because the denied write left no durable or session state.
+- Focused daily unit contracts passed after the session snapshot landed.
+- `npm test`: all suites passed across 22 JavaScript modules.
+- `npm run test:browser`: 6/6 real Chromium journeys passed, including retained
+  “Done ✓”, one warning event, and the storage-guidance toast.
+- Recursive runtime syntax and `git diff --check` passed.
+- Correctness/reliability: 4/10 → 10/10 (a denied completion remains visible
+  for the visit and flushes when storage recovers).
+- Verifiability: 3/10 → 10/10 (denial, retention, recovery, recurrence, and
+  rendered status are directly covered).
+- Maintainability: 8/10 → 9/10 (daily save now matches the score and
+  achievement failure-episode contracts).
+- Performance: 10/10 → 10/10 (only the exceptional path changed).
+- Security/robustness: 7/10 → 10/10 (raw storage errors stay behind a safe
+  domain message).
+- User experience: 2/10 → 10/10 (the daily card no longer forgets a just-earned
+  completion and explains how to keep it).
+
+### Lessons and process improvements
+
+- Completing a daily challenge is a durable claim; a swallowed write makes the
+  celebration lie. Keep the same session-snapshot plus one-episode warning
+  pattern used by scores and achievements.
+- Repaint the status surface on the save-error event. Queryable state can be
+  truthful while the lobby still shows yesterday's empty badge.
+- After leaving a storage-path family for other repos, finishing the last
+  sibling defect is higher leverage than inventing a new capability.
+
+## Previous cycle: report denied daily-progress resets truthfully
 
 ### Why this was selected
 
@@ -223,6 +275,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 63: retained session daily-completion state across denied device writes
+  and surfaced one actionable warning per failure episode.
 - Cycle 62: reported denied daily-progress resets and verified retained daily
   state through the factory-reset UI.
 - Cycle 61: reported denied achievement resets and prevented false factory-reset
@@ -243,14 +297,15 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
-| 1 | Retain and report completed daily progress when device writes are denied | Reliability / UX | Medium | Small / low | `saveProgress()` still swallows `localStorage.setItem()` denial, so the completion can disappear within the same visit and no guidance is shown; rotate away before implementation | Planned |
+| 1 | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Achievement and daily resets now throw; inspect whether score-key removal can still announce a clean slate | Planned |
+| — | Retain and report completed daily progress when device writes are denied | Reliability / UX | Medium | Small / low | Session snapshot, one-episode warning, recovery flush, and Chromium “Done ✓” are covered | Completed in Cycle 63 |
 | — | Report denied daily-progress resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 62 |
 | — | Report failed achievement resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in Chromium | Completed in Cycle 61 |
 | — | Preserve and report score progress when device storage rejects writes | Reliability / UX | Medium-high | Medium / low | Full session fallback, recovery flush, warning episodes, and real HUD behavior are covered | Completed in Cycle 60 |
 
 ## Next cycle
 
-Local next: retain and report completed daily progress when device writes are
-denied, but defer another storage-path cycle to avoid diminishing returns.
-Workspace next: rotate to ChristoDay and select its highest current correctness
-or verification opportunity.
+Local next: inspect whether a denied score-key factory reset can still announce
+a clean slate now that achievements and daily progress throw. Workspace next:
+rotate to ChristoDay and select its highest current correctness or verification
+opportunity.

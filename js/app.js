@@ -1033,6 +1033,11 @@
     showToast(event.detail?.message);
   });
 
+  window.addEventListener("arcade:daily-save-error", (event) => {
+    showToast(event.detail?.message);
+    paintDaily();
+  });
+
   function paintAchievements() {
     const host = $("#achievements-list");
     const countEl = $("#achievements-count");

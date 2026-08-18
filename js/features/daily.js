@@ -5,9 +5,13 @@
   "use strict";
 
   const KEY = "alparcade-daily-v1";
+  const SAVE_ERROR_MESSAGE =
+    "Daily challenge progress couldn't be saved on this device — enable site storage to keep it after this visit.";
   const RESET_ERROR_MESSAGE =
     "Daily challenge progress couldn't be reset — enable site storage and try again.";
   const TZ = "Asia/Singapore"; // SGT year-round (no DST)
+  let sessionProgress = null;
+  let saveFailureNotified = false;
   const GAMES = ["snake", "shooter", "reaction", "memory", "tapper", "tictactoe", "jubeat", "breaker"];
 
   /**
@@ -67,22 +71,61 @@
     };
   }
 
-  function loadProgress() {
+  function normalizeProgress(data) {
+    if (!isRecord(data)) return {};
+    const normalized = {};
+    for (const [day, entry] of Object.entries(data)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !isRecord(entry) || entry.done !== true) continue;
+      const score = Number(entry.score);
+      normalized[day] = {
+        done: true,
+        score: Number.isFinite(score) ? score : 0,
+        at: Number(entry.at) || 0,
+      };
+    }
+    return normalized;
+  }
+
+  function loadPersisted() {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return {};
-      const data = JSON.parse(raw);
-      return isRecord(data) ? data : {};
+      return normalizeProgress(JSON.parse(raw));
     } catch {
       return {};
     }
   }
 
-  function saveProgress(data) {
+  function loadProgress() {
+    return sessionProgress ? normalizeProgress(sessionProgress) : loadPersisted();
+  }
+
+  function reportSaveFailure(error) {
+    if (saveFailureNotified) return;
+    saveFailureNotified = true;
+    console.warn("[ArcadeDaily] save failed", error);
     try {
-      localStorage.setItem(KEY, JSON.stringify(data));
+      if (typeof global.CustomEvent === "function" && typeof global.dispatchEvent === "function") {
+        global.dispatchEvent(new global.CustomEvent("arcade:daily-save-error", {
+          detail: { message: SAVE_ERROR_MESSAGE },
+        }));
+      }
     } catch {
-      /* ignore */
+      /* The in-session fallback still works if event delivery is unavailable. */
+    }
+  }
+
+  function saveProgress(data) {
+    const next = normalizeProgress(data);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(next));
+      sessionProgress = null;
+      saveFailureNotified = false;
+      return true;
+    } catch (error) {
+      sessionProgress = next;
+      reportSaveFailure(error);
+      return false;
     }
   }
 
@@ -127,6 +170,8 @@
     } catch (error) {
       throw new Error(RESET_ERROR_MESSAGE, { cause: error });
     }
+    sessionProgress = null;
+    saveFailureNotified = false;
     return {};
   }
 
