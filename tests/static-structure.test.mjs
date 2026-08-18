@@ -73,6 +73,14 @@ assert(
     && indexHtml.includes('title="Mute game SFX (music is in the ♪ dock)"'),
   "mute tooltip must distinguish game SFX from the music dock",
 );
+assert(
+  indexHtml.includes('id="nav-music"') && read("js/features/music.js").includes("#nav-music"),
+  "header Music toggle must exist and open the left dock",
+);
+assert(
+  app.includes("navigator.share") && app.includes("AbortError"),
+  "last-run share uses the native share sheet when the browser offers it",
+);
 localRefs.push(...[...app.matchAll(/"(js\/games\/[^"]+\.js)"/g)].map((match) => match[1]));
 for (const ref of new Set(localRefs)) {
   assert(fs.existsSync(path.join(root, ref)), `Missing local reference: ${ref}`);

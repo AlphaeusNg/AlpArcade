@@ -3053,7 +3053,7 @@
   }
 
   .jb-song-browser {
-    grid-template-columns: 7.75rem minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .jb-song-detail {
@@ -3082,7 +3082,7 @@
   }
 
   .jb-practice-row {
-    grid-template-columns: 4.2rem minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .jb-marker-practice {

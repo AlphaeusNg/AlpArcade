@@ -83,11 +83,23 @@
       showToast("Finish a run first");
       return;
     }
-    // Copy last run (game + score) plus arcade link (no native share sheet)
     const link = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
     const formatted = window.ArcadeScores?.formatScore?.(lastRunShare.gameId, lastRunShare.score)
       ?? String(lastRunShare.score);
     const text = `${lastRunShare.label} — ${formatted}\n${SHARE_BLURB}\n${link}`;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: lastRunShare.label,
+          text,
+          url: link,
+        });
+        showToast("Shared");
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
+      }
+    }
     try {
       await navigator.clipboard.writeText(text);
       showToast("Link copied");
