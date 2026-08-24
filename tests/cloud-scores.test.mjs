@@ -12,9 +12,17 @@ function loadCloud({
   missing = [],
   profileDeleteFails = false,
   profileKeepFails = false,
+  progressDeleteFails = false,
+  progressSetFails = false,
+  existingScores = [],
+  scoreDeleteFails = [],
+  scoreSetFails = [],
 } = {}) {
   const calls = [];
-  const global = profileDeleteFails || profileKeepFails
+  const writes = [];
+  const configured = profileDeleteFails || profileKeepFails || progressDeleteFails ||
+    progressSetFails || existingScores.length || scoreDeleteFails.length || scoreSetFails.length;
+  const global = configured
     ? {
         ARCADE_FIREBASE_CONFIG: { enabled: true, apiKey: "test-key", projectId: "test-project" },
       }
@@ -36,14 +44,34 @@ function loadCloud({
     global.ArcadeScores.getState = () => ({ playerName: "Tester", highScores: {} });
   }
   const context = { window: global, console: { log() {}, warn() {} } };
-  if (profileDeleteFails || profileKeepFails) {
-    context.firebase = fakeFirebase({ calls, profileDeleteFails, profileKeepFails });
+  if (configured) {
+    context.firebase = fakeFirebase({
+      calls,
+      writes,
+      profileDeleteFails,
+      profileKeepFails,
+      progressDeleteFails,
+      progressSetFails,
+      existingScores,
+      scoreDeleteFails,
+      scoreSetFails,
+    });
   }
   vm.runInNewContext(source, context);
-  return { cloud: global.ArcadeCloud, calls };
+  return { cloud: global.ArcadeCloud, calls, writes };
 }
 
-function fakeFirebase({ calls, profileDeleteFails = false, profileKeepFails = false }) {
+function fakeFirebase({
+  calls,
+  writes,
+  profileDeleteFails = false,
+  profileKeepFails = false,
+  progressDeleteFails = false,
+  progressSetFails = false,
+  existingScores = [],
+  scoreDeleteFails = [],
+  scoreSetFails = [],
+}) {
   const liveUser = {
     uid: "user-1",
     email: "tester@example.com",
@@ -60,20 +88,37 @@ function fakeFirebase({ calls, profileDeleteFails = false, profileKeepFails = fa
           return {
             async get() {
               calls.push(`get:${collection}/${id}`);
-              return collection === "players"
-                ? { exists: true, data: () => ({ username: "Tester", email: liveUser.email }) }
-                : { exists: false, data: () => ({}) };
+              if (collection === "players") {
+                return { exists: true, data: () => ({ username: "Tester", email: liveUser.email }) };
+              }
+              return {
+                exists: collection === "scores" && existingScores.includes(id),
+                data: () => ({}),
+              };
             },
-            async set() {
+            async set(data) {
               calls.push(`set:${collection}/${id}`);
               if (collection === "players" && profileKeepFails) {
                 throw new Error("profile keep denied");
               }
+              if (collection === "progress" && progressSetFails) {
+                throw new Error("progress zero denied");
+              }
+              if (collection === "scores" && scoreSetFails.includes(id)) {
+                throw new Error("score zero denied");
+              }
+              writes.push({ collection, id, data });
             },
             async delete() {
               calls.push(`delete:${collection}/${id}`);
               if (collection === "players" && profileDeleteFails) {
                 throw new Error("profile delete denied");
+              }
+              if (collection === "progress" && progressDeleteFails) {
+                throw new Error("progress delete denied");
+              }
+              if (collection === "scores" && scoreDeleteFails.includes(id)) {
+                throw new Error("score delete denied");
               }
             },
           };
@@ -155,4 +200,45 @@ function fakeFirebase({ calls, profileDeleteFails = false, profileKeepFails = fa
   assert.equal(skipped.warnings.length, 0, "an intentional skip has no retention warning");
 }
 
-console.log("Cloud factory-reset honesty contracts passed (28 assertions).");
+{
+  const scoreId = "user-1_snake";
+  const { cloud, calls, writes } = loadCloud({
+    progressDeleteFails: true,
+    existingScores: [scoreId],
+    scoreDeleteFails: [scoreId],
+  });
+  assert.equal(await cloud.init(), true, "delete-fallback fixture initializes");
+  const result = await cloud.wipeAccountData();
+  assert.equal(result.ok, true, "successful zero-overwrites complete the cloud wipe");
+  assert.equal(result.progress, "zeroed", "denied progress deletion falls back to an empty snapshot");
+  assert.equal(result.scores.snake, "zeroed", "denied public-score deletion falls back to a zero row");
+  assert.equal(result.scores.reaction, "absent", "missing public-score rows remain explicit no-ops");
+  assert.ok(calls.includes("set:progress/user-1"), "progress fallback write is attempted");
+  assert.ok(calls.includes(`set:scores/${scoreId}`), "public-score fallback write is attempted");
+  const progressWrite = writes.find((write) => write.collection === "progress");
+  const scoreWrite = writes.find((write) => write.id === scoreId);
+  assert.equal(progressWrite.data.xp, 0, "progress fallback removes retained XP");
+  assert.deepEqual(progressWrite.data.highScores, {}, "progress fallback removes retained bests");
+  assert.equal(scoreWrite.data.score, 0, "public-score fallback removes the retained score");
+  assert.equal(scoreWrite.data.arcadePoints, 0, "public-score fallback removes retained arcade points");
+}
+
+{
+  const scoreId = "user-1_snake";
+  const { cloud } = loadCloud({
+    progressDeleteFails: true,
+    progressSetFails: true,
+    existingScores: [scoreId],
+    scoreDeleteFails: [scoreId],
+    scoreSetFails: [scoreId],
+  });
+  assert.equal(await cloud.init(), true, "failed-fallback fixture initializes");
+  const result = await cloud.wipeAccountData();
+  assert.equal(result.ok, false, "denied zero-overwrites make the cloud wipe fail closed");
+  assert.equal(result.progress, "failed", "failed progress replacement is explicit");
+  assert.equal(result.scores.snake, "failed", "failed public-score replacement is explicit");
+  assert.match(result.errors.join(" "), /progress/i, "progress replacement failure is actionable");
+  assert.match(result.errors.join(" "), /snake/i, "public-score replacement failure is actionable");
+}
+
+console.log("Cloud factory-reset honesty contracts passed (46 assertions).");

@@ -1,16 +1,66 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 71)
+Last updated: 2026-08-25 (AlpArcade Cycle 72)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.3`.
+- Deployment version: `2026.08.25.4`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: preserve username-retention and cloud-wipe outcomes
+## Latest cycle: verify cloud delete-to-zero fallbacks
+
+### Why this was selected
+
+The account wipe prefers deleting private progress and public score documents,
+then falls back to overwriting them with zero-value records when Firebase rules
+deny deletion. Those privacy-sensitive fallback branches had no configured
+service test, so a future change could retain user data or report a failed
+replacement as successful without detection. This was the highest recorded
+local opportunity and required no production behavior or schema change.
+
+### Changes
+
+- Extended the deterministic Firebase fixture with independently controlled
+  progress and score existence, delete denial, and fallback-write denial.
+- Verify that a denied progress delete produces an empty snapshot and a denied
+  public-score delete produces a zero row, including exact XP, best, score, and
+  arcade-point values.
+- Verify that a second-stage write denial marks the affected domain `failed`,
+  makes the aggregate wipe fail closed, and retains actionable domain errors.
+- Bumped the deployment version to `2026.08.25.4`.
+
+### Verification and scores
+
+- `node tests/cloud-scores.test.mjs`: 46 assertions passed, up from 28.
+- `npm test` passed every workflow, static, persistence, game, loader,
+  cabinet, and cloud-service suite.
+- `CI=1 npm run test:browser`: 10/10 Chromium journeys passed.
+- Recursive JavaScript syntax, JSON parsing, dependency audit, and diff checks
+  passed; hosted CI and Pages are pending after push.
+- Correctness/reliability: 8/10 → 9/10 (both fallback outcomes are now contract-protected).
+- Verifiability: 5/10 → 10/10 (delete denial, exact replacement, and replacement denial execute offline).
+- Maintainability: 8/10 → 9/10 (one parameterized fixture covers independent Firestore outcomes).
+- Performance: 10/10 → 10/10 (runtime behavior is unchanged).
+- Security/robustness: 6/10 → 10/10 (privacy deletion fallbacks now fail closed under regression).
+- Developer/user experience: 9/10 → 9/10 (no runtime UI change).
+
+### Lessons and process improvements
+
+- A fallback is a second operation with its own failure mode; tests must prove
+  both the replacement payload and the aggregate result after replacement
+  denial.
+- Verification-only cycles should state that no behavior defect was found and
+  score the added regression protection rather than inventing a runtime delta.
+
+### Next opportunity
+
+Expose an accessible current-match state for KoboForge find-in-book results so
+screen-reader users can distinguish the active hit from other highlights.
+
+## Previous cycle: preserve username-retention and cloud-wipe outcomes
 
 ### Why this was selected
 
@@ -592,6 +642,10 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 72: covered successful and failed delete-to-zero cloud wipe fallbacks
+  with exact replacement-payload assertions.
+- Cycle 71: preserved username-retention warnings and cloud deletion failures
+  through the final factory-reset UI message.
 - Cycle 70: propagated denied requested cloud-profile deletion through both
   cloud-wipe and factory-reset aggregate outcomes.
 - Cycle 69: made `factoryReset()` fail closed and report exact local reset-domain outcomes.
@@ -620,7 +674,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
-| 1 | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | Progress and public-score fallback branches still lack direct service tests |
+| — | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | 46 service assertions cover exact zero replacements and second-stage denial | Completed in Cycle 72 |
 | — | Distinguish failed username retention from intentional profile skip | Reliability / honesty | Medium | Small / low | 28 service assertions and a real UI journey preserve keep warning, skip, and deletion-failure outcomes | Completed in Cycle 71 |
 | — | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | 20 cloud-service assertions cover the exact Firestore failure and outer aggregation | Completed in Cycle 70 |
 | — | Report exact local outcomes from the console factory-reset helper | Reliability / honesty | Medium | Small / low | 12 VM assertions cover success, denied deletion, continuation, and unavailable domains | Completed in Cycle 69 |
@@ -632,6 +686,5 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: exercise progress and public-score delete-to-zero success/failure
-branches through the configured cloud fixture.
-Workspace next: continue rotation, skip Car-Type-Classification-Service.
+Local next: no higher-impact unblocked item is currently recorded.
+Workspace next: add accessible current-match state to KoboForge find-in-book.
