@@ -38,6 +38,9 @@ even though a specifically requested cloud profile remained.
   cloud-service contract passed; recursive syntax and diff checks passed.
 - `CI=1 npm run test:browser`: 9/9 real Chromium journeys passed, including
   denied score, achievement, daily-save, and local reset paths.
+- Hosted CI run `32762009672` passed the Node 24 contracts and Chromium smoke;
+  Pages run `32762007858` deployed successfully, and the live site served
+  version `2026.08.25.2`.
 - Correctness/reliability: 3/10 → 10/10 (a requested retained cloud document
   can no longer be reported as a successful account wipe).
 - Verifiability: 5/10 → 10/10 (live-auth/init, Firestore failure, and both
