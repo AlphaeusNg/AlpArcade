@@ -39,7 +39,8 @@ local opportunity and required no production behavior or schema change.
   cabinet, and cloud-service suite.
 - `CI=1 npm run test:browser`: 10/10 Chromium journeys passed.
 - Recursive JavaScript syntax, JSON parsing, dependency audit, and diff checks
-  passed; hosted CI and Pages are pending after push.
+  passed. Hosted CI `32768189005` and Pages `32768187803` also passed for
+  commit `3ad7f31`.
 - Correctness/reliability: 8/10 → 9/10 (both fallback outcomes are now contract-protected).
 - Verifiability: 5/10 → 10/10 (delete denial, exact replacement, and replacement denial execute offline).
 - Maintainability: 8/10 → 9/10 (one parameterized fixture covers independent Firestore outcomes).
@@ -57,8 +58,9 @@ local opportunity and required no production behavior or schema change.
 
 ### Next opportunity
 
-Expose an accessible current-match state for KoboForge find-in-book results so
-screen-reader users can distinguish the active hit from other highlights.
+No higher-impact unblocked AlpArcade item is currently recorded. Rotate
+repositories; KoboForge's accessible current-match state and transient export
+cleanup have since shipped.
 
 ## Previous cycle: preserve username-retention and cloud-wipe outcomes
 
@@ -687,4 +689,5 @@ Achievement writes caught browser storage exceptions and discarded them silently
 ## Next cycle
 
 Local next: no higher-impact unblocked item is currently recorded.
-Workspace next: add accessible current-match state to KoboForge find-in-book.
+Workspace next: rotate to the highest-impact unblocked item in another repo;
+KoboForge's accessible current-match state has since shipped.
