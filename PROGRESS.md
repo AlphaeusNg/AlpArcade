@@ -41,6 +41,9 @@ progress remains on the device.
 - `CI=1 npm run test:browser`: 9/9 real Chromium scenarios passed, including
   denied score, achievement, daily-save, and factory-reset storage paths.
 - Recursive `node --check`, `git diff --check`, and JSON parsing passed.
+- Hosted CI run `32759931857` passed the locked Node 24 suite and Chromium
+  smoke; Pages run `32759928956` deployed successfully, and the live site
+  served version `2026.08.25.1`.
 - Correctness/reliability: 4/10 → 10/10 (partial deletion can no longer report success).
 - Verifiability: 3/10 → 10/10 (the console/cloud service boundary now has an isolated suite).
 - Maintainability: 7/10 → 9/10 (one reset loop replaces three swallow-only blocks).
