@@ -303,3 +303,36 @@ test("does not claim a factory reset succeeded when daily-progress removal is de
   await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
   await expect.poll(() => page.evaluate(() => window.ArcadeDaily.isComplete())).toBe(true);
 });
+
+test("keeps cloud reset retention and deletion outcomes honest", async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    window.__wipeResult = {
+      ok: true,
+      players: "keep-failed",
+      errors: [],
+      warnings: ["players: username retention failed"],
+    };
+    window.ArcadeCloud.getState = () => ({ signedIn: true, leaderboardGame: "all" });
+    window.ArcadeCloud.wipeAccountData = async () => window.__wipeResult;
+    window.ArcadeCloud.loadLeaderboard = async () => [];
+  });
+
+  await page.locator("#btn-reset").click();
+  await expect(page.locator("#toast")).toContainText(
+    "Data wiped; username retention could not be confirmed",
+  );
+
+  await page.evaluate(() => {
+    window.__wipeResult = {
+      ok: false,
+      players: "kept",
+      errors: ["scores: delete denied"],
+      warnings: [],
+    };
+  });
+  await page.locator("#btn-reset").click();
+  await expect(page.locator("#toast")).toContainText("Cloud wipe incomplete: scores: delete denied");
+  await expect(page.locator("#toast")).not.toContainText("Clean slate");
+});

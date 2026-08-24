@@ -1,16 +1,69 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 70)
+Last updated: 2026-08-25 (AlpArcade Cycle 71)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.2`.
+- Deployment version: `2026.08.25.3`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
-- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
+- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: propagate failed requested cloud-profile deletion
+## Latest cycle: preserve username-retention and cloud-wipe outcomes
+
+### Why this was selected
+
+The default account wipe keeps `players/{uid}` so a username survives. When
+that keep write was denied, the service returned `players: "skipped"`, exactly
+like an intentional no-op, with no warning. UI inspection also found that a
+real cloud deletion failure briefly showed “incomplete” and then overwrote it
+with “Clean slate — local + cloud wiped.”
+
+### Changes
+
+- A failed default username keep now returns `players: "keep-failed"` and an
+  actionable non-fatal `warnings` entry; it does not redefine successful
+  account-data deletion. Explicitly disabling the keep remains `"skipped"`
+  without warnings.
+- The reset UI carries one final outcome message through local cleanup. It
+  preserves both the non-fatal retention warning and an actual cloud deletion
+  failure instead of unconditionally announcing a clean slate afterward.
+- Extended the configured Firebase fixture through failed keep and intentional
+  skip branches, and added a real Chromium journey for both final UI outcomes.
+- Bumped the deployment version to `2026.08.25.3`.
+
+### Verification and scores
+
+- Test-first: the service returned `"skipped"` for a denied keep; the browser
+  rendered `Clean slate — local + cloud wiped` and later drifted to an unrelated
+  Firebase-load toast instead of the required retention outcome.
+- `node tests/cloud-scores.test.mjs`: 28 assertions passed, up from 20.
+- `npm test` passed every workflow, static, persistence, game, loader,
+  cabinet, and cloud-service suite; recursive JavaScript syntax, JSON parsing,
+  dependency audit, and diff checks passed.
+- `CI=1 npm run test:browser`: 10/10 Chromium journeys passed, up from 9,
+  including both the non-fatal keep warning and failed-deletion outcome.
+- Correctness/reliability: 4/10 → 10/10 (three distinct outcomes remain distinct end to end).
+- Verifiability: 5/10 → 10/10 (configured service and real UI boundaries both execute).
+- Maintainability: 8/10 → 9/10 (one final-message variable prevents toast overwrite races).
+- Performance: 10/10 → 10/10 (no additional network or storage work).
+- Security/robustness: 6/10 → 9/10 (privacy-sensitive partial deletion remains visible).
+- Developer/user experience: 4/10 → 9/10 (warnings do not masquerade as failures or success).
+
+### Lessons and process improvements
+
+- A non-fatal warning still needs a dedicated status value; `skipped` must mean
+  intentional non-execution, not a swallowed failed attempt.
+- Testing a service result is insufficient when later UI code can overwrite its
+  message. Carry the final outcome to the last render and browser-test it.
+
+### Next opportunity
+
+Extend the configured cloud fixture across progress and public-score
+delete-to-zero fallbacks, including failure after delete denial.
+
+## Previous cycle: propagate failed requested cloud-profile deletion
 
 ### Why this was selected
 
@@ -565,6 +618,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | Progress and public-score fallback branches still lack direct service tests |
+| — | Distinguish failed username retention from intentional profile skip | Reliability / honesty | Medium | Small / low | 28 service assertions and a real UI journey preserve keep warning, skip, and deletion-failure outcomes | Completed in Cycle 71 |
 | — | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | 20 cloud-service assertions cover the exact Firestore failure and outer aggregation | Completed in Cycle 70 |
 | — | Report exact local outcomes from the console factory-reset helper | Reliability / honesty | Medium | Small / low | 12 VM assertions cover success, denied deletion, continuation, and unavailable domains | Completed in Cycle 69 |
 | — | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Denial now propagates a sanitized score-domain error through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 64 |

@@ -861,6 +861,7 @@
       players: null,
       scores: {},
       errors: [],
+      warnings: [],
     };
 
     // 1) progress/{uid} — prefer delete, else hard-replace with empty
@@ -940,15 +941,16 @@
         );
         profile = { username: keptName, email: live.email || null };
         result.players = "kept";
-      } catch {
-        result.players = "skipped";
+      } catch (err) {
+        result.players = "keep-failed";
+        result.warnings.push("players: username retention failed: " + friendlyError(err));
       }
     } else {
       result.players = "skipped";
     }
 
     notify();
-    if (result.errors.length) {
+    if (result.errors.length || result.warnings.length) {
       console.warn("[ArcadeCloud] wipeAccountData partial", result);
     } else {
       console.log("[ArcadeCloud] wipeAccountData ok", result);

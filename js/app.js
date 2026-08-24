@@ -1502,13 +1502,15 @@
 
     try {
       showToast(signedIn ? "Wiping local + cloud…" : "Wiping local scores…");
+      let resetMessage = signedIn ? "Clean slate — local + cloud wiped" : "Local scores wiped";
       if (signedIn && window.ArcadeCloud?.wipeAccountData) {
         const cloud = await window.ArcadeCloud.wipeAccountData({ keepUsername: true });
         if (cloud && cloud.ok === false) {
           console.warn("[reset] cloud wipe", cloud);
-          showToast(
-            "Cloud wipe incomplete: " + (cloud.errors?.[0] || cloud.message || "see console")
-          );
+          resetMessage =
+            "Cloud wipe incomplete: " + (cloud.errors?.[0] || cloud.message || "see console");
+        } else if (cloud?.players === "keep-failed") {
+          resetMessage = "Data wiped; username retention could not be confirmed";
         }
       }
       ArcadeScores.resetAll();
@@ -1527,7 +1529,7 @@
           })
           ?.catch?.(() => {});
       }
-      showToast(signedIn ? "Clean slate — local + cloud wiped" : "Local scores wiped");
+      showToast(resetMessage);
     } catch (err) {
       console.warn(err);
       showToast("Reset failed: " + (err.message || "error"));

@@ -19,7 +19,7 @@ Tic-Tac-Toe · Space Shooter · Snake · Reaction Lab · Memory Match · Target 
 ### Scoreboard
 
 - **Local:** player tag, XP, personal bests — `localStorage` with export/import codes. If a device write is denied, current-visit score progress stays visible and the arcade explains how to make it durable; a denied factory reset is reported instead of claiming retained XP and scores were removed. No account needed to play.
-- **Cloud (optional):** Global leaderboards via Firebase. **Google sign-in** to post. One best per user per game (anti-spam). Filter boards by cabinet on the lobby and in-game.
+- **Cloud (optional):** Global leaderboards via Firebase. **Google sign-in** to post. One best per user per game (anti-spam). Filter boards by cabinet on the lobby and in-game. Factory reset distinguishes failed cloud deletion from a non-fatal username-retention warning and never replaces either outcome with a false clean-slate message.
 
 ### Version stamp
 

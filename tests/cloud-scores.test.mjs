@@ -7,9 +7,14 @@ import vm from "node:vm";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = readFileSync(join(root, "js/services/cloud-scores.js"), "utf8");
 
-function loadCloud({ fail = [], missing = [], profileDeleteFails = false } = {}) {
+function loadCloud({
+  fail = [],
+  missing = [],
+  profileDeleteFails = false,
+  profileKeepFails = false,
+} = {}) {
   const calls = [];
-  const global = profileDeleteFails
+  const global = profileDeleteFails || profileKeepFails
     ? {
         ARCADE_FIREBASE_CONFIG: { enabled: true, apiKey: "test-key", projectId: "test-project" },
       }
@@ -31,12 +36,14 @@ function loadCloud({ fail = [], missing = [], profileDeleteFails = false } = {})
     global.ArcadeScores.getState = () => ({ playerName: "Tester", highScores: {} });
   }
   const context = { window: global, console: { log() {}, warn() {} } };
-  if (profileDeleteFails) context.firebase = fakeFirebase({ calls });
+  if (profileDeleteFails || profileKeepFails) {
+    context.firebase = fakeFirebase({ calls, profileDeleteFails, profileKeepFails });
+  }
   vm.runInNewContext(source, context);
   return { cloud: global.ArcadeCloud, calls };
 }
 
-function fakeFirebase({ calls }) {
+function fakeFirebase({ calls, profileDeleteFails = false, profileKeepFails = false }) {
   const liveUser = {
     uid: "user-1",
     email: "tester@example.com",
@@ -59,10 +66,15 @@ function fakeFirebase({ calls }) {
             },
             async set() {
               calls.push(`set:${collection}/${id}`);
+              if (collection === "players" && profileKeepFails) {
+                throw new Error("profile keep denied");
+              }
             },
             async delete() {
               calls.push(`delete:${collection}/${id}`);
-              if (collection === "players") throw new Error("profile delete denied");
+              if (collection === "players" && profileDeleteFails) {
+                throw new Error("profile delete denied");
+              }
             },
           };
         },
@@ -128,4 +140,19 @@ function fakeFirebase({ calls }) {
   assert.equal(combined.ok, false, "factory reset propagates the failed requested cloud deletion");
 }
 
-console.log("Cloud factory-reset honesty contracts passed (20 assertions).");
+{
+  const { cloud, calls } = loadCloud({ profileKeepFails: true });
+  assert.equal(await cloud.init(), true, "configured retention fixture initializes");
+  const result = await cloud.wipeAccountData();
+  assert.equal(result.players, "keep-failed", "a denied username-retention write is distinct from a skip");
+  assert.equal(result.ok, true, "username retention does not redefine successful account-data deletion");
+  assert.equal(result.errors.length, 0, "a retention problem is not reported as deletion failure");
+  assert.match(result.warnings.join(" "), /players/i, "the retention failure remains actionable");
+  assert.ok(calls.includes("set:players/user-1"), "the default username-retention write is attempted");
+
+  const skipped = await cloud.wipeAccountData({ keepUsername: false });
+  assert.equal(skipped.players, "skipped", "an explicitly disabled keep operation is an intentional skip");
+  assert.equal(skipped.warnings.length, 0, "an intentional skip has no retention warning");
+}
+
+console.log("Cloud factory-reset honesty contracts passed (28 assertions).");
