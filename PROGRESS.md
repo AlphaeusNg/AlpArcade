@@ -44,6 +44,9 @@ with “Clean slate — local + cloud wiped.”
   dependency audit, and diff checks passed.
 - `CI=1 npm run test:browser`: 10/10 Chromium journeys passed, up from 9,
   including both the non-fatal keep warning and failed-deletion outcome.
+- Hosted CI run `32764770606` passed all Node 24 and Chromium gates; Pages run
+  `32764769559` deployed successfully, and the live site serves version
+  `2026.08.25.3` with both final reset messages.
 - Correctness/reliability: 4/10 → 10/10 (three distinct outcomes remain distinct end to end).
 - Verifiability: 5/10 → 10/10 (configured service and real UI boundaries both execute).
 - Maintainability: 8/10 → 9/10 (one final-message variable prevents toast overwrite races).
