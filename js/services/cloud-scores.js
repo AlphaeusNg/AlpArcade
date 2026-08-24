@@ -928,6 +928,7 @@
         profile = null;
         result.players = "deleted";
       } catch (err) {
+        result.ok = false;
         result.errors.push("players: " + friendlyError(err));
         result.players = "failed";
       }

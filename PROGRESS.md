@@ -1,16 +1,68 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 69)
+Last updated: 2026-08-25 (AlpArcade Cycle 70)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.1`.
+- Deployment version: `2026.08.25.2`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: make console factory-reset results truthful
+## Latest cycle: propagate failed requested cloud-profile deletion
+
+### Why this was selected
+
+`wipeAccountData({ wipeProfile: true })` recorded `players: "failed"` and an
+error when Firestore denied the delete, but left `result.ok` true. The outer
+factory reset consequently reported success whenever local deletion succeeded,
+even though a specifically requested cloud profile remained.
+
+### Changes
+
+- Mark the cloud wipe unsuccessful when requested `players/{uid}` deletion
+  fails, preserving the existing per-domain outcome and actionable error.
+- Extended the zero-network cloud-service fixture with configured Firebase,
+  live auth, Firestore document operations, and a denied profile delete.
+- Verify both `wipeAccountData()` and `factoryReset()` retain the cloud failure
+  while distinguishing successful local cleanup.
+- Bumped the deployment version to `2026.08.25.2`.
+
+### Verification and scores
+
+- Test-first: the configured fixture received `players: "failed"` and a player
+  error from the old implementation, but `result.ok` was `true`.
+- `node tests/cloud-scores.test.mjs`: 20 assertions passed.
+- `npm test`: every workflow, static, persistence, game, loader, cabinet, and
+  cloud-service contract passed; recursive syntax and diff checks passed.
+- `CI=1 npm run test:browser`: 9/9 real Chromium journeys passed, including
+  denied score, achievement, daily-save, and local reset paths.
+- Correctness/reliability: 3/10 → 10/10 (a requested retained cloud document
+  can no longer be reported as a successful account wipe).
+- Verifiability: 5/10 → 10/10 (live-auth/init, Firestore failure, and both
+  service boundaries are exercised without network access).
+- Maintainability: 8/10 → 9/10 (the aggregate follows the same rule as other
+  failed wipe domains).
+- Performance: 10/10 → 10/10 (no additional runtime operation).
+- Security/robustness: 5/10 → 10/10 (privacy-sensitive deletion fails honest).
+- Developer/user experience: 5/10 → 9/10 (callers receive a reliable outcome).
+
+### Lessons and process improvements
+
+- Recording an error is insufficient if the top-level success flag disagrees.
+- Destructive-operation tests should assert domain status, aggregate status,
+  and the outer UI/service wrapper independently.
+- A small deterministic Firebase fixture makes authenticated cloud control-flow
+  testable without weakening production boundaries or requiring credentials.
+
+### Next opportunity
+
+Audit the default username-retention branch: distinguish an intentional skip
+from a failed requested keep operation without treating profile retention as
+account-data deletion failure.
+
+## Previous cycle: make console factory-reset results truthful
 
 ### Why this was selected
 
@@ -481,6 +533,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 70: propagated denied requested cloud-profile deletion through both
+  cloud-wipe and factory-reset aggregate outcomes.
 - Cycle 69: made `factoryReset()` fail closed and report exact local reset-domain outcomes.
 - Cycle 68: added header Music and native last-run sharing with clipboard fallback.
 - Cycle 64: reported denied score-key resets and verified retained XP through
@@ -507,7 +561,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
-| 1 | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | `wipeProfile` records `players: failed` but does not set `result.ok = false` | Planned |
+| 1 | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | Progress and public-score fallback branches still lack direct service tests |
+| — | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | 20 cloud-service assertions cover the exact Firestore failure and outer aggregation | Completed in Cycle 70 |
 | — | Report exact local outcomes from the console factory-reset helper | Reliability / honesty | Medium | Small / low | 12 VM assertions cover success, denied deletion, continuation, and unavailable domains | Completed in Cycle 69 |
 | — | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Denial now propagates a sanitized score-domain error through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 64 |
 | — | Retain and report completed daily progress when device writes are denied | Reliability / UX | Medium | Small / low | Session snapshot, one-episode warning, recovery flush, and Chromium “Done ✓” are covered | Completed in Cycle 63 |
@@ -517,6 +572,6 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: make failed requested profile deletion set the aggregate cloud wipe
-result to false and lock the behavior at the service boundary.
+Local next: exercise progress and public-score delete-to-zero success/failure
+branches through the configured cloud fixture.
 Workspace next: continue rotation, skip Car-Type-Classification-Service.
