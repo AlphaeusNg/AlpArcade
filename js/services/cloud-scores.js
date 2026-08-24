@@ -962,31 +962,42 @@
   async function factoryReset(opts = {}) {
     const cloud = opts.cloud !== false;
     let cloudResult = null;
+    const localResults = {};
+    const localErrors = [];
 
     if (cloud && auth?.currentUser) {
       cloudResult = await wipeAccountData(opts);
     }
 
-    try {
-      global.ArcadeScores?.resetAll?.();
-    } catch {
-      /* ignore */
-    }
-    try {
-      global.ArcadeAchievements?.resetAll?.();
-    } catch {
-      /* ignore */
-    }
-    try {
-      global.ArcadeDaily?.resetAll?.();
-    } catch {
-      /* ignore */
+    for (const [domain, api] of [
+      ["scores", global.ArcadeScores],
+      ["achievements", global.ArcadeAchievements],
+      ["daily", global.ArcadeDaily],
+    ]) {
+      if (typeof api?.resetAll !== "function") {
+        localResults[domain] = "unavailable";
+        localErrors.push(`${domain}: reset unavailable`);
+        continue;
+      }
+      try {
+        api.resetAll();
+        localResults[domain] = "reset";
+      } catch (err) {
+        localResults[domain] = "failed";
+        localErrors.push(`${domain}: ${friendlyError(err)}`);
+      }
     }
 
+    const localOk = localErrors.length === 0;
+    if (!localOk) {
+      console.warn("[ArcadeCloud] factoryReset local partial", { localResults, localErrors });
+    }
     notify();
     return {
-      ok: !cloudResult || cloudResult.ok !== false,
-      local: true,
+      ok: localOk && (!cloudResult || cloudResult.ok !== false),
+      local: localOk,
+      localResults,
+      localErrors,
       cloud: cloudResult,
     };
   }

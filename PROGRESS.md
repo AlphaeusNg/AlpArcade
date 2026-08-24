@@ -1,16 +1,84 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-18 (Cycle 162 across the projects workspace; AlpArcade Cycle 67)
+Last updated: 2026-08-25 (AlpArcade Cycle 69)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.18.5`.
+- Deployment version: `2026.08.25.1`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, and reset storage paths in Chromium.
 
-## Latest cycle: compact cabinet locks + continue last cabinet
+## Latest cycle: make console factory-reset results truthful
+
+### Why this was selected
+
+The score, achievement, and daily modules correctly throw when browser storage
+denies deletion, but `ArcadeCloud.factoryReset()` swallowed all three errors and
+always returned `local: true`. A recovery helper must not claim deletion when
+progress remains on the device.
+
+### Changes
+
+- Attempt all three local reset domains and report each as `reset`, `failed`, or
+  `unavailable`.
+- Set `local: false` and overall `ok: false` when any local domain cannot be
+  cleared, retain requested cloud status separately, and return actionable
+  `localErrors` instead of discarding exceptions.
+- Emit one structured console warning for a partial local factory reset.
+- Added a zero-network VM suite for complete success, one denied domain with
+  later-domain continuation, and a missing reset module.
+- Deployment version bumped to `2026.08.25.1`.
+
+### Verification and scores
+
+- Test-first: the old result had no `localResults`, and JSON inspection failed
+  before it could verify any domain; the helper still returned local success.
+- `node tests/cloud-scores.test.mjs`: 12 assertions passed.
+- `npm test`: every workflow, static, storage, music, achievement, cabinet,
+  loader, and cloud-service contract passed.
+- `CI=1 npm run test:browser`: 9/9 real Chromium scenarios passed, including
+  denied score, achievement, daily-save, and factory-reset storage paths.
+- Recursive `node --check`, `git diff --check`, and JSON parsing passed.
+- Correctness/reliability: 4/10 → 10/10 (partial deletion can no longer report success).
+- Verifiability: 3/10 → 10/10 (the console/cloud service boundary now has an isolated suite).
+- Maintainability: 7/10 → 9/10 (one reset loop replaces three swallow-only blocks).
+- Performance: 10/10 → 10/10 (three synchronous local calls as before).
+- Security/robustness: 6/10 → 9/10 (unavailable/denied storage fails closed).
+- Developer/user experience: 5/10 → 9/10 (console callers receive exact local outcomes).
+
+### Lessons and process improvements
+
+- Catching a deletion error is only graceful if the returned status preserves
+  the failure.
+- Recovery boundaries should enumerate domains and continue after one failure;
+  users need the fullest safe reset possible plus an honest partial result.
+- Service-level helpers deserve isolated tests even when each underlying
+  storage module is already well tested.
+
+### Next opportunity
+
+Audit `wipeAccountData({ wipeProfile: true })`: a failed `players/{uid}` delete
+currently records `players: "failed"` but may leave the aggregate cloud result
+successful.
+
+## Previous cycle: header Music and native last-run sharing
+
+### Why this was selected
+
+The persistent left music dock had no clear text entry point in the header, and
+the last-run action skipped the native share sheet on capable phones.
+
+### Changes and verification
+
+- Added a header Music control wired to the existing dock, preferred
+  `navigator.share()` for last runs, kept clipboard fallback, and treated share
+  cancellation as a no-op.
+- Static contracts preserve the header-to-dock link and native-share path;
+  deployment version was `2026.08.18.7` (`9f8890b`).
+
+## Previous cycle: compact cabinet locks + continue last cabinet
 
 ### Why this was selected
 
@@ -410,6 +478,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 69: made `factoryReset()` fail closed and report exact local reset-domain outcomes.
+- Cycle 68: added header Music and native last-run sharing with clipboard fallback.
 - Cycle 64: reported denied score-key resets and verified retained XP through
   the factory-reset UI.
 - Cycle 63: retained session daily-completion state across denied device writes
@@ -434,6 +504,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
+| 1 | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | `wipeProfile` records `players: failed` but does not set `result.ok = false` | Planned |
+| — | Report exact local outcomes from the console factory-reset helper | Reliability / honesty | Medium | Small / low | 12 VM assertions cover success, denied deletion, continuation, and unavailable domains | Completed in Cycle 69 |
 | — | Report denied score resets through the factory-reset boundary | Reliability / UX | Low | Small / low | Denial now propagates a sanitized score-domain error through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 64 |
 | — | Retain and report completed daily progress when device writes are denied | Reliability / UX | Medium | Small / low | Session snapshot, one-episode warning, recovery flush, and Chromium “Done ✓” are covered | Completed in Cycle 63 |
 | — | Report denied daily-progress resets | Reliability / UX | Low | Small / low | Denial now propagates through the factory-reset boundary and is covered in the VM harness and Chromium | Completed in Cycle 62 |
@@ -442,6 +514,6 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: inspect whether the console `factoryReset()` helper can still
-report `local: true` after a denied score, achievement, or daily removal.
+Local next: make failed requested profile deletion set the aggregate cloud wipe
+result to false and lock the behavior at the service boundary.
 Workspace next: continue rotation, skip Car-Type-Classification-Service.
