@@ -65,8 +65,9 @@ assert(
     && app.includes('id="btn-daily-continue"')
     && app.includes("alparcade-last-cabinet-v1")
     && app.includes("persistLastCabinet")
+    && app.includes("continueId && continueId !== replayId")
     && /Continue \$\{escapeHtml\(continueLabel\)\}/.test(app),
-  "daily card must keep the play CTA and add Continue last cabinet",
+  "daily card keeps Play and Continue only when last cabinet differs from last-run replay",
 );
 assert(
   app.includes("alparcade-last-run-v1")
@@ -74,9 +75,19 @@ assert(
     && app.includes('id="daily-last-run"')
     && app.includes('id="btn-daily-share"')
     && app.includes('id="btn-daily-replay"')
+    && /Replay \$\{escapeHtml\(replayLabel\)\}/.test(app)
     && app.includes("lastRunPlayUrl")
     && app.includes("#play/${id}"),
   "lobby must recap, share, and replay the last run via a cabinet deep-link",
+);
+const responsive = read("css/responsive.css");
+const phoneBlock = responsive.slice(responsive.indexOf("@media (max-width: 720px)"));
+assert(
+  phoneBlock.includes("#daily-card .daily-actions")
+    && phoneBlock.includes("#daily-card .daily-last-run")
+    && phoneBlock.includes("flex-wrap: nowrap")
+    && phoneBlock.includes("padding: 0.22rem 0.48rem"),
+  "phone daily recap and actions stay one compact control row",
 );
 assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")

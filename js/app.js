@@ -1167,12 +1167,6 @@
       : "";
     const btnText = done ? "Play again" : ch.locked ? `Play ${playLabel}` : "Play challenge";
     const continueId = lastPlayableCabinet();
-    const continueLabel = continueId
-      ? ArcadeScores.GAMES[continueId]?.label || continueId
-      : "";
-    const continueBtn = continueId
-      ? `<button type="button" class="btn small ghost" id="btn-daily-continue" data-continue-game="${escapeHtml(continueId)}">Continue ${escapeHtml(continueLabel)}</button>`
-      : "";
     const lastRun = lastRunShare;
     const lastFormatted = lastRun
       ? (window.ArcadeScores?.formatScore?.(lastRun.gameId, lastRun.score) ?? String(lastRun.score))
@@ -1180,11 +1174,21 @@
     const replayId = lastRun && GAME_SCRIPTS[lastRun.gameId] && !cabinetIsLocked(lastRun.gameId)
       ? lastRun.gameId
       : "";
+    const replayLabel = replayId
+      ? ArcadeScores.GAMES[replayId]?.label || lastRun.label || replayId
+      : "";
     const replayBtn = replayId
-      ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay</button>`
+      ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay ${escapeHtml(replayLabel)}</button>`
       : "";
     const lastRunLine = lastRun
       ? `<p class="daily-last-run" id="daily-last-run">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""} <button type="button" class="btn small ghost" id="btn-daily-share">Share</button>${replayBtn}</p>`
+      : "";
+    const showContinue = continueId && continueId !== replayId;
+    const continueLabel = showContinue
+      ? ArcadeScores.GAMES[continueId]?.label || continueId
+      : "";
+    const continueBtn = showContinue
+      ? `<button type="button" class="btn small ghost" id="btn-daily-continue" data-continue-game="${escapeHtml(continueId)}">Continue ${escapeHtml(continueLabel)}</button>`
       : "";
     el.innerHTML = `
       <div class="daily-head">

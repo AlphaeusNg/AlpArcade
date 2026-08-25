@@ -191,9 +191,29 @@
     font-size: 0.68rem;
   }
 
-  .daily-row {
+  /* features.css loads after this sheet */
+  #daily-card.daily-row {
     padding: 0.7rem 0.8rem;
     margin-bottom: 0.75rem;
+  }
+
+  #daily-card .daily-actions,
+  #daily-card .daily-last-run {
+    flex-wrap: nowrap;
+    gap: 0.22rem 0.35rem;
+  }
+
+  #daily-card .daily-last-run {
+    margin: -0.1rem 0 0.4rem;
+    font-size: 0.7rem;
+    min-width: 0;
+  }
+
+  #daily-card .daily-actions .btn.small,
+  #daily-card .daily-last-run .btn.small {
+    padding: 0.22rem 0.48rem;
+    font-size: 0.7rem;
+    flex-shrink: 0;
   }
 
   .history-list li {

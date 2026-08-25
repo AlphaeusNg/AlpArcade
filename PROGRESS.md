@@ -1,16 +1,62 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 74)
+Last updated: 2026-08-25 (AlpArcade Cycle 75)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.6`.
-- Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
-- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
+- Deployment version: `2026.08.25.7`.
+- Daily card: after a Snake last-run recap the hero shows Play + Share + Replay Snake and omits Continue Snake; Continue still appears for a distinct last cabinet or when there is no recap. Phone `.daily-actions` / `.daily-last-run` stay one `flex-wrap: nowrap` row so the first cabinet remains above the fold.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, 12/12 real Chromium journeys (21.9s), and syntax checks across all JavaScript and test modules.
+- Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: replay and deep-link the last run
+## Latest cycle: collapse duplicate daily rematch so cabinets stay above the fold
+
+### Why this was selected
+
+Returning players got Last run + Share + Replay plus a sibling Continue for
+the same cabinet. After a finished run those rematch CTAs were identical, so
+the hero grew by two button rows and the 2-col cabinet grid dropped off the
+first phone screen.
+
+### Changes
+
+- Skip Continue when last opened cabinet equals the unlocked last-run Replay.
+- Keep Continue beside Play when that cabinet differs from Replay, or when
+  there is no recap yet.
+- Tighten `.daily-actions` / `.daily-last-run` on ≤720px so recap stays one
+  compact control row.
+- Version `2026.08.25.7`.
+
+### Verification and scores
+
+- `npm test` passed, including static-structure asserts for the collapse
+  predicate (`Continue` only when last cabinet differs from last-run Replay)
+  and the phone nowrap rules.
+- Playwright: 12/12 Chromium journeys passed in 21.9s.
+- After snake last-run + last-cabinet, the daily card shows Play + Share +
+  Replay Snake and no Continue Snake.
+- Opening Tic-Tac-Toe then Back shows Continue Tic-Tac-Toe with Replay Snake.
+- At 390×844 both daily rows are `flex-wrap: nowrap` and the first cabinet is
+  fully in the viewport.
+- Version `2026.08.25.7`.
+
+### Lessons and process improvements
+
+- Collapse rematch CTAs by destination identity, not by whether a recap
+  exists; Continue is still the right shortcut for a different cabinet.
+- Phone-fold coverage should assert `flex-wrap: nowrap` and that the first
+  cabinet is fully in view, not only that extra buttons are absent.
+
+### Next opportunity
+
+When Play challenge / Play again opens the same cabinet as Replay, the hero
+still shows two rematch buttons. Collapse that remaining duplicate, and on
+320px truncate last-run copy so the nowrap Share / Replay controls cannot
+overflow.
+
+## Previous cycle: replay and deep-link the last run
 
 ### Why this was selected
 
@@ -670,6 +716,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Recent project evolution
 
+- Cycle 75: collapsed duplicate daily rematch (Continue vs Replay) and kept
+  phone recap/actions on one nowrap row so cabinets stay above the fold.
 - Cycle 72: covered successful and failed delete-to-zero cloud wipe fallbacks
   with exact replacement-payload assertions.
 - Cycle 71: preserved username-retention warnings and cloud deletion failures
@@ -702,6 +750,8 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
+| 1 | Collapse Play vs Replay when they open the same cabinet; keep 320px recap from overflowing | UX / lobby density | Medium | Small / low | Play challenge / Play again still rematches Replay's cabinet; nowrap buttons are `flex-shrink: 0` beside untruncated copy | Next |
+| — | Collapse duplicate daily rematch so cabinets stay above the fold | UX / lobby density | Medium | Small / low | After Snake last-run, Play + Share + Replay with no Continue Snake; 390×844 first cabinet in view; 12/12 Chromium | Completed in Cycle 75 |
 | — | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | 46 service assertions cover exact zero replacements and second-stage denial | Completed in Cycle 72 |
 | — | Distinguish failed username retention from intentional profile skip | Reliability / honesty | Medium | Small / low | 28 service assertions and a real UI journey preserve keep warning, skip, and deletion-failure outcomes | Completed in Cycle 71 |
 | — | Propagate failed profile deletion into cloud factory-reset success | Reliability / honesty | Medium | Small / low | 20 cloud-service assertions cover the exact Firestore failure and outer aggregation | Completed in Cycle 70 |
@@ -714,6 +764,9 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: no higher-impact unblocked item is currently recorded.
-Workspace next: rotate to the highest-impact unblocked item in another repo;
-KoboForge's accessible current-match state has since shipped.
+Local next: collapse Play challenge / Play again when it rematches the same
+cabinet as Replay, and check 320px nowrap overflow of last-run copy so Share
+and Replay stay fully visible.
+Workspace next: if that remaining duplicate is not reproduced on a daily that
+differs from last-run, rotate to the highest-impact unblocked item in another
+repo.
