@@ -14,6 +14,7 @@
   let activeGameId = null;
   let lastCabinet = null;
   const LAST_CABINET_KEY = "alparcade-last-cabinet-v1";
+  const LAST_RUN_KEY = "alparcade-last-run-v1";
   const CABINET_LEVEL_GATES = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
   const MUTE_SFX_TITLE = "Mute game SFX (music is in the ♪ dock)";
   const UNMUTE_SFX_TITLE = "Unmute game SFX (music is in the ♪ dock)";
@@ -68,13 +69,46 @@
     breaker: "Drag paddle · tap to start · endless brick rows",
   };
 
-  let lastRunShare = null;
+  function loadLastRun() {
+    try {
+      const raw = localStorage.getItem(LAST_RUN_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      if (!saved || typeof saved !== "object") return null;
+      const gameId = String(saved.gameId || "");
+      if (!GAME_SCRIPTS[gameId]) return null;
+      const score = Number(saved.score);
+      if (!Number.isFinite(score)) return null;
+      const label = String(saved.label || gameId).slice(0, 48);
+      return { gameId, score, isHighScore: !!saved.isHighScore, label };
+    } catch {
+      return null;
+    }
+  }
+
+  function persistLastRun(run) {
+    lastRunShare = run;
+    updateShareButton();
+    try {
+      localStorage.setItem(LAST_RUN_KEY, JSON.stringify({
+        gameId: run.gameId,
+        score: run.score,
+        isHighScore: !!run.isHighScore,
+        label: run.label,
+      }));
+    } catch {
+      /* Lobby recap stays in-memory if storage is denied. */
+    }
+  }
 
   function updateShareButton() {
     const btn = $("#btn-share-run");
     if (!btn) return;
     btn.hidden = !lastRunShare;
   }
+
+  let lastRunShare = loadLastRun();
+  updateShareButton();
 
   const SHARE_BLURB = "Alp's favourite games -- may the best human win";
 
@@ -1132,6 +1166,13 @@
     const continueBtn = continueId
       ? `<button type="button" class="btn small ghost" id="btn-daily-continue" data-continue-game="${escapeHtml(continueId)}">Continue ${escapeHtml(continueLabel)}</button>`
       : "";
+    const lastRun = lastRunShare;
+    const lastFormatted = lastRun
+      ? (window.ArcadeScores?.formatScore?.(lastRun.gameId, lastRun.score) ?? String(lastRun.score))
+      : "";
+    const lastRunLine = lastRun
+      ? `<p class="daily-last-run" id="daily-last-run">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""} <button type="button" class="btn small ghost" id="btn-daily-share">Share</button></p>`
+      : "";
     el.innerHTML = `
       <div class="daily-head">
         <p class="eyebrow">Daily challenge · SGT</p>
@@ -1144,6 +1185,7 @@
         <span>${escapeHtml(target)}</span>
       </p>
       ${unlockLine}
+      ${lastRunLine}
       <div class="daily-actions">
         <button type="button" class="btn small primary" id="btn-daily-play" data-daily-game="${escapeHtml(playGame)}">
           ${escapeHtml(btnText)}
@@ -1171,6 +1213,9 @@
         return;
       }
       paintDaily();
+    });
+    $("#btn-daily-share")?.addEventListener("click", () => {
+      shareLastRun().catch(() => showToast("Share failed"));
     });
   }
 
@@ -1228,13 +1273,13 @@
           let msg = `+${xpGained} XP`;
           if (isHighScore) msg = `🏆 New best! ${msg}`;
           showToast(msg);
-          lastRunShare = {
+          persistLastRun({
             gameId: id,
             score,
             isHighScore,
             label: ArcadeScores.GAMES[id]?.label || id,
-          };
-          updateShareButton();
+          });
+          paintDaily();
 
           const unlocked = window.ArcadeAchievements?.evaluateAfterRun?.(id, score, {
             result,

@@ -69,6 +69,13 @@ assert(
   "daily card must keep the play CTA and add Continue last cabinet",
 );
 assert(
+  app.includes("alparcade-last-run-v1")
+    && app.includes("persistLastRun")
+    && app.includes('id="daily-last-run"')
+    && app.includes('id="btn-daily-share"'),
+  "lobby must recap and share the last run after reload",
+);
+assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")
     && indexHtml.includes('title="Mute game SFX (music is in the ♪ dock)"'),
   "mute tooltip must distinguish game SFX from the music dock",

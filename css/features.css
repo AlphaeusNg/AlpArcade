@@ -59,6 +59,16 @@ body.salmon-mode {
   color: var(--gold);
 }
 
+.daily-last-run {
+  margin: -0.2rem 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
 .daily-actions {
   display: flex;
   flex-wrap: wrap;

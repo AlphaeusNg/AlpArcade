@@ -41,6 +41,31 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(page.locator("#toast")).toContainText("Reach Lv 15");
 });
 
+test("lobby recaps and shares the last run after reload", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "alparcade-last-run-v1",
+      JSON.stringify({ gameId: "snake", score: 12, isHighScore: true, label: "Snake" })
+    );
+    window.__copied = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.__copied.push(text);
+        },
+      },
+    });
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#daily-last-run")).toContainText("Snake");
+  await expect(page.locator("#daily-last-run")).toContainText("best");
+  await page.locator("#btn-daily-share").click();
+  const copied = await page.evaluate(() => window.__copied.at(-1));
+  expect(copied).toContain("Snake");
+  expect(copied).toContain("12");
+});
+
 test("continue last cabinet sits beside the daily play CTA", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#btn-daily-play")).toBeVisible();
