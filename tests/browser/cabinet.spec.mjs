@@ -64,6 +64,10 @@ test("lobby recaps and shares the last run after reload", async ({ page }) => {
   const copied = await page.evaluate(() => window.__copied.at(-1));
   expect(copied).toContain("Snake");
   expect(copied).toContain("12");
+  expect(copied).toContain("#play/snake");
+  await page.locator("#btn-daily-replay").click();
+  await expect(page.locator("#play-title")).toHaveText("Snake");
+  await expect(page).toHaveURL(/#play\/snake$/);
 });
 
 test("continue last cabinet sits beside the daily play CTA", async ({ page }) => {

@@ -66,6 +66,7 @@ manifest.webmanifest
 
 - Sticky `.topbar` gets `.is-scroll-hidden` on scroll-down at every viewport size; it returns on scroll-up / near top / `:focus-within`.
 - External nav links (`.nav-extra`) hidden on small screens.
+- Last-run recap on the daily card can Share a `#play/<id>` cabinet link and Replay that game.
 
 ## Cloud scores (optional)
 

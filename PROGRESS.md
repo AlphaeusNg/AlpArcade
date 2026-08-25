@@ -1,16 +1,29 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 73)
+Last updated: 2026-08-25 (AlpArcade Cycle 74)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.5`.
+- Deployment version: `2026.08.25.6`.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, a real Chromium cabinet smoke, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: recap last run on the lobby
+## Latest cycle: replay and deep-link the last run
+
+### Why this was selected
+
+Last-run Share copied the lobby URL. A friend tapping it landed on cabinets
+instead of the game just played, and rematching from the recap took extra taps.
+
+### Changes
+
+- Share last run encodes `#play/<id>` so the link opens that cabinet.
+- Daily recap adds Replay when the last cabinet is unlocked.
+- Version `2026.08.25.6`.
+
+## Previous cycle: recap last run on the lobby
 
 ### Why this was selected
 

@@ -112,12 +112,19 @@
 
   const SHARE_BLURB = "Alp's favourite games -- may the best human win";
 
+  function lastRunPlayUrl(run) {
+    const origin = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
+    const id = run?.gameId;
+    if (id && GAME_SCRIPTS[id]) return `${origin}#play/${id}`;
+    return origin;
+  }
+
   async function shareLastRun() {
     if (!lastRunShare) {
       showToast("Finish a run first");
       return;
     }
-    const link = `${location.origin}${location.pathname || "/"}`.replace(/\/?$/, "/");
+    const link = lastRunPlayUrl(lastRunShare);
     const formatted = window.ArcadeScores?.formatScore?.(lastRunShare.gameId, lastRunShare.score)
       ?? String(lastRunShare.score);
     const text = `${lastRunShare.label} — ${formatted}\n${SHARE_BLURB}\n${link}`;
@@ -1170,8 +1177,14 @@
     const lastFormatted = lastRun
       ? (window.ArcadeScores?.formatScore?.(lastRun.gameId, lastRun.score) ?? String(lastRun.score))
       : "";
+    const replayId = lastRun && GAME_SCRIPTS[lastRun.gameId] && !cabinetIsLocked(lastRun.gameId)
+      ? lastRun.gameId
+      : "";
+    const replayBtn = replayId
+      ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay</button>`
+      : "";
     const lastRunLine = lastRun
-      ? `<p class="daily-last-run" id="daily-last-run">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""} <button type="button" class="btn small ghost" id="btn-daily-share">Share</button></p>`
+      ? `<p class="daily-last-run" id="daily-last-run">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""} <button type="button" class="btn small ghost" id="btn-daily-share">Share</button>${replayBtn}</p>`
       : "";
     el.innerHTML = `
       <div class="daily-head">
@@ -1216,6 +1229,14 @@
     });
     $("#btn-daily-share")?.addEventListener("click", () => {
       shareLastRun().catch(() => showToast("Share failed"));
+    });
+    $("#btn-daily-replay")?.addEventListener("click", () => {
+      const replayPlay = $("#btn-daily-replay")?.dataset.replayGame || replayId;
+      if (replayPlay && !cabinetIsLocked(replayPlay)) {
+        openGame(replayPlay);
+        return;
+      }
+      paintDaily();
     });
   }
 

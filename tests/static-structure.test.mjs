@@ -72,8 +72,11 @@ assert(
   app.includes("alparcade-last-run-v1")
     && app.includes("persistLastRun")
     && app.includes('id="daily-last-run"')
-    && app.includes('id="btn-daily-share"'),
-  "lobby must recap and share the last run after reload",
+    && app.includes('id="btn-daily-share"')
+    && app.includes('id="btn-daily-replay"')
+    && app.includes("lastRunPlayUrl")
+    && app.includes("#play/${id}"),
+  "lobby must recap, share, and replay the last run via a cabinet deep-link",
 );
 assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")
