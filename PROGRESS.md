@@ -1,6 +1,6 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-27 (AlpArcade Cycle 76)
+Last updated: 2026-08-27 (AlpArcade Cycle 77)
 
 ## Current state
 
@@ -11,7 +11,47 @@ Last updated: 2026-08-27 (AlpArcade Cycle 76)
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: keep one daily CTA per cabinet destination
+## Latest cycle: make hosted CI manually recoverable
+
+### Why this was selected
+
+After Cycle 76 was pushed, GitHub recorded the commit but did not enqueue its
+push CI. The same delayed-delivery incident had already repeated in AIly, and
+AlpArcade's workflow had no manual trigger, leaving the shipped browser change
+without an immediate hosted verification path.
+
+### Changes
+
+- Add `workflow_dispatch` beside the existing push and pull-request triggers.
+- Lock the recovery trigger into the zero-dependency workflow-policy suite.
+- Runtime files and deployment version remain `2026.08.27.1`.
+
+### Verification and scores
+
+- Test-first: the sixteenth workflow assertion failed on the absent manual
+  trigger before implementation.
+- `npm test` passes the 16 workflow policies and every product contract.
+- Correctness/reliability: 7/10 → 9/10 (hosted verification no longer depends
+  solely on push-event delivery).
+- Test coverage/verifiability: 4/10 → 10/10 (the recovery path is executable
+  and policy-locked).
+- Maintainability/process: 7/10 → 9/10 (one standard trigger matches AIly's
+  recovered CI workflow).
+- Performance/resources: 9/10 → 9/10 (manual dispatch is opt-in).
+- User experience: 10/10 → 10/10 (runtime is unchanged).
+
+### Lessons and process improvements
+
+- A push trigger is not an observability fallback. When hosted checks are part
+  of the release claim, retain an explicit dispatch path and test that it
+  remains configured.
+
+### Next opportunity
+
+Rotate to AIly's Tauri content-security policy after its `v0.1.2` package
+release finishes.
+
+## Previous cycle: keep one daily CTA per cabinet destination
 
 ### Why this was selected
 

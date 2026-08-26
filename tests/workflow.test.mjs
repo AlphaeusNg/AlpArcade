@@ -7,6 +7,7 @@ const workflowPath = path.join(root, ".github/workflows/ci.yml");
 const workflow = fs.readFileSync(workflowPath, "utf8");
 
 assert.match(workflow, /^name:\s*ci\s*$/m, "workflow should have a stable name");
+assert.match(workflow, /^\s{2}workflow_dispatch:\s*$/m, "CI should support a recovery dispatch");
 assert.match(workflow, /push:\s*\n\s+branches:\s*\[main\]/, "CI should run on main pushes");
 assert.match(workflow, /^\s{2}pull_request:\s*$/m, "CI should run on pull requests");
 assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/, "CI should use read-only contents access");
@@ -37,4 +38,4 @@ assert.ok(
   "cheap unit tests should fail before the Chromium install",
 );
 
-console.log("GitHub Actions workflow policy passed (15 assertions).");
+console.log("GitHub Actions workflow policy passed (16 assertions).");
