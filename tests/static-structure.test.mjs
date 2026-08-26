@@ -65,9 +65,9 @@ assert(
     && app.includes('id="btn-daily-continue"')
     && app.includes("alparcade-last-cabinet-v1")
     && app.includes("persistLastCabinet")
-    && app.includes("continueId && continueId !== replayId")
+    && app.includes("continueId && continueId !== replayId && continueId !== playGame")
     && /Continue \$\{escapeHtml\(continueLabel\)\}/.test(app),
-  "daily card keeps Play and Continue only when last cabinet differs from last-run replay",
+  "daily card keeps Continue only when its cabinet differs from Play and Replay",
 );
 assert(
   app.includes("alparcade-last-run-v1")
@@ -85,9 +85,11 @@ const phoneBlock = responsive.slice(responsive.indexOf("@media (max-width: 720px
 assert(
   phoneBlock.includes("#daily-card .daily-actions")
     && phoneBlock.includes("#daily-card .daily-last-run")
+    && phoneBlock.includes("#daily-card .daily-last-run-copy")
     && phoneBlock.includes("flex-wrap: nowrap")
+    && phoneBlock.includes("text-overflow: ellipsis")
     && phoneBlock.includes("padding: 0.22rem 0.48rem"),
-  "phone daily recap and actions stay one compact control row",
+  "phone daily recap and actions stay one compact contained control row",
 );
 assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")

@@ -1,17 +1,70 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-25 (AlpArcade Cycle 75)
+Last updated: 2026-08-27 (AlpArcade Cycle 76)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.25.7`.
-- Daily card: after a Snake last-run recap the hero shows Play + Share + Replay Snake and omits Continue Snake; Continue still appears for a distinct last cabinet or when there is no recap. Phone `.daily-actions` / `.daily-last-run` stay one `flex-wrap: nowrap` row so the first cabinet remains above the fold.
-- Local verification: locked npm test dependencies, comprehensive `npm test`, 12/12 real Chromium journeys (21.9s), and syntax checks across all JavaScript and test modules.
+- Deployment version: `2026.08.27.1`.
+- Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: collapse duplicate daily rematch so cabinets stay above the fold
+## Latest cycle: keep one daily CTA per cabinet destination
+
+### Why this was selected
+
+The previous cycle collapsed Continue when it duplicated Replay, but today's
+primary Play / Play again button could still open the same cabinet as Replay.
+At 320px the unbounded recap copy also competed with two fixed action buttons.
+
+### Changes
+
+- Hide Replay when the primary daily button already opens that cabinet.
+- Hide Continue when it duplicates either Play or Replay.
+- Wrap recap copy in a shrinkable ellipsis span while Share/Replay stay intact.
+- Make the existing replay/continue browser fixtures select distinct unlocked
+  cabinets instead of assuming a particular calendar day's challenge.
+- Version `2026.08.27.1`.
+
+### Verification and scores
+
+- Test-first: the new 320px Chromium journey found `#btn-daily-replay` beside
+  an identical daily destination before the fix.
+- The first full browser run then caught two older Snake fixtures whose
+  expectations changed when Snake happened to be today's challenge; making
+  their destinations runtime-distinct removed the date dependency.
+- `npm test` passed every workflow, structure, persistence, game, loader,
+  cloud, and syntax contract. `npm audit --audit-level=high` found zero
+  vulnerabilities; `git diff --check` passed.
+- `CI=1 npm run test:browser`: 13/13 Chromium journeys passed in 22.5s. The
+  320px probe requires no duplicate rematch/continue action, actual ellipsis,
+  and both recap and card scroll widths to remain contained.
+- Correctness/reliability: 7/10 → 10/10 (three CTA sources now share one
+  destination-identity rule).
+- Test coverage/verifiability: 6/10 → 10/10 (duplicate and narrow overflow
+  execute in Chromium on every calendar date).
+- Maintainability: 7/10 → 9/10 (fixtures derive distinct destinations rather
+  than embedding date-sensitive game assumptions).
+- Performance/resources: 10/10 → 10/10 (one bounded string comparison).
+- Developer/user experience: 6/10 → 10/10 (one rematch path, readable fixed
+  controls, and no horizontal overflow at 320px).
+
+### Lessons and process improvements
+
+- Deduplicate actions by the destination they open, not by their source or
+  label.
+- Date-driven UI tests must choose fixtures relative to the runtime challenge;
+  a hard-coded cabinet can become today's destination and silently invert the
+  scenario.
+
+### Next opportunity
+
+Rotate to AIly and restrict the Tauri shell's currently null content-security
+policy now that its global bridge exposes consent-gated native commands.
+
+## Previous cycle: collapse duplicate daily rematch so cabinets stay above the fold
 
 ### Why this was selected
 

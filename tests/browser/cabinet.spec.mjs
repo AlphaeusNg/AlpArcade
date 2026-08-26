@@ -44,11 +44,6 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
 test("lobby recaps and shares the last run after reload", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
-    localStorage.setItem(
-      "alparcade-last-run-v1",
-      JSON.stringify({ gameId: "snake", score: 12, isHighScore: true, label: "Snake" })
-    );
-    localStorage.setItem("alparcade-last-cabinet-v1", "snake");
     window.__copied = [];
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -60,24 +55,75 @@ test("lobby recaps and shares the last run after reload", async ({ page }) => {
     });
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#daily-last-run")).toContainText("Snake");
+  const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
+  const replay = await page.evaluate((excluded) => {
+    const gameId = ["snake", "tictactoe", "tapper", "breaker"].find((id) => id !== excluded);
+    return { gameId, label: window.ArcadeScores.GAMES[gameId].label };
+  }, dailyGame);
+  await page.evaluate(({ gameId, label }) => {
+    localStorage.setItem(
+      "alparcade-last-run-v1",
+      JSON.stringify({ gameId, score: 12, isHighScore: true, label }),
+    );
+    localStorage.setItem("alparcade-last-cabinet-v1", gameId);
+  }, replay);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#daily-last-run")).toContainText(replay.label);
   await expect(page.locator("#daily-last-run")).toContainText("best");
   await expect(page.locator("#btn-daily-play")).toBeVisible();
   await expect(page.locator("#btn-daily-share")).toBeVisible();
-  await expect(page.locator("#btn-daily-replay")).toHaveText("Replay Snake");
+  await expect(page.locator("#btn-daily-replay")).toHaveText(`Replay ${replay.label}`);
   await expect(page.locator("#btn-daily-continue")).toHaveCount(0);
-  await expect(page.locator("#daily-card")).not.toContainText("Continue Snake");
+  await expect(page.locator("#daily-card")).not.toContainText(`Continue ${replay.label}`);
   await expect(page.locator(".daily-last-run")).toHaveCSS("flex-wrap", "nowrap");
   await expect(page.locator(".daily-actions")).toHaveCSS("flex-wrap", "nowrap");
   await expect(page.locator(".cabinet-grid [data-game]").first()).toBeInViewport({ ratio: 1 });
   await page.locator("#btn-daily-share").click();
   const copied = await page.evaluate(() => window.__copied.at(-1));
-  expect(copied).toContain("Snake");
+  expect(copied).toContain(replay.label);
   expect(copied).toContain("12");
-  expect(copied).toContain("#play/snake");
+  expect(copied).toContain(`#play/${replay.gameId}`);
   await page.locator("#btn-daily-replay").click();
-  await expect(page.locator("#play-title")).toHaveText("Snake");
-  await expect(page).toHaveURL(/#play\/snake$/);
+  await expect(page.locator("#play-title")).toHaveText(replay.label);
+  await expect(page).toHaveURL(new RegExp(`#play/${replay.gameId}$`));
+});
+
+test("daily play owns a duplicate rematch and the 320px recap stays contained", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
+  expect(dailyGame).toBeTruthy();
+
+  await page.evaluate((gameId) => {
+    localStorage.setItem(
+      "alparcade-last-run-v1",
+      JSON.stringify({
+        gameId,
+        score: 123456,
+        isHighScore: true,
+        label: "A deliberately long last-run cabinet label",
+      }),
+    );
+    localStorage.setItem("alparcade-last-cabinet-v1", gameId);
+  }, dailyGame);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#btn-daily-play")).toBeVisible();
+  await expect(page.locator("#btn-daily-replay")).toHaveCount(0);
+  await expect(page.locator("#btn-daily-continue")).toHaveCount(0);
+  const copy = page.locator(".daily-last-run-copy");
+  await expect(copy).toHaveCSS("text-overflow", "ellipsis");
+  const sizing = await page.locator("#daily-card").evaluate((card) => {
+    const line = card.querySelector(".daily-last-run");
+    const recap = card.querySelector(".daily-last-run-copy");
+    return {
+      cardContained: card.scrollWidth <= card.clientWidth,
+      lineContained: line.scrollWidth <= line.clientWidth,
+      copyTruncated: recap.scrollWidth > recap.clientWidth,
+    };
+  });
+  expect(sizing).toEqual({ cardContained: true, lineContained: true, copyTruncated: true });
 });
 
 test("continue last cabinet sits beside the daily play CTA", async ({ page }) => {
@@ -96,26 +142,40 @@ test("continue last cabinet sits beside the daily play CTA", async ({ page }) =>
 });
 
 test("continue last cabinet stays when it is distinct from last-run replay", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
+  const choices = await page.evaluate((excluded) => {
+    const available = ["snake", "tictactoe", "tapper", "breaker"]
+      .filter((id) => id !== excluded)
+      .slice(0, 2);
+    return available.map((gameId) => ({
+      gameId,
+      label: window.ArcadeScores.GAMES[gameId].label,
+    }));
+  }, dailyGame);
+  const [replay, nextCabinet] = choices;
+  expect(replay).toBeTruthy();
+  expect(nextCabinet).toBeTruthy();
+  await page.evaluate(({ gameId, label }) => {
     localStorage.setItem(
       "alparcade-last-run-v1",
-      JSON.stringify({ gameId: "snake", score: 12, isHighScore: true, label: "Snake" })
+      JSON.stringify({ gameId, score: 12, isHighScore: true, label }),
     );
-    localStorage.setItem("alparcade-last-cabinet-v1", "snake");
-  });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#btn-daily-replay")).toHaveText("Replay Snake");
+    localStorage.setItem("alparcade-last-cabinet-v1", gameId);
+  }, replay);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("#btn-daily-replay")).toHaveText(`Replay ${replay.label}`);
   await expect(page.locator("#btn-daily-continue")).toHaveCount(0);
 
-  await page.locator('[data-game="tictactoe"]').click();
-  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+  await page.locator(`[data-game="${nextCabinet.gameId}"]`).click();
+  await expect(page.locator("#play-title")).toHaveText(nextCabinet.label);
   await page.locator("#btn-back").click();
 
   await expect(page.locator("#btn-daily-play")).toBeVisible();
-  await expect(page.locator("#btn-daily-replay")).toHaveText("Replay Snake");
-  await expect(page.locator("#btn-daily-continue")).toHaveText("Continue Tic-Tac-Toe");
+  await expect(page.locator("#btn-daily-replay")).toHaveText(`Replay ${replay.label}`);
+  await expect(page.locator("#btn-daily-continue")).toHaveText(`Continue ${nextCabinet.label}`);
   await page.locator("#btn-daily-continue").click();
-  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+  await expect(page.locator("#play-title")).toHaveText(nextCabinet.label);
 });
 
 test("opens, plays, and leaves a lazy-loaded cabinet", async ({ page }) => {

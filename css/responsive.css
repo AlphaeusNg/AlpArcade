@@ -209,6 +209,14 @@
     min-width: 0;
   }
 
+  #daily-card .daily-last-run-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   #daily-card .daily-actions .btn.small,
   #daily-card .daily-last-run .btn.small {
     padding: 0.22rem 0.48rem;
