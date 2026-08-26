@@ -31,6 +31,9 @@ without an immediate hosted verification path.
 - Test-first: the sixteenth workflow assertion failed on the absent manual
   trigger before implementation.
 - `npm test` passes the 16 workflow policies and every product contract.
+- Manual recovery CI run `32990876910` passed all unit/contract gates and 13
+  Chromium journeys in 1m5s on commit `e1f3951`. Pages deployment
+  `32990875256` passed, and the live site serves `2026.08.27.1`.
 - Correctness/reliability: 7/10 → 9/10 (hosted verification no longer depends
   solely on push-event delivery).
 - Test coverage/verifiability: 4/10 → 10/10 (the recovery path is executable
