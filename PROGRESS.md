@@ -39,6 +39,9 @@ game; the third did not.
 - `npm test`, recursive syntax, diff checks, and the zero-vulnerability audit
   pass; all 13 Chromium journeys pass in 22.6 seconds on today's Tic-Tac-Toe
   challenge.
+- Replacement hosted CI run `33098606874` passed the same 13 journeys in
+  1m4s; Pages run `33098605351` succeeded. The earlier red run remains the
+  recorded test-first evidence rather than being retried away.
 - Correctness/reliability: 5/10 -> 10/10 (the fixture now tests Continue rather
   than accidentally testing deduplication).
 - Test coverage/verifiability: 4/10 -> 10/10 (all three date-sensitive lobby
