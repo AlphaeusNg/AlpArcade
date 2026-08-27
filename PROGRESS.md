@@ -1,6 +1,6 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-27 (AlpArcade Cycle 77)
+Last updated: 2026-08-28 (AlpArcade Cycle 78)
 
 ## Current state
 
@@ -11,7 +11,49 @@ Last updated: 2026-08-27 (AlpArcade Cycle 77)
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: make hosted CI manually recoverable
+## Latest cycle: reconcile the completed lobby backlog
+
+### Why this was selected
+
+Cycle 76 shipped and browser-verified the remaining Play/Replay destination
+deduplication and 320px recap containment, but the active priority table and
+`Next cycle` handoff still described that exact work as pending. A future loop
+could therefore select and investigate an already-resolved defect.
+
+### Changes
+
+- Mark the Play/Replay and 320px containment opportunity completed with its
+  Cycle 76 evidence.
+- Replace the stale local handoff with an explicit repository rotation because
+  no higher-impact unblocked AlpArcade item is currently recorded.
+- Runtime files and deployment version remain unchanged.
+
+### Verification and scores
+
+- Cross-checked the active table and handoff against Cycle 76's implementation
+  commit `ff32a2c`, 13/13 Chromium proof, and current-state summary.
+- `npm test` passes all workflow, structure, persistence, game, loader, cloud,
+  and syntax contracts; `git diff --check` passes.
+- Correctness/reliability: 7/10 -> 10/10 (the active state matches shipped behavior).
+- Verifiability: 8/10 -> 10/10 (the row points to its exact cycle evidence).
+- Maintainability/process: 4/10 -> 10/10 (autonomous selection cannot repeat
+  completed Cycle 76 work).
+- Performance, security, and user experience are unchanged; runtime files did
+  not change.
+
+### Lessons and process improvements
+
+- A cycle is not fully reflected until every active prioritization surface is
+  updated, including both the backlog row and next-cycle handoff.
+- Compare state-file claims with commits after every cycle that interrupts its
+  original plan to repair deployment infrastructure.
+
+### Next opportunity
+
+No higher-impact unblocked AlpArcade item is currently recorded. Rotate to
+another clean repository and return when new runtime or player evidence appears.
+
+## Previous cycle: make hosted CI manually recoverable
 
 ### Why this was selected
 
@@ -846,7 +888,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
-| 1 | Collapse Play vs Replay when they open the same cabinet; keep 320px recap from overflowing | UX / lobby density | Medium | Small / low | Play challenge / Play again still rematches Replay's cabinet; nowrap buttons are `flex-shrink: 0` beside untruncated copy | Next |
+| — | Collapse Play vs Replay when they open the same cabinet; keep 320px recap from overflowing | UX / lobby density | Medium | Small / low | Destination-relative 320px Chromium coverage proves one CTA per cabinet, ellipsis, and contained card/recap widths | Completed in Cycle 76 |
 | — | Collapse duplicate daily rematch so cabinets stay above the fold | UX / lobby density | Medium | Small / low | After Snake last-run, Play + Share + Replay with no Continue Snake; 390×844 first cabinet in view; 12/12 Chromium | Completed in Cycle 75 |
 | — | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | 46 service assertions cover exact zero replacements and second-stage denial | Completed in Cycle 72 |
 | — | Distinguish failed username retention from intentional profile skip | Reliability / honesty | Medium | Small / low | 28 service assertions and a real UI journey preserve keep warning, skip, and deletion-failure outcomes | Completed in Cycle 71 |
@@ -860,9 +902,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 ## Next cycle
 
-Local next: collapse Play challenge / Play again when it rematches the same
-cabinet as Replay, and check 320px nowrap overflow of last-run copy so Share
-and Replay stay fully visible.
-Workspace next: if that remaining duplicate is not reproduced on a daily that
-differs from last-run, rotate to the highest-impact unblocked item in another
-repo.
+Local next: wait for new runtime or player evidence rather than revisiting the
+already-verified Cycle 76 lobby behavior.
+Workspace next: rotate to the highest-impact unblocked item in another clean
+repository.
