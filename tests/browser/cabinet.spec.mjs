@@ -1,6 +1,20 @@
 import { expect, test } from "@playwright/test";
 
 const runtimeErrors = new WeakMap();
+const FREE_CABINET_IDS = ["snake", "tictactoe", "tapper", "breaker"];
+
+async function distinctFreeCabinets(page, excluded, count = 1) {
+  return page.evaluate(
+    ({ ids, excludedId, limit }) => ids
+      .filter((id) => id !== excludedId)
+      .slice(0, limit)
+      .map((gameId) => ({
+        gameId,
+        label: window.ArcadeScores.GAMES[gameId].label,
+      })),
+    { ids: FREE_CABINET_IDS, excludedId: excluded, limit: count },
+  );
+}
 
 test.beforeEach(async ({ page }) => {
   const errors = [];
@@ -56,10 +70,7 @@ test("lobby recaps and shares the last run after reload", async ({ page }) => {
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
-  const replay = await page.evaluate((excluded) => {
-    const gameId = ["snake", "tictactoe", "tapper", "breaker"].find((id) => id !== excluded);
-    return { gameId, label: window.ArcadeScores.GAMES[gameId].label };
-  }, dailyGame);
+  const [replay] = await distinctFreeCabinets(page, dailyGame);
   await page.evaluate(({ gameId, label }) => {
     localStorage.setItem(
       "alparcade-last-run-v1",
@@ -130,29 +141,24 @@ test("continue last cabinet sits beside the daily play CTA", async ({ page }) =>
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#btn-daily-play")).toBeVisible();
   await expect(page.locator("#btn-daily-continue")).toHaveCount(0);
+  const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
+  const [continueCabinet] = await distinctFreeCabinets(page, dailyGame);
+  expect(continueCabinet).toBeTruthy();
 
-  await page.locator('[data-game="tictactoe"]').click();
-  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+  await page.locator(`[data-game="${continueCabinet.gameId}"]`).click();
+  await expect(page.locator("#play-title")).toHaveText(continueCabinet.label);
   await page.locator("#btn-back").click();
 
   await expect(page.locator("#btn-daily-play")).toBeVisible();
-  await expect(page.locator("#btn-daily-continue")).toHaveText("Continue Tic-Tac-Toe");
+  await expect(page.locator("#btn-daily-continue")).toHaveText(`Continue ${continueCabinet.label}`);
   await page.locator("#btn-daily-continue").click();
-  await expect(page.locator("#play-title")).toHaveText("Tic-Tac-Toe");
+  await expect(page.locator("#play-title")).toHaveText(continueCabinet.label);
 });
 
 test("continue last cabinet stays when it is distinct from last-run replay", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const dailyGame = await page.locator("#btn-daily-play").getAttribute("data-daily-game");
-  const choices = await page.evaluate((excluded) => {
-    const available = ["snake", "tictactoe", "tapper", "breaker"]
-      .filter((id) => id !== excluded)
-      .slice(0, 2);
-    return available.map((gameId) => ({
-      gameId,
-      label: window.ArcadeScores.GAMES[gameId].label,
-    }));
-  }, dailyGame);
+  const choices = await distinctFreeCabinets(page, dailyGame, 2);
   const [replay, nextCabinet] = choices;
   expect(replay).toBeTruthy();
   expect(nextCabinet).toBeTruthy();

@@ -1,6 +1,6 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-28 (AlpArcade Cycle 78)
+Last updated: 2026-08-28 (AlpArcade Cycle 79)
 
 ## Current state
 
@@ -11,7 +11,56 @@ Last updated: 2026-08-28 (AlpArcade Cycle 78)
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: reconcile the completed lobby backlog
+## Latest cycle: make every daily-cabinet fixture date-independent
+
+### Why this was selected
+
+Hosted CI run `33098061854` failed the Continue journey on a day when
+Tic-Tac-Toe was the daily Play destination. Correct runtime deduplication
+removed Continue, but that older test hard-coded Tic-Tac-Toe and still expected
+the duplicate. Two neighboring fixtures already selected relative to the daily
+game; the third did not.
+
+### Changes
+
+- Added one browser-fixture helper that selects one or more always-free
+  cabinets distinct from the runtime daily destination and returns their real
+  labels.
+- Routed recap, Continue-only, and Continue-versus-Replay fixtures through the
+  same helper instead of maintaining three selection implementations.
+- Runtime files and deployment version remain unchanged.
+
+### Verification and scores
+
+- Hosted and local test-first evidence both failed with no
+  `#btn-daily-continue` because daily Play and hard-coded Tic-Tac-Toe correctly
+  resolved to one destination.
+- The two focused Continue journeys pass with runtime-relative cabinets.
+- `npm test`, recursive syntax, diff checks, and the zero-vulnerability audit
+  pass; all 13 Chromium journeys pass in 22.6 seconds on today's Tic-Tac-Toe
+  challenge.
+- Correctness/reliability: 5/10 -> 10/10 (the fixture now tests Continue rather
+  than accidentally testing deduplication).
+- Test coverage/verifiability: 4/10 -> 10/10 (all three date-sensitive lobby
+  fixtures share the same exclusion rule).
+- Maintainability/process: 5/10 -> 9/10 (one named helper owns free-cabinet
+  fixture selection).
+- Runtime performance, security, and user experience remain unchanged.
+
+### Lessons and process improvements
+
+- Fixing only the fixtures that failed on yesterday's challenge leaves the
+  same date dependency dormant elsewhere. Search the entire scenario family
+  and centralize its selection rule.
+- A red hosted gate after a documentation-only commit is new evidence, not
+  noise; reproduce it against the same calendar state before rerunning.
+
+### Next opportunity
+
+No higher-impact unblocked AlpArcade item is currently recorded. Rotate after
+hosted CI proves the repaired date-independent browser suite.
+
+## Previous cycle: reconcile the completed lobby backlog
 
 ### Why this was selected
 
@@ -888,6 +937,7 @@ Achievement writes caught browser storage exceptions and discarded them silently
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependency | Status |
 |---|---|---|---|---|---|---|
+| — | Make every daily-cabinet browser fixture date-independent | Verification / reliability | High | Small / low | Hosted failure `33098061854` reproduced locally; all three scenario fixtures now share runtime-relative free-cabinet selection | Completed in Cycle 79 |
 | — | Collapse Play vs Replay when they open the same cabinet; keep 320px recap from overflowing | UX / lobby density | Medium | Small / low | Destination-relative 320px Chromium coverage proves one CTA per cabinet, ellipsis, and contained card/recap widths | Completed in Cycle 76 |
 | — | Collapse duplicate daily rematch so cabinets stay above the fold | UX / lobby density | Medium | Small / low | After Snake last-run, Play + Share + Replay with no Continue Snake; 390×844 first cabinet in view; 12/12 Chromium | Completed in Cycle 75 |
 | — | Extend the configured cloud fixture across delete-to-zero fallbacks | Verification / reliability | Low-medium | Small / low | 46 service assertions cover exact zero replacements and second-stage denial | Completed in Cycle 72 |
