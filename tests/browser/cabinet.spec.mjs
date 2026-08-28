@@ -45,7 +45,7 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   const cabinet = page.locator('[data-game="jubeat"]');
   await expect(cabinet).toBeVisible();
   await expect(cabinet).toHaveClass(/is-locked/);
-  await expect(cabinet.locator(".cab-lock")).toHaveText("Lv 15");
+  await expect(cabinet.locator(".cab-lock")).toHaveText(/Lv 15 · \d+ XP to go/);
   await expect(cabinet.locator(".cab-desc")).toContainText("Lv 15");
   await expect(cabinet.locator(".cab-best")).toHaveText("No runs yet");
   await expect(cabinet.locator(".cab-best")).not.toContainText("Reach Lv");

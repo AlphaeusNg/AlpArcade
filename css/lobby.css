@@ -241,6 +241,9 @@
   letter-spacing: 0.03em;
   line-height: 1.15;
   white-space: nowrap;
+  max-width: calc(100% - 0.5rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cabinet {

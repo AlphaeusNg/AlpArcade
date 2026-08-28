@@ -277,10 +277,16 @@
     if (!gate) return null;
     if (isGameUnlocked(gameId)) return null;
     const level = playerLevel();
+    const xp = global.ArcadeScores?.getState?.()?.xp || 0;
+    const remaining = gate.requireLevel
+      ? global.ArcadeScores?.xpToReachLevel?.(xp, gate.requireLevel)
+      : null;
     return {
       ...gate,
       currentLevel: level,
-      chip: gate.requireLevel ? `Lv ${gate.requireLevel}` : "Locked",
+      chip: gate.requireLevel
+        ? `Lv ${gate.requireLevel} · ${Number.isFinite(remaining) ? remaining : 0} XP to go`
+        : "Locked",
       message: gate.requireLevel
         ? `Reach Lv ${gate.requireLevel} to unlock (you are Lv ${level})`
         : "Achievement required",

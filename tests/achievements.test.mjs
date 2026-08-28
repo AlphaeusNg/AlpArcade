@@ -26,6 +26,7 @@ function createAchievements(
     ArcadeScores: {
       getState: () => ({ xp: 0 }),
       getLevel: () => ({ level }),
+      xpToReachLevel: (_xp, targetLevel) => (level >= targetLevel ? 0 : 4670),
     },
     CustomEvent: class {
       constructor(type, options = {}) {
@@ -145,7 +146,7 @@ assert.equal(
 const gated = createAchievements(null, { level: 3 }).achievements;
 const jubeatGate = gated.unlockRequirement("jubeat");
 assert.equal(jubeatGate.requireLevel, 15);
-assert.equal(jubeatGate.chip, "Lv 15", "locked cabinets expose a compact level chip");
+assert.equal(jubeatGate.chip, "Lv 15 · 4670 XP to go", "locked cabinets expose remaining XP on the compact chip");
 assert.equal(
   jubeatGate.message,
   "Reach Lv 15 to unlock (you are Lv 3)",

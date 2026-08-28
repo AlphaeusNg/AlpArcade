@@ -324,6 +324,10 @@
     return `${score} ${g.unit}`;
   }
 
+  function levelNeedMultiplier(level) {
+    return level < 12 ? 1.28 : level < 30 ? 1.14 : 1.08;
+  }
+
   function getLevel(xp) {
     // Unlimited levels — no hard cap. Curve eases after mid-levels so high ranks stay reachable.
     let level = 1;
@@ -334,11 +338,25 @@
     while (remaining >= need && level < hardStop) {
       remaining -= need;
       level += 1;
-      // Early: classic ramp · later: gentler growth so levels don't soft-cap
-      const mult = level < 12 ? 1.28 : level < 30 ? 1.14 : 1.08;
-      need = Math.max(40, Math.floor(need * mult));
+      need = Math.max(40, Math.floor(need * levelNeedMultiplier(level)));
     }
     return { level, progress: remaining, next: need };
+  }
+
+  /** XP still needed to reach targetLevel. 0 if already there. */
+  function xpToReachLevel(xp, targetLevel) {
+    const target = Math.max(1, Math.floor(Number(targetLevel) || 1));
+    const { level, progress, next } = getLevel(xp);
+    if (level >= target) return 0;
+    let remaining = Math.max(0, next - progress);
+    let need = next;
+    let lv = level;
+    while (lv + 1 < target) {
+      lv += 1;
+      need = Math.max(40, Math.floor(need * levelNeedMultiplier(lv)));
+      remaining += need;
+    }
+    return remaining;
   }
 
   function resetAll() {
@@ -489,6 +507,7 @@
     arcadePointsForRun,
     formatScore,
     getLevel,
+    xpToReachLevel,
     resetAll,
     exportCode,
     importCode,
