@@ -57,15 +57,16 @@ assert(
 assert(
   app.includes("function cabinetLockChip")
     && app.includes("lockEl.textContent = cabinetLockChip(id)")
-    && app.includes("xpToReachLevel")
-    && app.includes("XP to go")
+    && app.includes("unlockRequirement")
     && !app.includes("bestEl.textContent = req?.message"),
-  "locked cabinets must show remaining XP on the compact Lv chip instead of replacing .cab-best",
+  "locked cabinets must show a compact Lv chip instead of replacing .cab-best",
 );
 assert(
   read("js/core/scores.js").includes("function xpToReachLevel")
+    && read("js/features/achievements.js").includes("xpToReachLevel")
+    && read("js/features/achievements.js").includes("XP to go")
     && read("css/lobby.css").includes("text-overflow: ellipsis"),
-  "remaining XP uses the shared level curve and the lock chip stays contained",
+  "remaining XP uses the shared level curve on the lock chip and the chip stays contained",
 );
 assert(
   app.includes('id="btn-daily-play"')
