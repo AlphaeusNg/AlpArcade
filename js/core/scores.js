@@ -8,6 +8,7 @@
   const STORAGE_KEY = "alphaeus-arcade-v1";
   const MAX_HISTORY = 40;
   const MAX_HALL = 15;
+  const JUBEAT_DIFFICULTIES = ["easy", "medium", "extreme"];
   const SAVE_ERROR_MESSAGE =
     "Progress couldn't be saved on this device — enable site storage to keep this visit's XP and scores.";
   const RESET_ERROR_MESSAGE =
@@ -78,7 +79,7 @@
         reaction: { best: null },
         memory: { best: 0 },
         tapper: { best: 0 },
-        jubeat: { best: 0 },
+        jubeat: { best: 0, songs: {} },
         breaker: { best: 0 },
       },
       history: [],
@@ -103,6 +104,47 @@
     return number;
   }
 
+  function normalizedJubeatSongId(value) {
+    const id = typeof value === "string" ? value.trim() : "";
+    return /^[a-z0-9][a-z0-9_-]{0,47}$/i.test(id) ? id : "";
+  }
+
+  function normalizedJubeatDifficulty(value) {
+    const key = String(value || "").trim().toLowerCase();
+    if (key === "easy" || key === "e" || key === "basic") return "easy";
+    if (key === "medium" || key === "m" || key === "advanced") return "medium";
+    if (["hard", "h", "extreme", "ex"].includes(key)) return "extreme";
+    return "";
+  }
+
+  function normalizeJubeatSongBests(value) {
+    if (!isRecord(value)) return {};
+    const normalized = {};
+    for (const [rawSongId, rawBests] of Object.entries(value).slice(0, 64)) {
+      const songId = normalizedJubeatSongId(rawSongId);
+      if (!songId || !isRecord(rawBests)) continue;
+      const bests = {};
+      for (const difficulty of JUBEAT_DIFFICULTIES) {
+        const score = nonNegativeNumber(rawBests[difficulty], 0);
+        if (score > 0) bests[difficulty] = score;
+      }
+      if (Object.keys(bests).length) normalized[songId] = bests;
+    }
+    return normalized;
+  }
+
+  function recordJubeatBest(highScore, score, meta = {}) {
+    const songId = normalizedJubeatSongId(meta.song);
+    const difficulty = normalizedJubeatDifficulty(meta.difficultyId || meta.difficulty);
+    if (!songId || !difficulty) return false;
+    highScore.songs = normalizeJubeatSongBests(highScore.songs);
+    const songBests = highScore.songs[songId] || {};
+    if (score <= Number(songBests[difficulty] || 0)) return false;
+    songBests[difficulty] = score;
+    highScore.songs[songId] = songBests;
+    return true;
+  }
+
   function normalizeHighScores(value) {
     const base = defaultState().highScores;
     const source = isRecord(value) ? value : {};
@@ -122,6 +164,11 @@
           best: incoming.best == null
             ? null
             : nonNegativeNumber(incoming.best, null, { positive: true }),
+        };
+      } else if (gameId === "jubeat") {
+        normalized[gameId] = {
+          best: nonNegativeNumber(incoming.best, 0),
+          songs: normalizeJubeatSongBests(incoming.songs),
         };
       } else {
         normalized[gameId] = { best: nonNegativeNumber(incoming.best, 0) };
@@ -169,13 +216,17 @@
     const hallOfFame = rankHall(
       normalizeScoreEntries(data.hallOfFame)
     ).slice(0, MAX_HALL);
+    const highScores = normalizeHighScores(data.highScores);
+    for (const entry of history) {
+      if (entry.game === "jubeat") recordJubeatBest(highScores.jubeat, entry.score, entry.meta);
+    }
     return {
       ...base,
       playerName:
         typeof data.playerName === "string" ? data.playerName.trim().slice(0, 16) || "Player" : base.playerName,
       xp: nonNegativeNumber(data.xp, 0, { integer: true }),
       gamesPlayed: nonNegativeNumber(data.gamesPlayed, 0, { integer: true }),
-      highScores: normalizeHighScores(data.highScores),
+      highScores,
       history,
       hallOfFame,
     };
@@ -260,6 +311,10 @@
       if (meta.result === "draw") hs.draws = (hs.draws || 0) + 1;
       hs.best = hs.wins || 0;
       isHighScore = meta.result === "win";
+    } else if (gameId === "jubeat") {
+      const overallRecord = num > Number(hs.best || 0);
+      if (overallRecord) hs.best = num;
+      isHighScore = recordJubeatBest(hs, num, meta) || overallRecord;
     } else if (metaInfo.higherIsBetter) {
       if (num > (hs.best ?? 0)) {
         hs.best = num;
@@ -406,6 +461,24 @@
           localHs.draws = remoteDraws;
           changed = true;
         }
+      } else if (gameId === "jubeat") {
+        const normalizedRemoteBest = validRunScore(gameId, remoteBest);
+        if (normalizedRemoteBest != null && normalizedRemoteBest > Number(localBest ?? 0)) {
+          localHs.best = normalizedRemoteBest;
+          changed = true;
+        }
+        const remoteSongs = normalizeJubeatSongBests(remoteHs.songs);
+        localHs.songs = normalizeJubeatSongBests(localHs.songs);
+        for (const [songId, bests] of Object.entries(remoteSongs)) {
+          const localSong = localHs.songs[songId] || {};
+          for (const difficulty of JUBEAT_DIFFICULTIES) {
+            if (Number(bests[difficulty] || 0) > Number(localSong[difficulty] || 0)) {
+              localSong[difficulty] = bests[difficulty];
+              changed = true;
+            }
+          }
+          if (Object.keys(localSong).length) localHs.songs[songId] = localSong;
+        }
       } else if (g.higherIsBetter) {
         const normalizedRemoteBest = validRunScore(gameId, remoteBest);
         if (normalizedRemoteBest != null && normalizedRemoteBest > Number(localBest ?? 0)) {
@@ -491,11 +564,19 @@
         history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
         hallOfFame: Array.isArray(data.hallOfFame) ? data.hallOfFame.slice(0, MAX_HALL) : [],
       };
-      save(merged);
+      save(normalizeState(merged));
       return load();
     } catch {
       throw new Error("Invalid score code");
     }
+  }
+
+  function getJubeatBests(songId) {
+    const id = normalizedJubeatSongId(songId);
+    const stored = id ? load().highScores.jubeat?.songs?.[id] : null;
+    return Object.fromEntries(
+      JUBEAT_DIFFICULTIES.map((difficulty) => [difficulty, Number(stored?.[difficulty]) || 0])
+    );
   }
 
   global.ArcadeScores = {
@@ -503,6 +584,7 @@
     getState,
     setPlayerName,
     mergeHighScores,
+    getJubeatBests,
     submitScore,
     arcadePointsForRun,
     formatScore,

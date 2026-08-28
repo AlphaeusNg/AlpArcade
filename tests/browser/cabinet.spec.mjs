@@ -55,6 +55,40 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(page.locator("#toast")).toContainText("Reach Lv 15");
 });
 
+test("Pulse Grid keeps separate Easy, Medium, and Hard highs for each song", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Chart Player",
+      xp: 10000,
+      gamesPlayed: 3,
+      highScores: {
+        jubeat: {
+          best: 765432,
+          songs: {
+            imsosohappy: { easy: 123456, medium: 456789, extreme: 765432 },
+          },
+        },
+      },
+      history: [],
+      hallOfFame: [],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const cabinet = page.locator('[data-game="jubeat"]');
+  await expect(cabinet).not.toHaveClass(/is-locked/);
+  await cabinet.click();
+
+  const bests = page.locator("#jb-song-detail-bests");
+  await expect(bests.locator('[data-best-difficulty="easy"]')).toContainText("123,456");
+  await expect(bests.locator('[data-best-difficulty="medium"]')).toContainText("456,789");
+  await expect(bests.locator('[data-best-difficulty="extreme"]')).toContainText("765,432");
+  await expect(bests).toHaveAttribute("aria-label", /Easy, Medium, and Hard/);
+
+  await page.locator('#jb-songs [data-s="1"]').click();
+  await expect(bests.locator(".jb-song-best")).toHaveCount(3);
+  await expect(bests).not.toContainText("123,456");
+});
+
 test("lobby recaps and shares the last run after reload", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {

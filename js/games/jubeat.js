@@ -38,9 +38,9 @@
       approachMs: 1200,
     },
     extreme: {
-      label: "EXTREME",
-      symbol: "EX",
-      shortLabel: "Extreme",
+      label: "HARD",
+      symbol: "H",
+      shortLabel: "Hard",
       approachMs: 1000,
     },
   };
@@ -1283,7 +1283,7 @@
                 <h3 id="jb-song-detail-title"></h3>
                 <dl>
                   <div><dt>Difficulty</dt><dd id="jb-song-detail-difficulty"></dd></div>
-                  <div><dt>Previous best</dt><dd id="jb-song-detail-best"></dd></div>
+                  <div class="jb-song-highscores"><dt>High scores</dt><dd id="jb-song-detail-bests" aria-label="High scores for Easy, Medium, and Hard"></dd></div>
                   <div><dt>Total taps</dt><dd id="jb-song-detail-taps"></dd></div>
                   <div><dt>Tempo</dt><dd id="jb-song-detail-bpm"></dd></div>
                 </dl>
@@ -1526,7 +1526,7 @@
     const songDetailArtistEl = root.querySelector("#jb-song-detail-artist");
     const songDetailTitleEl = root.querySelector("#jb-song-detail-title");
     const songDetailDifficultyEl = root.querySelector("#jb-song-detail-difficulty");
-    const songDetailBestEl = root.querySelector("#jb-song-detail-best");
+    const songDetailBestsEl = root.querySelector("#jb-song-detail-bests");
     const songDetailTapsEl = root.querySelector("#jb-song-detail-taps");
     const songDetailBpmEl = root.querySelector("#jb-song-detail-bpm");
     const timingOffsetEl = root.querySelector("#jb-timing-offset");
@@ -2509,27 +2509,29 @@
       );
     }
 
-    function previousBest() {
-      const selected = song();
+    function songHighScores(selected = song()) {
       if (selected.custom) return null;
-      const selectedDifficulty = difficulty().label;
-      const history = global.ArcadeScores?.getState?.().history;
-      if (!Array.isArray(history)) return 0;
-      return history.reduce((best, entry) => {
-        if (
-          entry?.game !== "jubeat" ||
-          entry.meta?.song !== selected.id ||
-          entry.meta?.difficulty !== selectedDifficulty
-        ) {
-          return best;
-        }
-        return Math.max(best, Number(entry.score) || 0);
-      }, 0);
+      return global.ArcadeScores?.getJubeatBests?.(selected.id) || {
+        easy: 0,
+        medium: 0,
+        extreme: 0,
+      };
+    }
+
+    function highScoreMarkup(bests) {
+      return [
+        ["easy", "E"],
+        ["medium", "M"],
+        ["extreme", "H"],
+      ].map(([id, label]) => {
+        const value = Number(bests?.[id]) || 0;
+        return `<span class="jb-song-best${id === difficultyId ? " is-active" : ""}" data-best-difficulty="${id}"><b>${label}</b><span>${value ? formatScore(value) : "—"}</span></span>`;
+      }).join("");
     }
 
     function paintSongDetail() {
       const selected = song();
-      const best = previousBest();
+      const bests = songHighScores(selected);
       songJacketEl.src = selected.jacket;
       songJacketEl.alt = `${selected.title} jacket artwork`;
       songDetailArtistEl.textContent = selected.artist;
@@ -2537,8 +2539,10 @@
       songDetailTitleEl.style.color = selected.color;
       songDetailDifficultyEl.textContent = selected.custom
         ? `CUSTOM ${selected.level} · UNRANKED`
-        : `E ${selected.levels.easy} · M ${selected.levels.medium} · EX ${selected.levels.extreme}`;
-      songDetailBestEl.textContent = selected.custom ? "Unranked" : best ? formatScore(best) : "No score yet";
+        : `E ${selected.levels.easy} · M ${selected.levels.medium} · H ${selected.levels.extreme}`;
+      songDetailBestsEl.innerHTML = selected.custom
+        ? '<span class="jb-song-unranked">Unranked custom chart</span>'
+        : highScoreMarkup(bests);
       songDetailTapsEl.textContent = selectedChartTotal().toLocaleString();
       songDetailBpmEl.textContent = `${selected.bpm} BPM`;
       const timingOffset = timingOffsetFor(selected);
@@ -3333,6 +3337,7 @@
           score,
           meta: {
             song: s.id,
+            difficultyId,
             difficulty: difficulty().label,
             rank,
             arcadePoints,

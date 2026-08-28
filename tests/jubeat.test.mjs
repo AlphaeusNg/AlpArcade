@@ -126,13 +126,24 @@ assert(
 );
 assert(
   JSON.stringify(Object.values(game.DIFFICULTIES).map((difficulty) => difficulty.symbol)) ===
-    JSON.stringify(["E", "M", "EX"]) &&
+    JSON.stringify(["E", "M", "H"]) &&
     source.includes('difficultyEl.classList.toggle("is-custom", !!song().custom)') &&
     gameCss.includes('grid-template-columns: repeat(3, 2rem)') &&
     gameCss.includes('.jb-difficulty-btn[data-difficulty="easy"]') &&
     gameCss.includes('.jb-difficulty-btn[data-difficulty="medium"]') &&
     gameCss.includes('.jb-difficulty-btn[data-difficulty="extreme"]'),
-  "Difficulty controls must remain one compact E/M/EX row with stable color coding"
+  "Difficulty controls must remain one compact E/M/H row with stable color coding"
+);
+assert(
+  source.includes('id="jb-song-detail-bests"') &&
+    source.includes("getJubeatBests") &&
+    source.includes('["easy", "E"]') &&
+    source.includes('["medium", "M"]') &&
+    source.includes('["extreme", "H"]') &&
+    source.includes("difficultyId,") &&
+    gameCss.includes("#jb-song-detail-bests") &&
+    gameCss.includes(".jb-song-best.is-active"),
+  "Each song must show durable Easy, Medium, and Hard personal bests"
 );
 assert(source.includes('id="jb-results-retry"'), "Pulse Grid results must offer Retry");
 assert(

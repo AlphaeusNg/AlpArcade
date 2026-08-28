@@ -1,17 +1,37 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-28 (AlpArcade Cycle 79)
+Last updated: 2026-08-28 (AlpArcade Cycle 80)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.27.1`.
+- Deployment version: `2026.08.28.2`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: make every daily-cabinet fixture date-independent
+## Latest cycle: keep Pulse Grid highs per song and difficulty
+
+### Why this was selected
+
+Pulse Grid only retained one overall cabinet best and inferred a selected
+chart's previous best from the latest 40 runs. Older Easy, Medium, and Hard
+records could disappear, and the song picker could not compare all three.
+
+### Changes
+
+- Persist a bounded score matrix for each built-in song across Easy, Medium,
+  and Hard while retaining the overall Pulse Grid best for lobby/cloud ranking.
+- Migrate matching retained history into the matrix, merge cloud progress by
+  chart, and keep invalid song keys out of persisted state.
+- Show all three records in every song detail card and highlight the selected
+  difficulty. The hardest chart is now visitor-facing as Hard while its stable
+  internal `extreme` key remains compatible with existing chart data.
+- Added score-model coverage plus a real Chromium journey that switches songs
+  and verifies their records stay independent. Version `2026.08.28.2`.
+
+## Previous cycle: make every daily-cabinet fixture date-independent
 
 ### Why this was selected
 

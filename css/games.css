@@ -708,6 +708,10 @@
   min-width: 0;
 }
 
+.jb-song-detail-copy dl .jb-song-highscores {
+  grid-column: 1 / -1;
+}
+
 .jb-song-detail-copy dt {
   color: var(--muted);
   font: 700 0.54rem/1.2 var(--mono);
@@ -719,6 +723,45 @@
   overflow-wrap: anywhere;
   color: var(--text);
   font: 700 0.66rem/1.3 var(--mono);
+}
+
+#jb-song-detail-bests {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.jb-song-best {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+  padding: 0.32rem 0.38rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.jb-song-best b {
+  color: var(--muted);
+  font-size: 0.54rem;
+}
+
+.jb-song-best span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jb-song-best.is-active {
+  border-color: var(--border-hot);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.jb-song-best.is-active b {
+  color: var(--teal);
+}
+
+.jb-song-unranked {
+  grid-column: 1 / -1;
+  color: var(--dim);
 }
 
 .jb-timing-calibration {

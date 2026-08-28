@@ -65,6 +65,7 @@ assert.equal(defaults.playerName, "Player");
 assert.equal(defaults.xp, 0);
 assert.equal(defaults.gamesPlayed, 0);
 assert.equal(Object.keys(defaults.highScores).length, 8);
+assert.deepEqual(JSON.parse(JSON.stringify(defaults.highScores.jubeat.songs)), {});
 
 for (const [gameId, score, meta] of [
   ["tictactoe", 1, { result: "win", difficulty: "hard", streak: 20 }],
@@ -87,6 +88,50 @@ assert.equal(scores.submitScore("reaction", 300).isHighScore, true);
 assert.equal(scores.submitScore("reaction", 350).isHighScore, false);
 assert.equal(scores.submitScore("reaction", 200).isHighScore, true);
 assert.equal(scores.getState().highScores.reaction.best, 200);
+
+const chartScores = createScores().scores;
+assert.equal(
+  chartScores.submitScore("jubeat", 600000, {
+    song: "imsosohappy",
+    difficultyId: "easy",
+    difficulty: "EASY",
+  }).isHighScore,
+  true,
+  "a first song/difficulty score is a personal best",
+);
+assert.equal(
+  chartScores.submitScore("jubeat", 500000, {
+    song: "imsosohappy",
+    difficultyId: "easy",
+    difficulty: "EASY",
+  }).isHighScore,
+  false,
+  "a lower score on the same chart is not a personal best",
+);
+assert.equal(
+  chartScores.submitScore("jubeat", 450000, {
+    song: "imsosohappy",
+    difficultyId: "medium",
+    difficulty: "MEDIUM",
+  }).isHighScore,
+  true,
+  "a Medium best is independent from the song's Easy best",
+);
+chartScores.submitScore("jubeat", 700000, {
+  song: "albida",
+  difficulty: "HARD",
+});
+assert.deepEqual(JSON.parse(JSON.stringify(chartScores.getJubeatBests("imsosohappy"))), {
+  easy: 600000,
+  medium: 450000,
+  extreme: 0,
+});
+assert.deepEqual(JSON.parse(JSON.stringify(chartScores.getJubeatBests("albida"))), {
+  easy: 0,
+  medium: 0,
+  extreme: 700000,
+});
+assert.equal(chartScores.getState().highScores.jubeat.best, 700000, "overall Pulse Grid best remains available");
 
 const beforeInvalid = scores.getState();
 const rejectedNegative = scores.submitScore("reaction", -1);
@@ -163,6 +208,22 @@ const merged = cloudScores.mergeHighScores({
 assert.equal(merged.highScores.snake.best, 10, "non-finite cloud bests must not erase local records");
 assert.equal(merged.highScores.reaction.best, 200, "invalid reaction bests must not replace local records");
 assert.equal(merged.highScores.tictactoe.wins, 1, "invalid cloud win counts must not replace local totals");
+
+const mergedCharts = chartScores.mergeHighScores({
+  jubeat: {
+    best: 800000,
+    songs: {
+      imsosohappy: { easy: 550000, medium: 650000, extreme: 720000 },
+      "unsafe song": { easy: 9999999 },
+    },
+  },
+});
+assert.deepEqual(JSON.parse(JSON.stringify(mergedCharts.highScores.jubeat.songs.imsosohappy)), {
+  easy: 600000,
+  medium: 650000,
+  extreme: 720000,
+});
+assert.equal(mergedCharts.highScores.jubeat.songs["unsafe song"], undefined);
 
 const denied = createScores(new Map(), { writesFail: true });
 const deniedFirst = denied.scores.submitScore("snake", 50);

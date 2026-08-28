@@ -25,7 +25,7 @@
     { id: "tapper-100", title: "Whack Happy", blurb: "Score 100+ in Target Tap", icon: "🎯" },
     { id: "tapper-300", title: "Grid God", blurb: "Score 300+ in Target Tap", icon: "✨" },
     { id: "jubeat-5k", title: "Panel Poet", blurb: "Score 500,000+ on a Pulse Grid chart", icon: "🎹" },
-    { id: "jubeat-20k", title: "Jubeat Heart", blurb: "Score 900,000+ on EXTREME", icon: "💜" },
+    { id: "jubeat-20k", title: "Jubeat Heart", blurb: "Score 900,000+ on HARD", icon: "💜" },
     { id: "jubeat-exc", title: "All Excellent-ish", blurb: "100+ EXCELLENT judges in one chart", icon: "✨" },
     { id: "jubeat-perfect-timing", title: "Perfect Pulse", blurb: "Land a 100.0% Pulse Grid hit", icon: "💯" },
     { id: "breaker-800", title: "Brick Layer", blurb: "Score 800+ in Circuit Breaker", icon: "🧱" },
