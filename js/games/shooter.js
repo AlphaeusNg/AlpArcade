@@ -84,6 +84,7 @@
       last,
       spawnTimer,
       submitted,
+      paused,
       waveAnnounce,
       invuln,
       hitAnim,
@@ -221,6 +222,7 @@
       wave = 1;
       spawnTimer = 0;
       submitted = false;
+      paused = false;
       waveAnnounce = 90;
       invuln = 0;
       hitAnim = 0;
@@ -644,14 +646,23 @@
       playHitFeedback();
       eBullets = eBullets.filter((b) => Math.hypot(b.x - ship.x, b.y - ship.y) > 60);
       if (lives <= 0) {
+        commitScore();
         setTimeout(() => {
           if (lives <= 0) endGame();
         }, 650);
       }
     }
 
+    function commitScore() {
+      if (submitted || !onScore) return;
+      if (!(score > 0 || wave > 1)) return;
+      submitted = true;
+      onScore({ score, meta: { wave } });
+    }
+
     function endGame() {
       running = false;
+      paused = false;
       cancelAnimationFrame(raf);
       ArcadeSFX?.lose();
       ctx.fillStyle = "rgba(4,7,14,0.72)";
@@ -663,10 +674,17 @@
       ctx.font = "14px JetBrains Mono, monospace";
       ctx.fillStyle = "#38bdf8";
       ctx.fillText(`Score ${score} · Wave ${wave}`, W / 2, H / 2 + 20);
-      if (!submitted && onScore) {
-        submitted = true;
-        onScore({ score, meta: { wave } });
-      }
+      commitScore();
+    }
+
+    function resume() {
+      if (running || !ship || lives <= 0 || submitted) return;
+      paused = false;
+      pausedByVisibility = false;
+      running = true;
+      last = 0;
+      raf = requestAnimationFrame(frame);
+      if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
     }
 
     function start() {
@@ -691,11 +709,11 @@
       }
       if (e.key.toLowerCase() === "p" && running) {
         running = false;
+        paused = true;
         cancelAnimationFrame(raf);
-      } else if (e.key.toLowerCase() === "p" && !running && ship && lives > 0) {
-        running = true;
-        last = 0;
-        raf = requestAnimationFrame(frame);
+        if (hintEl) hintEl.textContent = "Paused · tap playfield or P to resume";
+      } else if (e.key.toLowerCase() === "p" && !running && ship && lives > 0 && !submitted) {
+        resume();
       }
     }
     function onKeyUp(e) {
@@ -705,8 +723,10 @@
 
     let dragging = false;
     canvas.addEventListener("pointerdown", (e) => {
-      // Tap playfield to launch when not already running
-      if (!running) {
+      // Tap playfield: resume a paused run, otherwise launch (same path as Launch)
+      if (paused || pausedByVisibility) {
+        resume();
+      } else if (!running) {
         start();
       }
       dragging = true;
@@ -750,12 +770,8 @@
           dragging = false;
           if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to resume";
         }
-      } else if (pausedByVisibility && ship && lives > 0) {
-        pausedByVisibility = false;
-        running = true;
-        last = 0;
-        raf = requestAnimationFrame(frame);
-        if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
+      } else if (pausedByVisibility && ship && lives > 0 && !submitted) {
+        resume();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -772,7 +788,9 @@
 
     return {
       destroy() {
+        commitScore();
         running = false;
+        paused = false;
         cancelAnimationFrame(raf);
         clearTimeout(hitBannerTimer);
         clearTimeout(toastTimer);

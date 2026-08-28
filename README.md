@@ -16,7 +16,7 @@ Cabinets on the lobby (free first, then Lv 5 / 10 / 15 unlocks):
 | --- | --- |
 | Tic-Tac-Toe | Beat the AI |
 | Snake | Levels and hazards |
-| Circuit Breaker | Brick breaker |
+| Circuit Breaker | Brick breaker with falling power-ups |
 | Target Tap | Hit the glow, combos |
 | Reaction Lab | Millisecond timing, decoys |
 | Space Shooter | Waves and powerups |

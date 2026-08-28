@@ -83,8 +83,22 @@ assert.ok(
 
 assert.equal(scores.fairNativeScore("shooter", 1000060), null, "pre-balance Space Shooter million is not a fair best");
 assert.equal(scores.fairNativeScore("shooter", 1200), 1200);
+assert.equal(scores.fairNativeScore("shooter", 25010), 25010, "wave 179 native pts must still record");
 assert.equal(scores.submitScore("shooter", 1000060).isHighScore, false);
 assert.equal(scores.getState().highScores.shooter.best, 0);
+
+const longShooter = createScores().scores;
+const longShot = longShooter.submitScore("shooter", 25010, { wave: 179 });
+assert.equal(longShot.isHighScore, true, "a wave-179 Space Shooter run is a high score");
+assert.equal(longShooter.getState().highScores.shooter.wave, 179);
+assert.equal(longShooter.getState().history[0].headline, 179);
+assert.equal(longShooter.formatBest("shooter", longShooter.getState().highScores.shooter), "Wave 179");
+
+const longBreaker = createScores().scores;
+assert.equal(longBreaker.fairNativeScore("breaker", 40000), 40000);
+assert.equal(longBreaker.submitScore("breaker", 40000, { row: 80 }).isHighScore, true);
+assert.equal(longBreaker.getState().highScores.breaker.row, 80);
+assert.equal(longBreaker.formatBest("breaker", longBreaker.getState().highScores.breaker), "Row 80");
 
 const preBalance = createScores(new Map([[storageKey, JSON.stringify({
   playerName: "Alp",

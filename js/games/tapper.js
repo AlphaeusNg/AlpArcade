@@ -94,9 +94,29 @@
       });
     }
 
-    function endGame() {
+    function commitScore() {
       if (submitted) return;
+      if (!(score > 0 || hits > 0)) return;
       submitted = true;
+      onScore?.({
+        score,
+        meta: { diff: DIFFS[diff].id, hits, misses, bestCombo, rounds: round },
+      });
+      const b = window.ArcadeScores?.getState()?.highScores?.tapper?.hits
+        || window.ArcadeScores?.getState()?.highScores?.tapper?.best
+        || hits;
+      bestEl.textContent = String(b);
+    }
+
+    function endGame() {
+      if (submitted) {
+        running = false;
+        clearAll();
+        startBtn.textContent = "Play again";
+        startBtn.disabled = false;
+        paintDiffs();
+        return;
+      }
       running = false;
       clearAll();
       startBtn.textContent = "Play again";
@@ -104,12 +124,7 @@
       paintDiffs();
       hintEl.textContent = `Game over · ${score} pts · ${hits} hits · best combo ×${bestCombo}`;
       window.ArcadeSFX?.die?.() || window.ArcadeSFX?.foul?.();
-      onScore?.({
-        score,
-        meta: { diff: DIFFS[diff].id, hits, misses, bestCombo, rounds: round },
-      });
-      const b = window.ArcadeScores?.getState()?.highScores?.tapper?.best || 0;
-      bestEl.textContent = String(b);
+      commitScore();
     }
 
     function loseLife(reason) {
@@ -237,6 +252,7 @@
 
     return {
       destroy() {
+        commitScore();
         running = false;
         clearAll();
         window.removeEventListener("keydown", onKey);

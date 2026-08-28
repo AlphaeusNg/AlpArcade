@@ -59,15 +59,16 @@
 
   /**
    * Native scores above these cannot be produced by the current cabinets.
-   * Pre-balance Space Shooter 1,000,060 is the case that made this necessary.
+   * Space Shooter wave 179 is ~25k pts (the old cap dropped those runs).
+   * Pre-balance 1,000,060 still sits above the shooter/breaker ceilings.
    */
   const FAIR_NATIVE_MAX = {
     tictactoe: 1000,
-    shooter: 25000,
+    shooter: 500000,
     snake: 8000,
     memory: 20000,
     tapper: 8000,
-    breaker: 25000,
+    breaker: 500000,
     jubeat: 1000000,
     reaction: 60000,
   };

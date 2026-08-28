@@ -132,6 +132,25 @@ for (const file of filesBelow("css", ".css")) {
   assert(depth === 0, `${file} has ${depth} unclosed blocks`);
 }
 
+assert(
+  read("js/core/scores.js").includes("shooter: 500000")
+    && read("js/core/scores.js").includes("breaker: 500000")
+    && read("firebase/firestore.rules").includes("d.score <= 500000")
+    && read("js/games/shooter.js").includes("function commitScore()")
+    && read("js/games/snake.js").includes("function commitScore()")
+    && read("js/games/tapper.js").includes("function commitScore()")
+    && read("js/games/breaker.js").includes("function commitScore()")
+    && read("js/games/memory.js").includes("abandoned: true"),
+  "long Space Shooter runs stay under the fairness cap and every endless cabinet commits on leave",
+);
+assert(
+  read("js/games/breaker.js").includes('id: "wide"')
+    && read("js/games/breaker.js").includes("function splitBalls()")
+    && read("js/games/breaker.js").includes('id: "extra"')
+    && read("css/games.css").includes(".br-powers")
+    && read("css/games.css").includes(".br-power-chip"),
+  "Circuit Breaker ships wide paddle, split, and extra-ball power-ups",
+);
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
 

@@ -60,7 +60,7 @@
       { x: 0, y: -1 },
     ];
 
-    let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted;
+    let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted, paused;
 
     bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.eaten || 0);
 
@@ -302,6 +302,7 @@
       foodsThisLevel = 0;
       hazards = [];
       submitted = false;
+      paused = false;
       const cfg = levelConfig(level);
       tickMs = cfg.tick;
       placeFood();
@@ -475,8 +476,19 @@
       draw();
     }
 
+    function commitScore() {
+      if (submitted || !onScore) return;
+      if (!(eaten > 0 || score > 0)) return;
+      submitted = true;
+      onScore({ score, meta: { level, eaten, length: snake?.length || 0, foodsThisLevel } });
+      bestEl.textContent = String(
+        window.ArcadeScores?.getState()?.highScores?.snake?.eaten || eaten
+      );
+    }
+
     function gameOver() {
       running = false;
+      paused = false;
       clearInterval(timer);
       ArcadeSFX?.lose();
       ctx.fillStyle = "rgba(5,8,15,0.65)";
@@ -488,13 +500,17 @@
       ctx.font = "14px JetBrains Mono, monospace";
       ctx.fillStyle = "#2dd4bf";
       ctx.fillText(`${eaten} eaten · Lv ${level}`, CSS_SIZE / 2, CSS_SIZE / 2 + 16);
-      if (!submitted && onScore) {
-        submitted = true;
-        onScore({ score, meta: { level, eaten, length: snake.length, foodsThisLevel } });
-        bestEl.textContent = String(
-          window.ArcadeScores?.getState()?.highScores?.snake?.eaten || eaten
-        );
-      }
+      commitScore();
+    }
+
+    function resume() {
+      if (running || !snake || submitted) return;
+      paused = false;
+      pausedByVisibility = false;
+      running = true;
+      clearInterval(timer);
+      timer = setInterval(step, tickMs);
+      if (hintEl) hintEl.textContent = "Arrows / WASD · swipe · P pause";
     }
 
     function start() {
@@ -525,10 +541,11 @@
       if (k === "p") {
         if (running) {
           running = false;
+          paused = true;
           clearInterval(timer);
+          if (hintEl) hintEl.textContent = "Paused · tap board or P to resume";
         } else if (snake && !submitted) {
-          running = true;
-          timer = setInterval(step, tickMs);
+          resume();
         }
       }
     }
@@ -544,9 +561,10 @@
       const dx = t.clientX - touchStart.x;
       const dy = t.clientY - touchStart.y;
       const dist = Math.hypot(dx, dy);
-      // Tap (not swipe) on playfield starts / restarts when idle
+      // Tap (not swipe) on playfield: resume a paused run, otherwise start
       if (!running && dist < 18) {
-        start();
+        if (paused || pausedByVisibility) resume();
+        else start();
         touchStart = null;
         return;
       }
@@ -558,7 +576,10 @@
     // Mouse / pen: click playfield to start when not running
     canvas.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "touch") return; // touch handled above
-      if (!running) {
+      if (paused || pausedByVisibility) {
+        e.preventDefault();
+        resume();
+      } else if (!running) {
         e.preventDefault();
         start();
       }
@@ -586,12 +607,8 @@
           pausedByVisibility = true;
           if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to continue";
         }
-      } else if (pausedByVisibility && snake) {
-        pausedByVisibility = false;
-        running = true;
-        clearInterval(timer);
-        timer = setInterval(step, tickMs);
-        if (hintEl) hintEl.textContent = "Arrows / WASD · swipe · P pause";
+      } else if (pausedByVisibility && snake && !submitted) {
+        resume();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -609,7 +626,9 @@
 
     return {
       destroy() {
+        commitScore();
         running = false;
+        paused = false;
         clearInterval(timer);
         window.removeEventListener("keydown", onKey);
         document.removeEventListener("visibilitychange", onVisibility);

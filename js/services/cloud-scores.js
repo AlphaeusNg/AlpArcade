@@ -136,12 +136,26 @@
     return Number(score);
   }
 
+  function headlineValue(row, fallbackScore, key) {
+    if (row && Number.isFinite(Number(row.headline)) && row.headlineKey === key) {
+      return Number(row.headline);
+    }
+    if (key && row?.stats && Number.isFinite(Number(row.stats[key]))) {
+      return Number(row.stats[key]);
+    }
+    if (key === "score" || key === "ms" || key === "wins") {
+      const n = Number(fallbackScore);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  }
+
   function isBetter(gameId, next, prev, nextRow = {}, prevRow = {}) {
     const g = global.ArcadeScores?.GAMES?.[gameId];
     const spec = global.ArcadeScores?.HEADLINE?.[gameId];
     const key = spec?.key;
-    const nextHeadline = Number(nextRow.headline ?? nextRow.stats?.[key] ?? next);
-    const prevHeadline = Number(prevRow.headline ?? prevRow.stats?.[key] ?? prev);
+    const nextHeadline = headlineValue(nextRow, next, key);
+    const prevHeadline = headlineValue(prevRow, prev, key);
     if (!Number.isFinite(nextHeadline)) return false;
     if (!Number.isFinite(prevHeadline)) return true;
     if (g && g.higherIsBetter === false) return nextHeadline < prevHeadline;

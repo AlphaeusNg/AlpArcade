@@ -498,3 +498,36 @@ test("keeps cloud reset retention and deletion outcomes honest", async ({ page }
   await expect(page.locator("#toast")).toContainText("Cloud wipe incomplete: scores: delete denied");
   await expect(page.locator("#toast")).not.toContainText("Clean slate");
 });
+
+test("playfield tap starts Circuit Breaker and Space Shooter without using Launch", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Tap Starter",
+      xp: 10000,
+      gamesPlayed: 8,
+      highScores: {},
+      history: [],
+      hallOfFame: [],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).toContainText("2026.08.28.5");
+
+  await page.locator('[data-game="breaker"]').click();
+  await expect(page.locator("#br-canvas")).toBeVisible();
+  await expect(page.locator("#br-powers")).toContainText(/power-ups/i);
+  await page.locator("#br-canvas").click({ position: { x: 120, y: 220 } });
+  await expect(page.locator("#br-start")).toHaveText(/Running/);
+  await expect(page.locator("#br-hint")).toContainText(/power-ups/i);
+
+  await page.locator("#btn-back").click();
+  await expect(page.locator("#lobby")).toBeVisible();
+
+  const shooter = page.locator('[data-game="shooter"]');
+  await expect(shooter).not.toHaveClass(/is-locked/);
+  await shooter.click();
+  await expect(page.locator("#sh-canvas")).toBeVisible();
+  await page.locator("#sh-canvas").click({ position: { x: 120, y: 220 } });
+  await expect(page.locator("#sh-hint")).toContainText(/Wave 1|WASD|powerups/i);
+  await expect(page.locator("#sh-wave")).toHaveText("1");
+});
