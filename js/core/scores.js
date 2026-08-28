@@ -36,6 +36,21 @@
     breaker: 900,
   };
 
+  /**
+   * Native scores above these cannot be produced by the current cabinets.
+   * Pre-balance Space Shooter 1,000,060 is the case that made this necessary.
+   */
+  const FAIR_NATIVE_MAX = {
+    tictactoe: 1000,
+    shooter: 25000,
+    snake: 8000,
+    memory: 20000,
+    tapper: 8000,
+    breaker: 25000,
+    jubeat: 1000000,
+    reaction: 60000,
+  };
+
   function clampArcadePoints(value) {
     return Math.max(5, Math.min(100, Math.round(Number(value) || 0)));
   }
@@ -104,6 +119,14 @@
     return number;
   }
 
+  function fairNativeScore(gameId, value) {
+    const number = validRunScore(gameId, value);
+    if (number == null) return null;
+    const max = FAIR_NATIVE_MAX[gameId];
+    if (max != null && number > max) return null;
+    return number;
+  }
+
   function normalizedJubeatSongId(value) {
     const id = typeof value === "string" ? value.trim() : "";
     return /^[a-z0-9][a-z0-9_-]{0,47}$/i.test(id) ? id : "";
@@ -160,18 +183,19 @@
           draws: nonNegativeNumber(incoming.draws, 0, { integer: true }),
         };
       } else if (gameId === "reaction") {
-        normalized[gameId] = {
-          best: incoming.best == null
-            ? null
-            : nonNegativeNumber(incoming.best, null, { positive: true }),
-        };
+        const reactionBest = incoming.best == null
+          ? null
+          : fairNativeScore("reaction", incoming.best);
+        normalized[gameId] = { best: reactionBest };
       } else if (gameId === "jubeat") {
+        const jubeatBest = fairNativeScore("jubeat", incoming.best);
         normalized[gameId] = {
-          best: nonNegativeNumber(incoming.best, 0),
+          best: jubeatBest == null ? 0 : jubeatBest,
           songs: normalizeJubeatSongBests(incoming.songs),
         };
       } else {
-        normalized[gameId] = { best: nonNegativeNumber(incoming.best, 0) };
+        const best = fairNativeScore(gameId, incoming.best);
+        normalized[gameId] = { best: best == null ? 0 : best };
       }
     }
     return normalized;
@@ -179,7 +203,7 @@
 
   function normalizeScoreEntry(entry, { history = false } = {}) {
     if (!isRecord(entry) || !GAMES[entry.game]) return null;
-    const score = validRunScore(entry.game, entry.score);
+    const score = fairNativeScore(entry.game, entry.score);
     if (score == null) return null;
     const meta = isRecord(entry.meta) ? entry.meta : {};
     const calculatedPoints = arcadePointsForRun(entry.game, score, meta);
@@ -217,8 +241,20 @@
       normalizeScoreEntries(data.hallOfFame)
     ).slice(0, MAX_HALL);
     const highScores = normalizeHighScores(data.highScores);
-    for (const entry of history) {
-      if (entry.game === "jubeat") recordJubeatBest(highScores.jubeat, entry.score, entry.meta);
+    for (const entry of [...history, ...hallOfFame]) {
+      const current = highScores[entry.game];
+      if (!current) continue;
+      const g = GAMES[entry.game];
+      if (entry.game === "jubeat") {
+        recordJubeatBest(highScores.jubeat, entry.score, entry.meta);
+        if (entry.score > Number(current.best || 0)) current.best = entry.score;
+        continue;
+      }
+      if (g.higherIsBetter) {
+        if (entry.score > Number(current.best || 0)) current.best = entry.score;
+      } else if (current.best == null || entry.score < Number(current.best)) {
+        current.best = entry.score;
+      }
     }
     return {
       ...base,
@@ -297,7 +333,7 @@
     if (!metaInfo) throw new Error("Unknown game: " + gameId);
 
     const state = load();
-    const num = validRunScore(gameId, score);
+    const num = fairNativeScore(gameId, score);
     if (num == null) {
       return { isHighScore: false, xpGained: 0, arcadePoints: 0, state };
     }
@@ -480,17 +516,27 @@
           if (Object.keys(localSong).length) localHs.songs[songId] = localSong;
         }
       } else if (g.higherIsBetter) {
-        const normalizedRemoteBest = validRunScore(gameId, remoteBest);
-        if (normalizedRemoteBest != null && normalizedRemoteBest > Number(localBest ?? 0)) {
+        const localFair = fairNativeScore(gameId, localBest);
+        if (localFair == null && Number(localBest || 0) > 0) {
+          localHs.best = 0;
+          changed = true;
+        }
+        const normalizedRemoteBest = fairNativeScore(gameId, remoteBest);
+        if (normalizedRemoteBest != null && normalizedRemoteBest > Number(localHs.best ?? 0)) {
           localHs.best = normalizedRemoteBest;
           changed = true;
         }
       } else {
         // lower is better
-        const normalizedRemoteBest = validRunScore(gameId, remoteBest);
+        const localFair = fairNativeScore(gameId, localBest);
+        if (localBest != null && localFair == null) {
+          localHs.best = null;
+          changed = true;
+        }
+        const normalizedRemoteBest = fairNativeScore(gameId, remoteBest);
         if (
           normalizedRemoteBest != null &&
-          (localBest == null || normalizedRemoteBest < Number(localBest))
+          (localHs.best == null || normalizedRemoteBest < Number(localHs.best))
         ) {
           localHs.best = normalizedRemoteBest;
           changed = true;
@@ -581,9 +627,11 @@
 
   global.ArcadeScores = {
     GAMES,
+    FAIR_NATIVE_MAX,
     getState,
     setPlayerName,
     mergeHighScores,
+    fairNativeScore,
     getJubeatBests,
     submitScore,
     arcadePointsForRun,

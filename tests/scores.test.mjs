@@ -81,6 +81,45 @@ assert.ok(
   "faster reaction times should earn more points",
 );
 
+assert.equal(scores.fairNativeScore("shooter", 1000060), null, "pre-balance Space Shooter million is not a fair best");
+assert.equal(scores.fairNativeScore("shooter", 1200), 1200);
+assert.equal(scores.submitScore("shooter", 1000060).isHighScore, false);
+assert.equal(scores.getState().highScores.shooter.best, 0);
+
+const preBalance = createScores(new Map([[storageKey, JSON.stringify({
+  playerName: "Alp",
+  xp: 100,
+  gamesPlayed: 3,
+  highScores: {
+    tictactoe: { best: 12, wins: 12, losses: 0, draws: 11 },
+    shooter: { best: 1000060 },
+    snake: { best: 730 },
+    reaction: { best: 56 },
+    memory: { best: 2080 },
+    tapper: { best: 560 },
+    jubeat: { best: 791348, songs: {} },
+    breaker: { best: 0 },
+  },
+  history: [
+    { game: "shooter", score: 1000060, player: "Alp", arcadePoints: 100, at: 1 },
+    { game: "shooter", score: 860, player: "Alp", arcadePoints: 62, at: 3 },
+    { game: "tapper", score: 560, player: "Alp", arcadePoints: 85, at: 2 },
+  ],
+  hallOfFame: [
+    { game: "shooter", score: 1000060, player: "Alp", arcadePoints: 100, at: 1 },
+    { game: "tapper", score: 560, player: "Alp", arcadePoints: 85, at: 2 },
+  ],
+})]]));
+const cleaned = preBalance.scores.getState();
+assert.equal(cleaned.highScores.shooter.best, 860);
+assert.equal(cleaned.highScores.tapper.best, 560);
+assert.equal(cleaned.hallOfFame.length, 1);
+assert.equal(cleaned.hallOfFame[0].game, "tapper");
+assert.equal(cleaned.history.length, 2);
+preBalance.scores.mergeHighScores({ shooter: { best: 1000060 }, tapper: { best: 400 } });
+assert.equal(preBalance.scores.getState().highScores.shooter.best, 860);
+assert.equal(preBalance.scores.getState().highScores.tapper.best, 560);
+
 assert.equal(scores.submitScore("snake", 10).isHighScore, true);
 assert.equal(scores.submitScore("snake", 5).isHighScore, false);
 assert.equal(scores.getState().highScores.snake.best, 10);

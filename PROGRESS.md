@@ -6,12 +6,28 @@ Last updated: 2026-08-28 (AlpArcade Cycle 80)
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.28.2`.
+- Deployment version: `2026.08.28.3`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: keep Pulse Grid highs per song and difficulty
+## Latest cycle: drop the pre-balance Space Shooter million
+
+### Why this was selected
+
+Alp's public Space Shooter row was `1,000,060` pts / 100 AP from before the
+cabinet was rebalanced. Cloud merge kept the higher native score, so a later
+fair local hall of fame could never replace it.
+
+### Changes
+
+- Native scores above the current cabinet range are ignored on load, merge,
+  submit, and cloud write. Space Shooter caps at 25,000.
+- Firestore rejects those writes. The `1,000,060` cloud row is deleted and
+  account progress no longer stores that best.
+- Remaining public rows get current arcade-point ranks. Version `2026.08.28.3`.
+
+## Previous cycle: keep Pulse Grid highs per song and difficulty
 
 ### Why this was selected
 

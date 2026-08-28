@@ -450,6 +450,9 @@
     if (!Number.isFinite(num) || num < 0) {
       return { ok: false, reason: "bad-score", message: "Invalid score" };
     }
+    if (global.ArcadeScores?.fairNativeScore && global.ArcadeScores.fairNativeScore(gameId, num) == null) {
+      return { ok: false, reason: "unfair-score", message: "That score is outside the current cabinet range" };
+    }
 
     // Firestore rules accept number; keep finite plain numbers only
     const scoreVal = Math.round(num * 1000) / 1000;
@@ -480,15 +483,19 @@
       const existing = await ref.get();
       if (existing.exists) {
         const old = existing.data() || {};
-        if (!isBetter(gameId, scoreVal, old.score) && !opts.force) {
+        const oldUnfair = global.ArcadeScores?.fairNativeScore
+          ? global.ArcadeScores.fairNativeScore(gameId, old.score) == null
+          : false;
+        if (oldUnfair) {
+          // Pre-balance / impossible cloud rows must yield to a fair local best.
+        } else if (!isBetter(gameId, scoreVal, old.score) && !opts.force) {
           return {
             ok: true,
             reason: "not-better",
             message: "Your cloud best is already equal or better",
             improved: false,
           };
-        }
-        if (opts.force && !isBetter(gameId, scoreVal, old.score)) {
+        } else if (opts.force && !isBetter(gameId, scoreVal, old.score)) {
           return {
             ok: true,
             reason: "not-better",
