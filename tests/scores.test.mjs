@@ -240,4 +240,14 @@ assert.equal(
   "a denied reset keeps session-only scores visible",
 );
 
+const fresh = createScores().scores;
+assert.equal(fresh.getLevel(0).level, 1);
+assert.equal(fresh.getLevel(0).next, 50);
+assert.equal(fresh.xpToReachLevel(0, 1), 0, "already at level 1 needs no XP");
+assert.equal(fresh.xpToReachLevel(0, 2), 50, "level 2 is the first 50 XP");
+assert.equal(fresh.xpToReachLevel(0, 5), 298, "level 5 remaining XP follows the shared curve");
+assert.equal(fresh.xpToReachLevel(20, 5), 278, "progress on the current level reduces remaining XP");
+assert.equal(fresh.xpToReachLevel(298, 5), 0, "exact unlock XP reports zero remaining");
+assert.equal(fresh.xpToReachLevel(0, 15), 4670, "Pulse Grid remaining XP is computed, not guessed");
+
 console.log("Score persistence, rewards, ranking, import, and denied-storage contracts passed.");
