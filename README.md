@@ -34,31 +34,4 @@ Daily challenge is one seeded target per **Singapore (SGT)** day. Badges, a loca
 
 More controls: Snake/Shooter use WASD or arrows. Reaction Lab: wait for green, then tap. Pulse Grid: keys `1–4`, `QWER`, `ASDF`, `ZXCV` when the shutter closes.
 
-## Stack
-
-Zero-build static HTML, CSS, and JS. GitHub Pages from `main` / root. Footer version comes from `js/version.js` (`vYYYY.MM.DD.N`). Bump `id` on every deploy so you can tell Pages has the new commit.
-
-## Develop
-
-```bash
-python3 -m http.server 8080
-# http://127.0.0.1:8080/
-
-npm ci --ignore-scripts
-npm test
-npx playwright install chromium
-npm run test:browser
-```
-
-After a requested change is complete and tests pass, commit and push to `origin/main` unless you were asked to keep the work local.
-
-### Local vs cloud scores
-
-- **Local:** tag, XP, personal bests in `localStorage`, with export/import codes. If a device write is denied, progress still shows for the visit and the arcade explains how to make it durable.
-- **Cloud (optional):** Firebase + Google sign-in, one best per user per game. Setup lives under `firebase/` and `js/firebase-config.js`. See [`firebase/README.md`](./firebase/README.md).
-
-Players never have to sign up. Cloud errors stay expanded until minimized, with a selectable diagnostic and **Copy error**.
-
-### GitHub Pages
-
-Repo **Settings → Pages → Deploy from branch → `main` / root**. Remove a broken custom domain if the free `github.io` URL should work.
+Working in this repo? See **[AGENTS.md](AGENTS.md)** for layout, tests, Firebase, and deploy rules.
