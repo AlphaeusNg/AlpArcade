@@ -19,14 +19,35 @@
   /** @type {Record<string, { label: string, higherIsBetter: boolean, unit: string }>} */
   const GAMES = {
     tictactoe: { label: "Tic-Tac-Toe", higherIsBetter: true, unit: "wins" },
-    shooter: { label: "Space Shooter", higherIsBetter: true, unit: "pts" },
-    snake: { label: "Snake", higherIsBetter: true, unit: "pts" },
+    shooter: { label: "Space Shooter", higherIsBetter: true, unit: "wave" },
+    snake: { label: "Snake", higherIsBetter: true, unit: "eaten" },
     reaction: { label: "Reaction Lab", higherIsBetter: false, unit: "ms" },
-    memory: { label: "Memory Match", higherIsBetter: true, unit: "pts" },
-    tapper: { label: "Target Tap", higherIsBetter: true, unit: "pts" },
+    memory: { label: "Memory Match", higherIsBetter: true, unit: "level" },
+    tapper: { label: "Target Tap", higherIsBetter: true, unit: "hits" },
     jubeat: { label: "Pulse Grid", higherIsBetter: true, unit: "score" },
-    breaker: { label: "Circuit Breaker", higherIsBetter: true, unit: "pts" },
+    breaker: { label: "Circuit Breaker", higherIsBetter: true, unit: "row" },
   };
+
+  /** Visible board stat per cabinet. Native `score` is still stored for later ranking changes. */
+  const HEADLINE = {
+    tictactoe: { key: "wins", unit: "wins" },
+    shooter: { key: "wave", unit: "wave" },
+    snake: { key: "eaten", unit: "eaten" },
+    reaction: { key: "ms", unit: "ms" },
+    memory: { key: "level", unit: "level" },
+    tapper: { key: "hits", unit: "hits" },
+    jubeat: { key: "score", unit: "score" },
+    breaker: { key: "row", unit: "row" },
+  };
+
+  const RUN_STAT_KEYS = [
+    "score", "wave", "level", "row", "eaten", "eatenTotal", "hits", "misses",
+    "bestCombo", "rounds", "combo", "result", "difficulty", "streak", "wins",
+    "losses", "draws", "song", "difficultyId", "rank", "fullCombo", "excellent",
+    "great", "good", "miss", "accuracy", "cleared", "board", "mode", "chain",
+    "diff", "marker", "length", "foodsThisLevel", "legacyPts", "restarted",
+    "abandoned",
+  ];
 
   const REWARD_SCALES = {
     shooter: 900,
@@ -82,20 +103,162 @@
     return clampArcadePoints(nativeScore / 10);
   }
 
+  function statNumber(value, fallback = 0) {
+    return nonNegativeNumber(value, fallback, { integer: true });
+  }
+
+  function collectRunStats(gameId, score, meta = {}, highScores = {}) {
+    const source = isRecord(meta) ? meta : {};
+    const stats = { score: Math.max(0, Number(score) || 0) };
+    for (const key of RUN_STAT_KEYS) {
+      if (source[key] === undefined || key === "score") continue;
+      if (typeof source[key] === "string") stats[key] = source[key].slice(0, 64);
+      else if (typeof source[key] === "boolean") stats[key] = source[key];
+      else if (Number.isFinite(Number(source[key]))) stats[key] = Number(source[key]);
+    }
+    if (gameId === "tictactoe") {
+      const hs = highScores.tictactoe || {};
+      stats.wins = statNumber(hs.wins);
+      stats.losses = statNumber(hs.losses);
+      stats.draws = statNumber(hs.draws);
+      stats.streak = statNumber(source.streak);
+      if (source.result) stats.result = String(source.result).slice(0, 16);
+      if (source.difficulty) stats.difficulty = String(source.difficulty).slice(0, 16);
+    }
+    if (gameId === "snake") {
+      stats.eaten = statNumber(source.eaten, source.foods);
+      stats.level = Math.max(1, statNumber(source.level, 1));
+    }
+    if (gameId === "shooter") stats.wave = Math.max(1, statNumber(source.wave, 1));
+    if (gameId === "breaker") stats.row = Math.max(1, statNumber(source.row, 1));
+    if (gameId === "memory") stats.level = Math.max(1, statNumber(source.level, 1));
+    if (gameId === "tapper") {
+      stats.hits = statNumber(source.hits);
+      stats.misses = statNumber(source.misses);
+      stats.rounds = statNumber(source.rounds);
+      stats.bestCombo = statNumber(source.bestCombo);
+      if (source.diff) stats.diff = String(source.diff).slice(0, 16);
+    }
+    if (gameId === "reaction") stats.ms = Math.max(0, Number(score) || 0);
+    return stats;
+  }
+
+  function headlineSpec(gameId) {
+    return HEADLINE[gameId] || { key: "score", unit: GAMES[gameId]?.unit || "pts" };
+  }
+
+  function headlineFromStats(gameId, stats, highScores = {}) {
+    const spec = headlineSpec(gameId);
+    if (gameId === "tictactoe") return statNumber(highScores.tictactoe?.wins);
+    const value = stats?.[spec.key];
+    if (value == null || !Number.isFinite(Number(value))) return 0;
+    return Number(value);
+  }
+
+  function formatHeadlineValue(gameId, value, stats = {}) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "—";
+    if (gameId === "tictactoe") return `${number} win${number === 1 ? "" : "s"}`;
+    if (gameId === "snake") return `${number} eaten`;
+    if (gameId === "shooter") return `Wave ${number}`;
+    if (gameId === "breaker") return `Row ${number}`;
+    if (gameId === "memory") return `Level ${number}`;
+    if (gameId === "tapper") return `${number} hit${number === 1 ? "" : "s"}`;
+    if (gameId === "reaction") return `${number} ms`;
+    if (gameId === "jubeat") return number.toLocaleString();
+    if (stats.eaten != null) return `${stats.eaten} eaten`;
+    return String(number);
+  }
+
+  function summarizeRun(gameId, score, meta = {}, highScores = {}) {
+    const stats = collectRunStats(gameId, score, meta, highScores);
+    const spec = headlineSpec(gameId);
+    const headline = headlineFromStats(gameId, stats, highScores);
+    return {
+      stats,
+      headline,
+      headlineKey: spec.key,
+      headlineUnit: spec.unit,
+      label: formatHeadlineValue(gameId, headline, stats),
+    };
+  }
+
+  function formatRun(gameId, score, extra = {}) {
+    const stats = isRecord(extra.stats) ? extra.stats : (isRecord(extra.meta) ? extra.meta : extra);
+    const spec = headlineSpec(gameId);
+    let value = extra.headline;
+    if (!Number.isFinite(Number(value))) value = stats?.[spec.key];
+    if (!Number.isFinite(Number(value)) && (spec.key === "score" || spec.key === "ms" || spec.key === "wins")) {
+      value = score;
+    }
+    if (Number.isFinite(Number(value)) && (Number(value) > 0 || spec.key === "ms" || gameId === "tictactoe")) {
+      return formatHeadlineValue(gameId, value, stats);
+    }
+    if (gameId === "reaction") return score == null ? "—" : `${score} ms`;
+    if (score) return `${score} pts`;
+    return "—";
+  }
+
+  function liftHeadlineBests(hs, gameId, stats, { career = false } = {}) {
+    if (!hs || !stats) return false;
+    let improved = false;
+    function lift(key) {
+      const next = Number(stats[key]);
+      if (!Number.isFinite(next) || next <= Number(hs[key] || 0)) return;
+      hs[key] = next;
+      improved = true;
+    }
+    if (gameId === "shooter") lift("wave");
+    if (gameId === "snake") {
+      lift("eaten");
+      lift("level");
+      if (career) {
+        hs.eatenTotal = Number(hs.eatenTotal || 0) + Number(stats.eaten || 0);
+      }
+    }
+    if (gameId === "memory") lift("level");
+    if (gameId === "tapper") {
+      lift("hits");
+      lift("rounds");
+      lift("bestCombo");
+    }
+    if (gameId === "breaker") lift("row");
+    if (gameId === "tictactoe") lift("streak");
+    return improved;
+  }
+
+  function formatBest(gameId, highScore) {
+    const hs = isRecord(highScore) ? highScore : {};
+    if (gameId === "tictactoe") {
+      const wins = statNumber(hs.wins);
+      return wins ? `${wins} win${wins === 1 ? "" : "s"}` : "No wins yet";
+    }
+    if (gameId === "reaction") {
+      return hs.best != null ? `${hs.best} ms` : "No runs yet";
+    }
+    const spec = headlineSpec(gameId);
+    const headline = spec.key === "score" ? hs.best : hs[spec.key];
+    if (headline == null || Number(headline) <= 0) {
+      if (hs.best > 0) return `${hs.best} pts`;
+      return "No runs yet";
+    }
+    return formatHeadlineValue(gameId, headline, hs);
+  }
+
   function defaultState() {
     return {
       playerName: "Player",
       xp: 0,
       gamesPlayed: 0,
       highScores: {
-        tictactoe: { best: 0, wins: 0, losses: 0, draws: 0 },
-        shooter: { best: 0 },
-        snake: { best: 0 },
+        tictactoe: { best: 0, wins: 0, losses: 0, draws: 0, streak: 0 },
+        shooter: { best: 0, wave: 0 },
+        snake: { best: 0, eaten: 0, eatenTotal: 0, level: 0 },
         reaction: { best: null },
-        memory: { best: 0 },
-        tapper: { best: 0 },
+        memory: { best: 0, level: 0 },
+        tapper: { best: 0, hits: 0, rounds: 0, bestCombo: 0 },
         jubeat: { best: 0, songs: {} },
-        breaker: { best: 0 },
+        breaker: { best: 0, row: 0 },
       },
       history: [],
       hallOfFame: [],
@@ -181,6 +344,7 @@
           wins,
           losses: nonNegativeNumber(incoming.losses, 0, { integer: true }),
           draws: nonNegativeNumber(incoming.draws, 0, { integer: true }),
+          streak: nonNegativeNumber(incoming.streak, 0, { integer: true }),
         };
       } else if (gameId === "reaction") {
         const reactionBest = incoming.best == null
@@ -195,7 +359,21 @@
         };
       } else {
         const best = fairNativeScore(gameId, incoming.best);
-        normalized[gameId] = { best: best == null ? 0 : best };
+        const row = { best: best == null ? 0 : best };
+        if (gameId === "shooter") row.wave = nonNegativeNumber(incoming.wave, 0, { integer: true });
+        if (gameId === "snake") {
+          row.eaten = nonNegativeNumber(incoming.eaten, 0, { integer: true });
+          row.eatenTotal = nonNegativeNumber(incoming.eatenTotal, 0, { integer: true });
+          row.level = nonNegativeNumber(incoming.level, 0, { integer: true });
+        }
+        if (gameId === "memory") row.level = nonNegativeNumber(incoming.level, 0, { integer: true });
+        if (gameId === "tapper") {
+          row.hits = nonNegativeNumber(incoming.hits, 0, { integer: true });
+          row.rounds = nonNegativeNumber(incoming.rounds, 0, { integer: true });
+          row.bestCombo = nonNegativeNumber(incoming.bestCombo, 0, { integer: true });
+        }
+        if (gameId === "breaker") row.row = nonNegativeNumber(incoming.row, 0, { integer: true });
+        normalized[gameId] = row;
       }
     }
     return normalized;
@@ -209,6 +387,13 @@
     const calculatedPoints = arcadePointsForRun(entry.game, score, meta);
     const storedPoints = nonNegativeNumber(entry.arcadePoints, calculatedPoints, { integer: true });
     const arcadePoints = Math.max(5, Math.min(100, storedPoints || calculatedPoints));
+    const stats = collectRunStats(entry.game, score, isRecord(entry.stats) ? { ...meta, ...entry.stats } : meta);
+    const spec = headlineSpec(entry.game);
+    const headline = nonNegativeNumber(
+      entry.headline,
+      headlineFromStats(entry.game, stats),
+      { integer: true }
+    );
     const normalized = {
       ...entry,
       game: entry.game,
@@ -218,6 +403,10 @@
         : "Player",
       at: nonNegativeNumber(entry.at, 0, { integer: true }),
       arcadePoints,
+      stats,
+      headline,
+      headlineKey: typeof entry.headlineKey === "string" ? entry.headlineKey.slice(0, 16) : spec.key,
+      headlineUnit: typeof entry.headlineUnit === "string" ? entry.headlineUnit.slice(0, 16) : spec.unit,
     };
     if (history) {
       normalized.meta = meta;
@@ -245,6 +434,7 @@
       const current = highScores[entry.game];
       if (!current) continue;
       const g = GAMES[entry.game];
+      const stats = entry.stats || collectRunStats(entry.game, entry.score, entry.meta);
       if (entry.game === "jubeat") {
         recordJubeatBest(highScores.jubeat, entry.score, entry.meta);
         if (entry.score > Number(current.best || 0)) current.best = entry.score;
@@ -255,6 +445,7 @@
       } else if (current.best == null || entry.score < Number(current.best)) {
         current.best = entry.score;
       }
+      liftHeadlineBests(current, entry.game, stats, { career: false });
     }
     return {
       ...base,
@@ -363,7 +554,16 @@
         isHighScore = true;
       }
     }
+    const stats = collectRunStats(gameId, num, meta, state.highScores);
+    if (liftHeadlineBests(hs, gameId, stats, { career: true })) isHighScore = true;
     state.highScores[gameId] = hs;
+    if (gameId === "snake") stats.eatenTotal = hs.eatenTotal;
+    if (gameId === "tictactoe") {
+      stats.wins = hs.wins;
+      stats.losses = hs.losses;
+      stats.draws = hs.draws;
+    }
+    const summary = summarizeRun(gameId, num, { ...meta, ...stats }, state.highScores);
 
     const arcadePoints = arcadePointsForRun(gameId, num, meta);
     const xpGained = arcadePoints;
@@ -378,6 +578,10 @@
       meta,
       xp: xpGained,
       arcadePoints,
+      stats: summary.stats,
+      headline: summary.headline,
+      headlineKey: summary.headlineKey,
+      headlineUnit: summary.headlineUnit,
     };
     state.history.unshift(entry);
     state.history = state.history.slice(0, MAX_HISTORY);
@@ -386,6 +590,10 @@
     state.hallOfFame.push({
       game: gameId,
       score: num,
+      stats: summary.stats,
+      headline: summary.headline,
+      headlineKey: summary.headlineKey,
+      headlineUnit: summary.headlineUnit,
       player: state.playerName,
       at: Date.now(),
       arcadePoints,
@@ -407,12 +615,9 @@
     });
   }
 
-  function formatScore(gameId, score) {
-    const g = GAMES[gameId];
-    if (!g) return String(score);
-    if (gameId === "reaction") return score == null ? "—" : `${score} ms`;
-    if (gameId === "jubeat") return score == null ? "—" : Number(score).toLocaleString();
-    return `${score} ${g.unit}`;
+  function formatScore(gameId, score, extra) {
+    if (extra && typeof extra === "object") return formatRun(gameId, score, extra);
+    return formatRun(gameId, score, {});
   }
 
   function levelNeedMultiplier(level) {
@@ -526,6 +731,14 @@
           localHs.best = normalizedRemoteBest;
           changed = true;
         }
+        if (liftHeadlineBests(localHs, gameId, remoteHs, { career: false })) changed = true;
+        if (gameId === "snake") {
+          const remoteTotal = nonNegativeNumber(remoteHs.eatenTotal, 0, { integer: true });
+          if (remoteTotal > Number(localHs.eatenTotal || 0)) {
+            localHs.eatenTotal = remoteTotal;
+            changed = true;
+          }
+        }
       } else {
         // lower is better
         const localFair = fairNativeScore(gameId, localBest);
@@ -627,6 +840,7 @@
 
   global.ArcadeScores = {
     GAMES,
+    HEADLINE,
     FAIR_NATIVE_MAX,
     getState,
     setPlayerName,
@@ -635,6 +849,9 @@
     getJubeatBests,
     submitScore,
     arcadePointsForRun,
+    summarizeRun,
+    formatRun,
+    formatBest,
     formatScore,
     getLevel,
     xpToReachLevel,

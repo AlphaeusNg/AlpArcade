@@ -3292,7 +3292,7 @@
         setTimeout(() => {
           resultsEl.classList.add("is-stats-visible");
           resultsStatsEl.textContent = `EXC ${counts.excellent} · GREAT ${counts.great} · GOOD ${counts.good} · MISS ${counts.miss} / ${total}`;
-          resultsArcadeEl.textContent = unranked ? "CUSTOM PRACTICE · UNRANKED" : `ARCADE +${arcadePoints} PTS`;
+          resultsArcadeEl.textContent = unranked ? "CUSTOM PRACTICE · UNRANKED" : `+${arcadePoints} XP`;
         }, 2250),
         setTimeout(() => {
           if (!resultsOpen || !resultsActionsEl.hidden) return;

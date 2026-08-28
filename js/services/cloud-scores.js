@@ -136,11 +136,16 @@
     return Number(score);
   }
 
-  function isBetter(gameId, next, prev) {
+  function isBetter(gameId, next, prev, nextRow = {}, prevRow = {}) {
     const g = global.ArcadeScores?.GAMES?.[gameId];
-    if (prev == null || !Number.isFinite(Number(prev))) return true;
-    if (g && g.higherIsBetter === false) return Number(next) < Number(prev);
-    return Number(next) > Number(prev);
+    const spec = global.ArcadeScores?.HEADLINE?.[gameId];
+    const key = spec?.key;
+    const nextHeadline = Number(nextRow.headline ?? nextRow.stats?.[key] ?? next);
+    const prevHeadline = Number(prevRow.headline ?? prevRow.stats?.[key] ?? prev);
+    if (!Number.isFinite(nextHeadline)) return false;
+    if (!Number.isFinite(prevHeadline)) return true;
+    if (g && g.higherIsBetter === false) return nextHeadline < prevHeadline;
+    return nextHeadline > prevHeadline;
   }
 
   function scoreDocId(uid, gameId) {
@@ -157,6 +162,7 @@
   function mapScoreDoc(doc) {
     const d = doc.data() || {};
     const normalized = Number(d.arcadePoints);
+    const stats = d.stats && typeof d.stats === "object" ? d.stats : {};
     return {
       id: doc.id,
       game: d.game,
@@ -166,7 +172,11 @@
       userId: d.userId || null,
       arcadePoints: Number.isFinite(normalized)
         ? normalized
-        : global.ArcadeScores?.arcadePointsForRun?.(d.game, d.score) || 5,
+        : global.ArcadeScores?.arcadePointsForRun?.(d.game, d.score, stats) || 5,
+      headline: d.headline,
+      headlineKey: d.headlineKey,
+      headlineUnit: d.headlineUnit,
+      stats,
     };
   }
 
@@ -456,7 +466,10 @@
 
     // Firestore rules accept number; keep finite plain numbers only
     const scoreVal = Math.round(num * 1000) / 1000;
-    const rankVal = Number(rankScore(gameId, scoreVal));
+    const localState = global.ArcadeScores?.getState?.() || {};
+    const summary = global.ArcadeScores?.summarizeRun?.(gameId, scoreVal, meta, localState.highScores)
+      || { headline: scoreVal, headlineKey: "score", headlineUnit: "pts", stats: { score: scoreVal } };
+    const rankVal = Number(rankScore(gameId, summary.headline ?? scoreVal));
     const arcadePoints = Number(global.ArcadeScores?.arcadePointsForRun?.(gameId, scoreVal, meta));
     if (!Number.isFinite(rankVal) || !Number.isFinite(arcadePoints)) {
       return { ok: false, reason: "bad-score", message: "Invalid rank score" };
@@ -486,16 +499,17 @@
         const oldUnfair = global.ArcadeScores?.fairNativeScore
           ? global.ArcadeScores.fairNativeScore(gameId, old.score) == null
           : false;
+        const nextRow = { headline: summary.headline, stats: summary.stats, headlineKey: summary.headlineKey };
         if (oldUnfair) {
           // Pre-balance / impossible cloud rows must yield to a fair local best.
-        } else if (!isBetter(gameId, scoreVal, old.score) && !opts.force) {
+        } else if (!isBetter(gameId, scoreVal, old.score, nextRow, old) && !opts.force) {
           return {
             ok: true,
             reason: "not-better",
             message: "Your cloud best is already equal or better",
             improved: false,
           };
-        } else if (opts.force && !isBetter(gameId, scoreVal, old.score)) {
+        } else if (opts.force && !isBetter(gameId, scoreVal, old.score, nextRow, old)) {
           return {
             ok: true,
             reason: "not-better",
@@ -506,13 +520,17 @@
       }
 
       const now = Date.now();
-      // Flat payload only — fields the rules validate (+ harmless client clocks)
+      const stats = sanitizeStats(summary.stats);
       const payload = {
         game: String(gameId),
         playerName: String(profile.username).trim().slice(0, 16),
         score: scoreVal,
         rankScore: rankVal,
         arcadePoints,
+        headline: Number(summary.headline) || 0,
+        headlineKey: String(summary.headlineKey || "score").slice(0, 16),
+        headlineUnit: String(summary.headlineUnit || "pts").slice(0, 16),
+        stats,
         userId: uid,
         clientAt: now,
         timestamp: now,
@@ -554,6 +572,20 @@
     for (const [k, v] of Object.entries(meta)) {
       if (["string", "number", "boolean"].includes(typeof v)) {
         out[k] = typeof v === "string" ? v.slice(0, 64) : v;
+      }
+    }
+    return out;
+  }
+
+  function sanitizeStats(stats) {
+    if (!stats || typeof stats !== "object") return {};
+    const out = {};
+    for (const [key, value] of Object.entries(stats).slice(0, 32)) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(key)) continue;
+      if (typeof value === "string") out[key] = value.slice(0, 64);
+      else if (typeof value === "boolean") out[key] = value;
+      else if (typeof value === "number" && Number.isFinite(value)) {
+        out[key] = Math.round(value * 1000) / 1000;
       }
     }
     return out;
@@ -641,12 +673,13 @@
     if (!state?.highScores) return { pushed: 0 };
     let pushed = 0;
     for (const gameId of GAME_IDS) {
-      const best = state.highScores[gameId]?.best;
+      const hs = state.highScores[gameId] || {};
+      const best = hs.best;
       if (best == null) continue;
       const g = global.ArcadeScores?.GAMES?.[gameId];
       if (g?.higherIsBetter && Number(best) <= 0 && gameId !== "tictactoe") continue;
       if (!g?.higherIsBetter && !Number.isFinite(Number(best))) continue;
-      const result = await submitCloudScore(gameId, Number(best), { sync: true }, {
+      const result = await submitCloudScore(gameId, Number(best), { ...hs, sync: true }, {
         force: true,
         isHighScore: true,
         quiet: true,

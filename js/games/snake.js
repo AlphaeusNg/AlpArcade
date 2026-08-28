@@ -5,7 +5,7 @@
     root.innerHTML = `
       <div class="snake-wrap">
         <div class="game-hud">
-          <div><span class="hud-label">Score</span><strong id="snake-score">0</strong></div>
+          <div><span class="hud-label">Eaten</span><strong id="snake-score">0</strong></div>
           <div><span class="hud-label">Level</span><strong id="snake-level">1</strong></div>
           <div><span class="hud-label">Best</span><strong id="snake-best">0</strong></div>
         </div>
@@ -60,9 +60,9 @@
       { x: 0, y: -1 },
     ];
 
-    let snake, dir, nextDir, food, hazards, score, level, foodsThisLevel, running, tickMs, timer, submitted;
+    let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted;
 
-    bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.best || 0);
+    bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.eaten || 0);
 
     function levelConfig(lv) {
       return {
@@ -297,6 +297,7 @@
       dir = { x: 1, y: 0 };
       nextDir = { ...dir };
       score = 0;
+      eaten = 0;
       level = 1;
       foodsThisLevel = 0;
       hazards = [];
@@ -458,9 +459,10 @@
       snake.unshift(head);
       if (food && head.x === food.x && head.y === food.y) {
         ArcadeSFX?.eat();
+        eaten += 1;
         score += cfg.bonus;
         foodsThisLevel += 1;
-        scoreEl.textContent = String(score);
+        scoreEl.textContent = String(eaten);
         updateProgressUI();
         if (foodsThisLevel >= cfg.need) {
           advanceLevel();
@@ -485,11 +487,13 @@
       ctx.fillText("Game Over", CSS_SIZE / 2, CSS_SIZE / 2 - 12);
       ctx.font = "14px JetBrains Mono, monospace";
       ctx.fillStyle = "#2dd4bf";
-      ctx.fillText(`Score ${score} · Lv ${level}`, CSS_SIZE / 2, CSS_SIZE / 2 + 16);
+      ctx.fillText(`${eaten} eaten · Lv ${level}`, CSS_SIZE / 2, CSS_SIZE / 2 + 16);
       if (!submitted && onScore) {
         submitted = true;
-        onScore({ score, meta: { level } });
-        bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.best || score);
+        onScore({ score, meta: { level, eaten, length: snake.length, foodsThisLevel } });
+        bestEl.textContent = String(
+          window.ArcadeScores?.getState()?.highScores?.snake?.eaten || eaten
+        );
       }
     }
 

@@ -80,7 +80,15 @@
       const score = Number(saved.score);
       if (!Number.isFinite(score)) return null;
       const label = String(saved.label || gameId).slice(0, 48);
-      return { gameId, score, isHighScore: !!saved.isHighScore, label };
+      return {
+        gameId,
+        score,
+        isHighScore: !!saved.isHighScore,
+        label,
+        headline: saved.headline,
+        headlineKey: saved.headlineKey,
+        stats: saved.stats && typeof saved.stats === "object" ? saved.stats : undefined,
+      };
     } catch {
       return null;
     }
@@ -95,6 +103,9 @@
         score: run.score,
         isHighScore: !!run.isHighScore,
         label: run.label,
+        headline: run.headline,
+        headlineKey: run.headlineKey,
+        stats: run.stats,
       }));
     } catch {
       /* Lobby recap stays in-memory if storage is denied. */
@@ -125,7 +136,8 @@
       return;
     }
     const link = lastRunPlayUrl(lastRunShare);
-    const formatted = window.ArcadeScores?.formatScore?.(lastRunShare.gameId, lastRunShare.score)
+    const formatted = window.ArcadeScores?.formatRun?.(lastRunShare.gameId, lastRunShare.score, lastRunShare)
+      ?? window.ArcadeScores?.formatScore?.(lastRunShare.gameId, lastRunShare.score, lastRunShare)
       ?? String(lastRunShare.score);
     const text = `${lastRunShare.label} — ${formatted}\n${SHARE_BLURB}\n${link}`;
     if (typeof navigator.share === "function") {
@@ -421,15 +433,10 @@
         card.querySelector(".cab-body")?.appendChild(bestEl);
       }
       const hs = state.highScores[id];
-      if (id === "tictactoe") {
-        const w = hs?.wins || 0;
-        bestEl.textContent = w ? `${w} win${w === 1 ? "" : "s"}` : "No wins yet";
-      } else if (id === "reaction") {
-        bestEl.textContent = hs?.best != null ? `Best ${hs.best} ms` : "No runs yet";
-      } else {
-        const b = hs?.best || 0;
-        bestEl.textContent = b > 0 ? `Best ${ArcadeScores.formatScore(id, b)}` : "No runs yet";
-      }
+      const bestLabel = ArcadeScores.formatBest?.(id, hs) || "No runs yet";
+      bestEl.textContent = bestLabel === "No runs yet" || bestLabel === "No wins yet"
+        ? bestLabel
+        : `Best ${bestLabel}`;
     });
   }
 
@@ -466,16 +473,19 @@
           const hasBest = best != null && !(best === 0 && id !== "reaction");
           let display;
           if (id === "tictactoe") {
-            display = `${state.highScores.tictactoe?.wins || 0} wins`;
+            display = ArcadeScores.formatBest?.(id, state.highScores.tictactoe) || "—";
           } else if (!hasBest || (id === "reaction" && best == null)) {
-            display = "—";
+            display = ArcadeScores.formatBest?.(id, state.highScores[id]) || "—";
+            if (display === "No runs yet") display = "—";
           } else {
-            display = ArcadeScores.formatScore(id, best);
+            display = ArcadeScores.formatBest?.(id, state.highScores[id]) || ArcadeScores.formatScore(id, best);
           }
           const extra =
             id === "tictactoe"
               ? `<span class="hs-extra">${state.highScores.tictactoe?.wins || 0}W · ${state.highScores.tictactoe?.draws || 0}D · ${state.highScores.tictactoe?.losses || 0}L</span>`
-              : "";
+              : id === "snake" && state.highScores.snake?.level
+                ? `<span class="hs-extra">Lv ${state.highScores.snake.level}${state.highScores.snake.eatenTotal ? ` · ${state.highScores.snake.eatenTotal} lifetime` : ""}</span>`
+                : "";
           return `<li><span class="hs-game">${escapeHtml(g.label)}</span><span class="hs-score">${escapeHtml(display)}</span>${extra}</li>`;
         })
         .join("");
@@ -490,15 +500,11 @@
         hall.innerHTML = state.hallOfFame
           .map((e, i) => {
             const label = ArcadeScores.GAMES[e.game]?.label || e.game;
-            const arcadePoints =
-              Number(e.arcadePoints) || ArcadeScores.arcadePointsForRun?.(e.game, e.score, e.meta) || 5;
             return `<li>
               <span class="rank">#${i + 1}</span>
               <span class="who">${escapeHtml(e.player)}</span>
               <span class="what">${escapeHtml(label)}</span>
-              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}
-                <small class="arcade-points">${escapeHtml(String(arcadePoints))} AP</small>
-              </span>
+              <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
             </li>`;
           })
           .join("");
@@ -527,7 +533,7 @@
             });
             return `<li>
               <span class="what">${escapeHtml(label)}</span>
-              <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}</span>
+              <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
               <span class="xp">+${escapeHtml(String(e.xp))} XP</span>
               <span class="when">${escapeHtml(when)}</span>
             </li>`;
@@ -753,9 +759,7 @@
           <span class="rank">#${i + 1}</span>
           <span class="who">${escapeHtml(e.player)}</span>
           ${showGame ? `<span class="what">${escapeHtml(gameLabel)}</span>` : ""}
-          <span class="pts">${escapeHtml(ArcadeScores.formatScore(e.game, e.score))}
-            ${showGame ? `<small class="arcade-points">${escapeHtml(String(e.arcadePoints ?? 5))} AP</small>` : ""}
-          </span>
+          <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
         </li>`;
       })
       .join("");
@@ -818,7 +822,8 @@
     const g = ArcadeScores.GAMES[payload.gameId];
     const summary = $("#cloud-save-summary");
     if (summary) {
-      const scoreText = ArcadeScores.formatScore(payload.gameId, payload.score);
+      const scoreText = ArcadeScores.formatRun?.(payload.gameId, payload.score, payload)
+        || ArcadeScores.formatScore(payload.gameId, payload.score, payload);
       summary.textContent = `${g?.label || payload.gameId}: ${scoreText}${
         payload.isHighScore ? " · personal best" : ""
       }`;
@@ -1169,7 +1174,9 @@
     const continueId = lastPlayableCabinet();
     const lastRun = lastRunShare;
     const lastFormatted = lastRun
-      ? (window.ArcadeScores?.formatScore?.(lastRun.gameId, lastRun.score) ?? String(lastRun.score))
+      ? (window.ArcadeScores?.formatRun?.(lastRun.gameId, lastRun.score, lastRun)
+        ?? window.ArcadeScores?.formatScore?.(lastRun.gameId, lastRun.score, lastRun)
+        ?? String(lastRun.score))
       : "";
     const replayId = lastRun && GAME_SCRIPTS[lastRun.gameId] && !cabinetIsLocked(lastRun.gameId)
       ? lastRun.gameId
@@ -1304,6 +1311,9 @@
             score,
             isHighScore,
             label: ArcadeScores.GAMES[id]?.label || id,
+            stats: ArcadeScores.getState().history[0]?.stats,
+            headline: ArcadeScores.getState().history[0]?.headline,
+            headlineKey: ArcadeScores.getState().history[0]?.headlineKey,
           });
           paintDaily();
 
