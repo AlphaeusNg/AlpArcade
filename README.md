@@ -6,6 +6,8 @@ Browser mini-games with a local scoreboard (and an optional global one). No acco
 
 The live site *is* the demo. Open it, click a cabinet, play.
 
+![AlpArcade lobby](readme-assets/alparcade.png)
+
 ## What you get
 
 Cabinets on the lobby (free first, then Lv 5 / 10 / 15 unlocks):
