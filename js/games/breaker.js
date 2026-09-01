@@ -79,6 +79,7 @@
     let active = {};
     let submitted = false;
     let toastTimer = 0;
+    let powerMarkup = "";
 
     function has(id) {
       return (active[id] || 0) > 0;
@@ -139,9 +140,12 @@
           `<span class="br-power-chip" style="--pc:#38bdf8">●×${balls.length} balls</span>`
         );
       }
-      powersEl.innerHTML = chips.length
+      const nextMarkup = chips.length
         ? chips.join("")
         : `<span class="br-power-empty">Break bricks · catch falling power-ups</span>`;
+      if (nextMarkup === powerMarkup) return;
+      powerMarkup = nextMarkup;
+      powersEl.innerHTML = nextMarkup;
     }
 
     function showPickup(text, color) {

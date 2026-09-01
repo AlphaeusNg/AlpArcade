@@ -1,17 +1,45 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-08-28 (AlpArcade Cycle 80)
+Last updated: 2026-09-01 (AlpArcade Cycle 81)
 
 ## Current state
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.08.28.4`.
+- Deployment version: `2026.09.01.1`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
-- Local verification: locked npm test dependencies, comprehensive `npm test`, 13/13 real Chromium journeys (22.5s), and syntax checks across all JavaScript and test modules.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, 16/16 real Chromium journeys (25.2s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: show Wave / eaten / wins instead of AP
+## Latest cycle: keep Circuit Breaker's live power status stable
+
+### Why this was selected
+
+Circuit Breaker's power strip is an `aria-live` region, but its animation loop
+replaced identical markup throughout alternating 250 ms windows. A real browser
+recorded 19 child-list mutations in 650 ms while the initial status had not
+changed, adding needless layout work and risking repeated screen-reader
+announcements during play.
+
+### Changes
+
+- Cache the rendered power-strip markup and touch the DOM only when the ball
+  count, active powers, or visible timer text actually changes.
+- Add a Chromium regression that observes the live region during an unchanged
+  opening serve and fails if animation frames churn its children.
+- Version `2026.09.01.1`.
+
+### Verification and scores
+
+- Test-first: the focused Chromium journey failed with 19 unchanged live-region
+  mutations in 650 ms; the fixed build passes with no repeated replacements.
+- `npm test`, all 16 Chromium journeys (25.2s), syntax checks, the
+  zero-vulnerability dependency audit, and `git diff --check` pass.
+- Accessibility/performance: identical live status is now stable between real
+  state changes; scoring, power-up timing, and endless-run persistence are
+  unchanged.
+
+## Previous cycle: show Wave / eaten / wins instead of AP
 
 ### Why this was selected
 

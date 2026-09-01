@@ -511,7 +511,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.08.28.5");
+  await expect(page.locator("#site-version")).toContainText("2026.09.01.1");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
@@ -530,4 +530,31 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
   await page.locator("#sh-canvas").click({ position: { x: 120, y: 220 } });
   await expect(page.locator("#sh-hint")).toContainText(/Wave 1|WASD|powerups/i);
   await expect(page.locator("#sh-wave")).toHaveText("1");
+});
+
+test("keeps Circuit Breaker's unchanged live power status stable between frames", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="breaker"]').click();
+  await expect(page.locator("#br-canvas")).toBeVisible();
+
+  await page.evaluate(() => {
+    window.__breakerPowerMutations = 0;
+    window.__breakerPowerObserver = new MutationObserver((records) => {
+      window.__breakerPowerMutations += records.filter((record) => record.type === "childList").length;
+    });
+    window.__breakerPowerObserver.observe(document.querySelector("#br-powers"), {
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  await page.locator("#br-canvas").click({ position: { x: 210, y: 420 } });
+  await page.waitForTimeout(80);
+  await page.evaluate(() => {
+    window.__breakerPowerMutations = 0;
+  });
+  await page.waitForTimeout(650);
+
+  const mutations = await page.evaluate(() => window.__breakerPowerMutations);
+  expect(mutations, "unchanged aria-live status must not be replaced every animation frame").toBeLessThanOrEqual(1);
 });
