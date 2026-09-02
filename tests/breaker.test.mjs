@@ -37,16 +37,20 @@ assert.ok(
   dropChance(6, level6Bricks, 8) < dropChance(6, level6Bricks, 1),
   "a swarm trims drop chance so floods do not rain more capsules"
 );
-assert.ok(dropChance(1, level1Bricks, 1) <= 0.26);
+assert.ok(dropChance(1, level1Bricks, 1) <= 0.42);
+assert.ok(dropChance(1, level1Bricks, 1) >= 0.3);
 assert.ok(dropChance(6, level6Bricks, 1) < 0.05);
+assert.ok(dropChance(6, level6Bricks, 1) >= 0.018);
 assert.equal(splitSpawnCount(1), 1);
 assert.equal(splitSpawnCount(2), 2);
-assert.equal(splitSpawnCount(7), 2);
-assert.equal(splitSpawnCount(16), 1);
+assert.equal(splitSpawnCount(3), 3);
+assert.equal(splitSpawnCount(7), 3);
+assert.equal(splitSpawnCount(16), 2);
+assert.equal(extraSpawnCount(2), 2);
 assert.equal(extraSpawnCount(8), 1);
-assert.equal(pickPowerId(1, 1, () => 0.6), "wide");
+assert.equal(pickPowerId(1, 1, () => 0.7), "wide");
 assert.equal(pickPowerId(1, 1, () => 0.2), "multi");
-assert.equal(pickPowerId(6, 8, () => 0.2), "extra");
-assert.equal(pickPowerId(6, 8, () => 0.4), "wide");
+assert.equal(pickPowerId(6, 8, () => 0.2), "multi");
+assert.equal(pickPowerId(6, 8, () => 0.5), "wide");
 
 console.log("Circuit Breaker level layout passed.");

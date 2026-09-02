@@ -29,7 +29,7 @@
   const LAYOUT_W = 480;
   const WIDE_END_GAP = 12;
   const WIDE_MAX_STACKS = 14;
-  const DROP_FIELD_MAX = 6;
+  const DROP_FIELD_MAX = 10;
 
   function layoutDims(level, boardW = LAYOUT_W) {
     const n = Math.max(1, Math.floor(Number(level) || 1));
@@ -45,14 +45,14 @@
     return { cols, rows, gap, bw, bh, rowStep: bh + gap };
   }
 
-  /** Expected capsules per bank stay ~2–4; denser boards and swarms drop less often per brick. */
+  /** Expected capsules per bank stay ~5–10; denser boards still drop less often per brick. */
   function dropChance(level, brickCount, ballCount) {
     const lv = Math.max(1, Math.floor(Number(level) || 1));
     const bricks = Math.max(8, Number(brickCount) || 8);
     const swarm = Math.max(1, Number(ballCount) || 1);
-    const target = 2.2 + Math.min(1.6, (lv - 1) * 0.12);
-    const swarmTrim = swarm >= 8 ? 0.65 : swarm >= 4 ? 0.8 : 1;
-    const base = Math.max(0.008, Math.min(0.26, target / bricks));
+    const target = 5 + Math.min(5, (lv - 1) * 0.35);
+    const swarmTrim = swarm >= 8 ? 0.8 : swarm >= 4 ? 0.9 : 1;
+    const base = Math.max(0.018, Math.min(0.42, target / bricks));
     return base * swarmTrim;
   }
 
@@ -60,18 +60,18 @@
     const roll = rand();
     const swarm = (Number(ballCount) || 1) >= 4;
     const hard = (Number(level) || 1) >= 5;
-    const life = 0.07;
+    const life = 0.08;
     let splitEnd;
     let extraEnd;
     if (swarm) {
-      splitEnd = life + 0.1;
-      extraEnd = splitEnd + 0.08;
+      splitEnd = life + 0.2;
+      extraEnd = splitEnd + 0.14;
     } else if (hard) {
-      splitEnd = life + 0.18;
-      extraEnd = splitEnd + 0.12;
+      splitEnd = life + 0.26;
+      extraEnd = splitEnd + 0.16;
     } else {
-      splitEnd = life + 0.28;
-      extraEnd = splitEnd + 0.18;
+      splitEnd = life + 0.32;
+      extraEnd = splitEnd + 0.22;
     }
     if (roll < life) return "life";
     if (roll < splitEnd) return "multi";
@@ -79,19 +79,19 @@
     return "wide";
   }
 
-  /** Double a tiny swarm; later catches add a couple of balls instead of copying the field. */
+  /** Double a small swarm; later catches add a few balls instead of copying the field. */
   function splitSpawnCount(ballCount) {
     const n = Math.max(0, Math.floor(Number(ballCount) || 0));
     if (n <= 0) return 0;
-    if (n <= 2) return n;
-    if (n < 8) return 2;
-    return 1;
+    if (n <= 3) return n;
+    if (n < 12) return 3;
+    return 2;
   }
 
   function extraSpawnCount(ballCount) {
     const n = Math.max(0, Math.floor(Number(ballCount) || 0));
     if (n <= 0) return 0;
-    return 1;
+    return n <= 3 ? 2 : 1;
   }
 
   function mount(root, { onScore }) {
@@ -209,7 +209,7 @@
 
     function serveBall() {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
-      const sp = 3.2 + Math.min(5.5, (row - 1) * 0.35);
+      const sp = 3.2 + Math.min(3.4, (row - 1) * 0.24);
       return makeBall(paddle.x, paddle.y - 16, Math.cos(a) * sp, Math.sin(a) * sp);
     }
 
@@ -227,7 +227,7 @@
           y,
           w: L.bw,
           h: L.bh,
-          hp: 1 + Math.floor(hardness / 6) + (Math.random() < 0.12 ? 1 : 0),
+          hp: 1 + Math.floor(hardness / 8) + (Math.random() < 0.08 ? 1 : 0),
         });
       }
       return list;
@@ -559,12 +559,13 @@
       if (!keepScore) {
         score = 0;
         scoreEl.textContent = "0";
+        wideStacks = 0;
       }
       lives = keepScore ? lives : 3;
       livesEl.textContent = String(lives);
       submitted = false;
       active = {};
-      wideStacks = 0;
+      if (keepScore && wideStacks > 0) active.wide = POWERS.wide.duration * 1.35;
       drops = [];
       spawnBank(row);
       paddle.x = W / 2;

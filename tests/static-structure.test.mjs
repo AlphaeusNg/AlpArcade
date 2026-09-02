@@ -181,7 +181,7 @@ assert(
     && read("js/games/breaker.js").includes("function floodClear()")
     && read("js/games/breaker.js").includes("function dropChance")
     && read("js/games/breaker.js").includes("function splitSpawnCount")
-    && read("js/games/breaker.js").includes("const DROP_FIELD_MAX = 6")
+    && read("js/games/breaker.js").includes("const DROP_FIELD_MAX = 10")
     && read("js/games/breaker.js").includes("function layoutDims")
     && !read("js/games/breaker.js").includes("function ballCaught")
     && read("js/games/breaker.js").includes("if (paddleCaught(p))")
