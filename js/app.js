@@ -13,6 +13,7 @@
   let activeGame = null;
   let activeGameId = null;
   let lastCabinet = null;
+  let scoreboardFilter = "all";
   const LAST_CABINET_KEY = "alparcade-last-cabinet-v1";
   const LAST_RUN_KEY = "alparcade-last-run-v1";
   const CABINET_LEVEL_GATES = { reaction: 5, shooter: 5, memory: 10, jubeat: 15 };
@@ -463,10 +464,24 @@
       nameInput.value = state.playerName;
     }
 
+    const filter = scoreboardFilter;
+    const filterLabel = ArcadeScores.GAMES[filter]?.label || "";
+    const pbSub = $("#pb-sub");
+    const hofSub = $("#hof-sub");
+    const historySub = $("#history-sub");
+    if (pbSub) pbSub.textContent = filter === "all" ? "(this device)" : `(${filterLabel})`;
+    if (hofSub) hofSub.textContent = filter === "all" ? "(top 3 per game)" : `(all ${filterLabel} runs)`;
+    if (historySub) historySub.textContent = filter === "all" ? "(this device)" : `(${filterLabel})`;
+
     // high scores panel
     const hs = $("#highscores-list");
     if (hs) {
-      hs.innerHTML = Object.entries(ArcadeScores.GAMES)
+      const games = filter === "all"
+        ? Object.entries(ArcadeScores.GAMES)
+        : ArcadeScores.GAMES[filter]
+          ? [[filter, ArcadeScores.GAMES[filter]]]
+          : Object.entries(ArcadeScores.GAMES);
+      hs.innerHTML = games
         .map(([id, g]) => {
           const best = state.highScores[id]?.best;
           // Parentheses matter: without them, `best === 0 && id === tictactoe` binds tighter than `||`.
@@ -491,23 +506,22 @@
         .join("");
     }
 
-    // hall of fame (local)
+    // hall of fame (local) — grouped top 3 per game, or every top run for one cabinet
     const hall = $("#hall-list");
     if (hall) {
-      if (!state.hallOfFame.length) {
-        hall.innerHTML = `<li class="empty">Play a game to fill the hall of fame.</li>`;
+      const runs = ArcadeScores.listLocalRuns?.(filter === "all" ? null : filter, { perGame: 3 })
+        || (filter === "all" ? state.hallOfFame : state.hallOfFame.filter((e) => e.game === filter));
+      if (!runs.length) {
+        hall.innerHTML = `<li class="empty">${
+          filter === "all"
+            ? "Play a game to fill the hall of fame."
+            : `No ${filterLabel} runs on this device yet.`
+        }</li>`;
       } else {
-        hall.innerHTML = state.hallOfFame
-          .map((e, i) => {
-            const label = ArcadeScores.GAMES[e.game]?.label || e.game;
-            return `<li>
-              <span class="rank">#${i + 1}</span>
-              <span class="who">${escapeHtml(e.player)}</span>
-              <span class="what">${escapeHtml(label)}</span>
-              <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
-            </li>`;
-          })
-          .join("");
+        hall.innerHTML = renderGroupedRuns(runs, {
+          grouped: filter === "all",
+          showGame: filter === "all",
+        });
       }
     }
 
@@ -518,11 +532,16 @@
     // history
     const hist = $("#history-list");
     if (hist) {
-      if (!state.history.length) {
-        hist.innerHTML = `<li class="empty">No runs yet.</li>`;
+      const historyRows = filter === "all"
+        ? state.history
+        : state.history.filter((e) => e.game === filter);
+      if (!historyRows.length) {
+        hist.innerHTML = `<li class="empty">${
+          filter === "all" ? "No runs yet." : `No ${filterLabel} runs yet.`
+        }</li>`;
       } else {
-        hist.innerHTML = state.history
-          .slice(0, 12)
+        hist.innerHTML = historyRows
+          .slice(0, filter === "all" ? 12 : 24)
           .map((e) => {
             const label = ArcadeScores.GAMES[e.game]?.label || e.game;
             const when = new Date(e.at).toLocaleString(undefined, {
@@ -691,9 +710,9 @@
       banner.setAttribute("aria-live", expandedError ? "assertive" : "polite");
     }
 
-    const filter = s.leaderboardGame || "all";
+    const filter = scoreboardFilter || s.leaderboardGame || "all";
     const gameLabel =
-      filter === "all" ? "all games" : ArcadeScores.GAMES[filter]?.label || filter;
+      filter === "all" ? "top 3 per game" : ArcadeScores.GAMES[filter]?.label || filter;
     if (label) label.textContent = `(${gameLabel})`;
 
     if (shareBtn) {
@@ -730,7 +749,42 @@
     });
   }
 
-  function renderLeaderboardList(listEl, hall, { showGame = true } = {}) {
+  function renderGroupedRuns(runs, { grouped = false, showGame = false, showEmptyGroups = false } = {}) {
+    if (!grouped) {
+      return runs
+        .map((e, i) => {
+          const gameLabel = ArcadeScores.GAMES[e.game]?.label || e.game;
+          return `<li>
+            <span class="rank">#${i + 1}</span>
+            <span class="who">${escapeHtml(e.player || ArcadeScores.getState?.()?.playerName || "Player")}</span>
+            ${showGame ? `<span class="what">${escapeHtml(gameLabel)}</span>` : ""}
+            <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
+          </li>`;
+        })
+        .join("");
+    }
+    const order = Object.keys(ArcadeScores.GAMES);
+    const html = [];
+    for (const gameId of order) {
+      const rows = runs.filter((e) => e.game === gameId);
+      if (!rows.length && !showEmptyGroups) continue;
+      html.push(`<li class="lb-group-head">${escapeHtml(ArcadeScores.GAMES[gameId]?.label || gameId)}</li>`);
+      if (!rows.length) {
+        html.push(`<li class="empty">No scores yet</li>`);
+        continue;
+      }
+      rows.forEach((e, i) => {
+        html.push(`<li>
+          <span class="rank">#${i + 1}</span>
+          <span class="who">${escapeHtml(e.player || ArcadeScores.getState?.()?.playerName || "Player")}</span>
+          <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
+        </li>`);
+      });
+    }
+    return html.join("");
+  }
+
+  function renderLeaderboardList(listEl, hall, { showGame = true, grouped = false, showEmptyGroups = false } = {}) {
     if (!listEl) return;
     const s = cloudState();
     const status = s.status || "off";
@@ -748,29 +802,37 @@
       listEl.innerHTML = `<li class="empty">Could not load board${err ? `: ${escapeHtml(err)}` : ""}.</li>`;
       return;
     }
-    if (!hall.length) {
+    if (!hall.length && !grouped) {
       listEl.innerHTML = `<li class="empty">No scores yet for this board — finish a run and save with Google.</li>`;
       return;
     }
-    listEl.innerHTML = hall
-      .map((e, i) => {
-        const gameLabel = ArcadeScores.GAMES[e.game]?.label || e.game;
-        return `<li>
-          <span class="rank">#${i + 1}</span>
-          <span class="who">${escapeHtml(e.player)}</span>
-          ${showGame ? `<span class="what">${escapeHtml(gameLabel)}</span>` : ""}
-          <span class="pts">${escapeHtml(ArcadeScores.formatRun?.(e.game, e.score, e) || ArcadeScores.formatScore(e.game, e.score, e))}</span>
-        </li>`;
-      })
-      .join("");
+    listEl.innerHTML = renderGroupedRuns(hall, {
+      grouped,
+      showGame: showGame && !grouped,
+      showEmptyGroups,
+    });
   }
 
   function renderGlobalHall() {
     const hall = window.ArcadeCloud?.getLeaderboard?.() || window.ArcadeCloud?.getGlobalHall?.() || [];
-    const filter = cloudState().leaderboardGame || "all";
-    renderLeaderboardList($("#global-hall-list"), hall, { showGame: filter === "all" });
+    const filter = scoreboardFilter || cloudState().leaderboardGame || "all";
+    renderLeaderboardList($("#global-hall-list"), hall, {
+      showGame: filter === "all",
+      grouped: filter === "all",
+      showEmptyGroups: filter === "all",
+    });
     renderPlayLeaderboard();
   }
+
+  function setScoreboardFilter(game) {
+    const next = game && ArcadeScores.GAMES[game] ? game : "all";
+    scoreboardFilter = next;
+    window.ArcadeCloud?.setLeaderboardGame?.(next);
+    updateCloudChrome();
+    refreshHud();
+  }
+
+  let playLbLoading = null;
 
   function renderPlayLeaderboard() {
     const list = $("#play-lb-list");
@@ -778,22 +840,24 @@
     if (!list || playView?.hidden || !activeGameId) return;
     const label = ArcadeScores.GAMES[activeGameId]?.label || activeGameId;
     if (sub) sub.textContent = label;
-    const hall =
-      (window.ArcadeCloud?.getLeaderboard?.() || []).filter((e) => e.game === activeGameId);
-    // If dashboard filter is this game, list is already filtered; else use load cache
+    const hall = (window.ArcadeCloud?.getLeaderboard?.() || []).filter((e) => e.game === activeGameId);
     const rows =
       (cloudState().leaderboardGame === activeGameId
         ? window.ArcadeCloud?.getLeaderboard?.()
         : null) || hall;
-    // Prefer dedicated load when filter differs
-    if (cloudState().leaderboardGame === activeGameId) {
-      renderLeaderboardList(list, window.ArcadeCloud.getLeaderboard() || [], { showGame: false });
-    } else {
-      window.ArcadeCloud?.loadLeaderboard?.(activeGameId, 15).then((data) => {
-        if (activeGameId) renderLeaderboardList(list, data || [], { showGame: false });
-      });
-      renderLeaderboardList(list, rows, { showGame: false });
-    }
+    renderLeaderboardList(list, rows, { showGame: false });
+    const s = cloudState();
+    if (!s.configured || s.status !== "online") return;
+    if (playLbLoading === activeGameId || s.leaderboardGame === activeGameId) return;
+    const requested = activeGameId;
+    playLbLoading = requested;
+    window.ArcadeCloud?.loadLeaderboard?.(requested, 15).then((data) => {
+      if (playLbLoading !== requested || activeGameId !== requested) return;
+      playLbLoading = null;
+      renderLeaderboardList(list, data || [], { showGame: false });
+    }).catch(() => {
+      if (playLbLoading === requested) playLbLoading = null;
+    });
   }
 
   function collectShareableBests() {
@@ -1281,8 +1345,6 @@
       playTitle.textContent = ArcadeScores.GAMES[id]?.label || id;
       gameMount.innerHTML = `<div class="game-loading" role="status" aria-live="polite"><span class="game-loading-spin" aria-hidden="true"></span><span>Loading cabinet…</span></div>`;
 
-      // Side leaderboard for this cabinet
-      window.ArcadeCloud?.setLeaderboardGame?.(id);
       const playSub = $("#play-lb-sub");
       if (playSub) playSub.textContent = ArcadeScores.GAMES[id]?.label || id;
 
@@ -1384,8 +1446,6 @@
     if (location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
     }
-    // Restore dashboard leaderboard filter to All
-    window.ArcadeCloud?.setLeaderboardGame?.("all");
     refreshHud();
     paintDaily();
     updateCloudChrome();
@@ -1706,10 +1766,7 @@
 
   $$("#lb-filters [data-lb-game]").forEach((chip) => {
     chip.addEventListener("click", () => {
-      const game = chip.dataset.lbGame || "all";
-      window.ArcadeCloud?.setLeaderboardGame?.(game === "all" ? "all" : game);
-      updateCloudChrome();
-      renderGlobalHall();
+      setScoreboardFilter(chip.dataset.lbGame || "all");
     });
   });
 

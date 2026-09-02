@@ -11,6 +11,7 @@
   const PROGRESS = "progress";
   const GLOBAL_LIMIT = 25;
   const GLOBAL_SCAN_LIMIT = 200;
+  const TOP_PER_GAME = 3;
   const GAME_IDS = [
     "tictactoe",
     "shooter",
@@ -194,10 +195,28 @@
     };
   }
 
-  function rankGlobalRows(rows, limit = GLOBAL_LIMIT) {
-    return [...rows]
-      .sort((a, b) => Number(b.arcadePoints || 0) - Number(a.arcadePoints || 0))
-      .slice(0, limit);
+  function sortGameRows(gameId, rows) {
+    const compare = global.ArcadeScores?.compareRuns;
+    if (typeof compare === "function") {
+      return [...rows].sort((a, b) => compare(gameId, a, b));
+    }
+    return [...rows].sort((a, b) => Number(b.arcadePoints || 0) - Number(a.arcadePoints || 0));
+  }
+
+  function rankGlobalRows(rows, { perGame = TOP_PER_GAME, gameId = null } = {}) {
+    if (gameId && GAME_IDS.includes(gameId)) {
+      return sortGameRows(gameId, rows.filter((row) => row.game === gameId)).slice(0, GLOBAL_LIMIT);
+    }
+    const grouped = {};
+    for (const id of GAME_IDS) grouped[id] = [];
+    for (const row of rows) {
+      if (grouped[row.game]) grouped[row.game].push(row);
+    }
+    const out = [];
+    for (const id of GAME_IDS) {
+      out.push(...sortGameRows(id, grouped[id]).slice(0, perGame));
+    }
+    return out;
   }
 
   async function init() {
@@ -314,7 +333,9 @@
       unsub = q.onSnapshot(
         (snap) => {
           const rows = snap.docs.map(mapScoreDoc);
-          leaderboard = leaderboardGame === "all" ? rankGlobalRows(rows) : rows;
+          leaderboard = leaderboardGame === "all"
+            ? rankGlobalRows(rows)
+            : sortGameRows(leaderboardGame, rows);
           if (status !== "online") setStatus("online");
           else notify();
         },
@@ -827,7 +848,9 @@
       }
       const snap = await q.get();
       const rows = snap.docs.map(mapScoreDoc);
-      return gameId && GAME_IDS.includes(gameId) ? rows : rankGlobalRows(rows, limit);
+      return gameId && GAME_IDS.includes(gameId)
+        ? sortGameRows(gameId, rows)
+        : rankGlobalRows(rows);
     } catch (err) {
       console.warn("[ArcadeCloud] loadLeaderboard failed", err);
       setStatus("error", friendlyError(err));
@@ -1100,5 +1123,6 @@
     probeWrite,
     onChange,
     GAME_IDS,
+    TOP_PER_GAME,
   };
 })(window);

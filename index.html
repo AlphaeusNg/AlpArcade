@@ -303,7 +303,7 @@
           </div>
         </div>
         <div class="lb-filters" id="lb-filters" role="tablist" aria-label="Leaderboard game filter">
-          <button type="button" class="lb-chip is-active" data-lb-game="all" role="tab" aria-selected="true">All</button>
+          <button type="button" class="lb-chip is-active" data-lb-game="all" role="tab" aria-selected="true">All games</button>
           <button type="button" class="lb-chip" data-lb-game="tictactoe" role="tab">Tic-Tac-Toe</button>
           <button type="button" class="lb-chip" data-lb-game="shooter" role="tab">Shooter</button>
           <button type="button" class="lb-chip" data-lb-game="snake" role="tab">Snake</button>
@@ -315,21 +315,21 @@
         </div>
         <div class="scores-grid">
           <div class="scores-col">
-            <h3>Personal bests <small class="scores-sub">(this device)</small></h3>
+            <h3>Personal bests <small class="scores-sub" id="pb-sub">(this device)</small></h3>
             <ul class="hs-list list-scroll list-scroll-pb" id="highscores-list"></ul>
           </div>
           <div class="scores-col">
-            <h3>Hall of fame <small class="scores-sub">(this device)</small></h3>
+            <h3>Hall of fame <small class="scores-sub" id="hof-sub">(top 3 per game)</small></h3>
             <ul class="hall-list list-scroll list-scroll-hof" id="hall-list"></ul>
           </div>
           <div class="scores-col scores-col-global">
-            <h3>Global leaderboard <small class="scores-sub" id="global-hall-label">(all games)</small></h3>
+            <h3>Global leaderboard <small class="scores-sub" id="global-hall-label">(top 3 per game)</small></h3>
             <ul class="hall-list global-hall-list list-scroll list-scroll-global" id="global-hall-list">
               <li class="empty">Loading global board…</li>
             </ul>
           </div>
           <div class="scores-wide">
-            <h3>Recent runs <small class="scores-sub">(this device)</small></h3>
+            <h3>Recent runs <small class="scores-sub" id="history-sub">(this device)</small></h3>
             <ul class="history-list list-scroll list-scroll-history" id="history-list"></ul>
           </div>
         </div>

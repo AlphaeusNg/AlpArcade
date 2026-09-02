@@ -7,7 +7,8 @@
 
   const STORAGE_KEY = "alphaeus-arcade-v1";
   const MAX_HISTORY = 40;
-  const MAX_HALL = 15;
+  const MAX_HALL_PER_GAME = 8;
+  const MAX_HALL = 64;
   const JUBEAT_DIFFICULTIES = ["easy", "medium", "extreme"];
   const SAVE_ERROR_MESSAGE =
     "Progress couldn't be saved on this device — enable site storage to keep this visit's XP and scores.";
@@ -427,9 +428,7 @@
     if (!isRecord(data)) return defaultState();
     const base = defaultState();
     const history = normalizeScoreEntries(data.history, { history: true }).slice(0, MAX_HISTORY);
-    const hallOfFame = rankHall(
-      normalizeScoreEntries(data.hallOfFame)
-    ).slice(0, MAX_HALL);
+    const hallOfFame = rankHall(normalizeScoreEntries(data.hallOfFame));
     const highScores = normalizeHighScores(data.highScores);
     for (const entry of [...history, ...hallOfFame]) {
       const current = highScores[entry.game];
@@ -599,7 +598,7 @@
       at: Date.now(),
       arcadePoints,
     });
-    state.hallOfFame = rankHall(state.hallOfFame).slice(0, MAX_HALL);
+    state.hallOfFame = rankHall(state.hallOfFame);
 
     save(state);
 
@@ -608,12 +607,80 @@
     return { isHighScore, xpGained, arcadePoints, state };
   }
 
+  function runHeadline(gameId, entry) {
+    const spec = headlineSpec(gameId);
+    const stats = isRecord(entry?.stats) ? entry.stats : (isRecord(entry?.meta) ? entry.meta : {});
+    let value = entry?.headline;
+    if (!Number.isFinite(Number(value))) value = stats?.[spec.key];
+    if (!Number.isFinite(Number(value))) value = entry?.score;
+    return Number(value);
+  }
+
+  function compareRuns(gameId, a, b) {
+    const g = GAMES[gameId];
+    const va = runHeadline(gameId, a);
+    const vb = runHeadline(gameId, b);
+    if (!Number.isFinite(va) && !Number.isFinite(vb)) return 0;
+    if (!Number.isFinite(va)) return 1;
+    if (!Number.isFinite(vb)) return -1;
+    if (g && g.higherIsBetter === false) {
+      if (va !== vb) return va - vb;
+    } else if (vb !== va) {
+      return vb - va;
+    }
+    const sa = Number(a?.score);
+    const sb = Number(b?.score);
+    if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb) {
+      return g && g.higherIsBetter === false ? sa - sb : sb - sa;
+    }
+    return (Number(b?.at) || 0) - (Number(a?.at) || 0);
+  }
+
   function rankHall(list) {
-    return [...list].sort((a, b) => {
-      const scoreA = Number(a.arcadePoints) || arcadePointsForRun(a.game, a.score, a.meta);
-      const scoreB = Number(b.arcadePoints) || arcadePointsForRun(b.game, b.score, b.meta);
-      return scoreB - scoreA;
-    });
+    const byGame = {};
+    for (const entry of Array.isArray(list) ? list : []) {
+      if (!entry?.game || !GAMES[entry.game]) continue;
+      (byGame[entry.game] ||= []).push(entry);
+    }
+    const out = [];
+    for (const gameId of Object.keys(GAMES)) {
+      const rows = (byGame[gameId] || []).sort((a, b) => compareRuns(gameId, a, b));
+      const seen = new Set();
+      for (const row of rows) {
+        const key = `${row.at}|${row.score}|${row.headline ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(row);
+        if (seen.size >= MAX_HALL_PER_GAME) break;
+      }
+    }
+    return out.slice(0, MAX_HALL);
+  }
+
+  function listLocalRuns(gameId, { perGame = 3, limit } = {}) {
+    const state = load();
+    const seen = new Set();
+    const runs = [];
+    for (const entry of [...(state.history || []), ...(state.hallOfFame || [])]) {
+      if (gameId && entry.game !== gameId) continue;
+      const key = `${entry.game}|${entry.at}|${entry.score}|${entry.headline ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      runs.push(entry);
+    }
+    if (gameId) {
+      const sorted = runs.sort((a, b) => compareRuns(gameId, a, b));
+      return Number.isFinite(limit) ? sorted.slice(0, limit) : sorted;
+    }
+    const out = [];
+    for (const id of Object.keys(GAMES)) {
+      const slice = runs
+        .filter((entry) => entry.game === id)
+        .sort((a, b) => compareRuns(id, a, b))
+        .slice(0, Math.max(1, perGame));
+      out.push(...slice);
+    }
+    return out;
   }
 
   function formatScore(gameId, score, extra) {
@@ -854,6 +921,8 @@
     formatRun,
     formatBest,
     formatScore,
+    compareRuns,
+    listLocalRuns,
     getLevel,
     xpToReachLevel,
     resetAll,

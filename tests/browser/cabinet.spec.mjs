@@ -558,3 +558,49 @@ test("keeps Circuit Breaker's unchanged live power status stable between frames"
   const mutations = await page.evaluate(() => window.__breakerPowerMutations);
   expect(mutations, "unchanged aria-live status must not be replaced every animation frame").toBeLessThanOrEqual(1);
 });
+
+test("scoreboard category chips show top 3 per game and filter local runs", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Alp",
+      xp: 200,
+      gamesPlayed: 4,
+      highScores: {
+        snake: { best: 75, eaten: 12, level: 3, eatenTotal: 18 },
+        tapper: { best: 40, hits: 8 },
+        tictactoe: { best: 2, wins: 2, losses: 0, draws: 0 },
+      },
+      history: [
+        { game: "snake", score: 75, player: "Alp", at: 4, arcadePoints: 40, xp: 40, headline: 12, stats: { eaten: 12, level: 3 } },
+        { game: "snake", score: 40, player: "Alp", at: 3, arcadePoints: 30, xp: 30, headline: 6, stats: { eaten: 6, level: 2 } },
+        { game: "tapper", score: 40, player: "Alp", at: 2, arcadePoints: 25, xp: 25, headline: 8, stats: { hits: 8 } },
+      ],
+      hallOfFame: [
+        { game: "snake", score: 75, player: "Alp", at: 4, arcadePoints: 40, headline: 12, stats: { eaten: 12 } },
+        { game: "tapper", score: 40, player: "Alp", at: 2, arcadePoints: 25, headline: 8, stats: { hits: 8 } },
+      ],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
+  await expect(page.locator("#hof-sub")).toContainText(/top 3 per game/i);
+  await expect(page.locator("#highscores-list")).toContainText("Snake");
+  await expect(page.locator("#highscores-list")).toContainText("Target Tap");
+
+  await page.locator('#lb-filters [data-lb-game="snake"]').click();
+  await expect(page.locator("#lb-filters [data-lb-game='snake']")).toHaveClass(/is-active/);
+  await expect(page.locator("#pb-sub")).toContainText("Snake");
+  await expect(page.locator("#hof-sub")).toContainText("Snake");
+  await expect(page.locator("#highscores-list .hs-game")).toHaveCount(1);
+  await expect(page.locator("#highscores-list")).toContainText("Snake");
+  await expect(page.locator("#highscores-list")).not.toContainText("Target Tap");
+  await expect(page.locator("#hall-list")).toContainText("12 eaten");
+  await expect(page.locator("#hall-list")).toContainText("6 eaten");
+  await expect(page.locator("#hall-list")).not.toContainText("Target Tap");
+  await expect(page.locator("#history-list")).toContainText("Snake");
+  await expect(page.locator("#history-list")).not.toContainText("Target Tap");
+
+  await page.locator('#lb-filters [data-lb-game="all"]').click();
+  await expect(page.locator("#highscores-list")).toContainText("Target Tap");
+  await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
+});

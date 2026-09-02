@@ -109,6 +109,16 @@ assert(
   "header Music toggle must exist and open the left dock",
 );
 assert(
+  app.includes("function setScoreboardFilter")
+    && app.includes("function renderGroupedRuns")
+    && app.includes("top 3 per game")
+    && read("js/services/cloud-scores.js").includes("const TOP_PER_GAME = 3")
+    && read("js/core/scores.js").includes("function listLocalRuns")
+    && read("index.html").includes('id="hof-sub"')
+    && read("index.html").includes('id="pb-sub"'),
+  "scoreboard All view is top 3 per game and category chips filter local runs",
+);
+assert(
   app.includes("navigator.share") && app.includes("AbortError"),
   "last-run share uses the native share sheet when the browser offers it",
 );

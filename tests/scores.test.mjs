@@ -218,15 +218,18 @@ assert.equal(scores.getState().highScores.reaction.best, 200, "negative reaction
 scores.submitScore("snake", Number.NaN);
 assert.equal(scores.getState().gamesPlayed, beforeInvalid.gamesPlayed, "non-finite runs should be ignored");
 
-for (let index = 0; index < 50; index += 1) scores.submitScore("snake", index);
-const bounded = scores.getState();
+const hallBound = createScores().scores;
+for (let index = 0; index < 50; index += 1) hallBound.submitScore("snake", index);
+const bounded = hallBound.getState();
 assert.equal(bounded.history.length, 40, "history should retain only the latest 40 runs");
-assert.equal(bounded.hallOfFame.length, 15, "hall of fame should retain only 15 entries");
+assert.equal(bounded.hallOfFame.length, 8, "hall of fame keeps a bounded set of top runs per game");
 assert.ok(
   bounded.hallOfFame.every((entry, index, list) =>
-    index === 0 || entry.arcadePoints <= list[index - 1].arcadePoints),
-  "hall of fame should remain ranked by normalized arcade points",
+    index === 0 || entry.score <= list[index - 1].score),
+  "a single-game hall should rank better native scores first",
 );
+assert.equal(hallBound.listLocalRuns("snake")[0].score, 49);
+assert.equal(hallBound.listLocalRuns(null, { perGame: 3 }).every((entry) => entry.game === "snake"), true);
 
 const unicodeName = "玩家 Alpaca 🦙";
 scores.setPlayerName(unicodeName);
