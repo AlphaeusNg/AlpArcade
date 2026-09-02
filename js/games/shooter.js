@@ -33,10 +33,20 @@
             <span class="sh-life-banner-sub" id="sh-life-banner-sub">−1</span>
           </div>
           <div class="sh-pickup-toast" id="sh-pickup-toast" hidden></div>
+          <section class="run-pause-overlay" id="sh-pause-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sh-pause-heading">
+            <p class="run-pause-kicker" id="sh-pause-heading">PAUSED</p>
+            <div class="run-pause-actions">
+              <button type="button" class="btn primary" id="sh-resume">Resume</button>
+              <button type="button" class="btn ghost run-pause-bank" id="sh-bank">Save score & end</button>
+            </div>
+          </section>
         </div>
         <p class="game-hint" id="sh-hint">WASD / arrows · full flight · auto-fire · grab powerups</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="sh-start">Launch</button>
+          <button type="button" class="run-pause-btn" id="sh-pause" hidden disabled aria-label="Pause" aria-pressed="false">
+            <span aria-hidden="true">Ⅱ</span><span>Pause</span>
+          </button>
         </div>
       </div>
     `;
@@ -51,6 +61,11 @@
     const lifeBannerEl = root.querySelector("#sh-life-banner");
     const lifeBannerSub = root.querySelector("#sh-life-banner-sub");
     const pickupToast = root.querySelector("#sh-pickup-toast");
+    const pauseBtn = root.querySelector("#sh-pause");
+    const pauseOverlay = root.querySelector("#sh-pause-overlay");
+    const resumeBtn = root.querySelector("#sh-resume");
+    const bankBtn = root.querySelector("#sh-bank");
+    const startBtn = root.querySelector("#sh-start");
 
     // Logical size; buffer scaled for HiDPI. Display size is CSS-centered (100% / max 420).
     const W = 420;
@@ -675,6 +690,26 @@
       ctx.fillStyle = "#38bdf8";
       ctx.fillText(`Score ${score} · Wave ${wave}`, W / 2, H / 2 + 20);
       commitScore();
+      syncPauseUi();
+    }
+
+    function syncPauseUi() {
+      const inRun = (running || paused) && !submitted && lives > 0;
+      pauseBtn.hidden = !inRun;
+      pauseBtn.disabled = !running || submitted;
+      pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+      pauseOverlay.hidden = !paused;
+    }
+
+    function pauseRun() {
+      if (!running || submitted || lives <= 0) return;
+      running = false;
+      paused = true;
+      cancelAnimationFrame(raf);
+      keys = Object.create(null);
+      if (hintEl) hintEl.textContent = "Paused · resume or save your score";
+      startBtn.disabled = true;
+      syncPauseUi();
     }
 
     function resume() {
@@ -682,9 +717,24 @@
       paused = false;
       pausedByVisibility = false;
       running = true;
+      startBtn.disabled = false;
       last = 0;
       raf = requestAnimationFrame(frame);
       if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
+      syncPauseUi();
+    }
+
+    function bankRun() {
+      if (submitted) return;
+      paused = false;
+      running = false;
+      cancelAnimationFrame(raf);
+      pauseOverlay.hidden = true;
+      commitScore();
+      if (hintEl) hintEl.textContent = `Score saved · Wave ${wave}`;
+      startBtn.disabled = false;
+      startBtn.textContent = "Launch";
+      syncPauseUi();
     }
 
     function start() {
@@ -693,8 +743,10 @@
       ArcadeSFX?.click();
       init();
       running = true;
+      paused = false;
       last = 0;
       raf = requestAnimationFrame(frame);
+      syncPauseUi();
     }
 
     function onKeyDown(e) {
@@ -707,13 +759,9 @@
       ) {
         e.preventDefault();
       }
-      if (e.key.toLowerCase() === "p" && running) {
-        running = false;
-        paused = true;
-        cancelAnimationFrame(raf);
-        if (hintEl) hintEl.textContent = "Paused · tap playfield or P to resume";
-      } else if (e.key.toLowerCase() === "p" && !running && ship && lives > 0 && !submitted) {
-        resume();
+      if (e.key.toLowerCase() === "p") {
+        if (running) pauseRun();
+        else if (paused && ship && lives > 0 && !submitted) resume();
       }
     }
     function onKeyUp(e) {
@@ -724,9 +772,9 @@
     let dragging = false;
     canvas.addEventListener("pointerdown", (e) => {
       // Tap playfield: resume a paused run, otherwise launch (same path as Launch)
-      if (paused || pausedByVisibility) {
+      if (pausedByVisibility && !paused) {
         resume();
-      } else if (!running) {
+      } else if (!running && !paused) {
         start();
       }
       dragging = true;
@@ -756,7 +804,10 @@
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    root.querySelector("#sh-start").addEventListener("click", start);
+    startBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", pauseRun);
+    resumeBtn.addEventListener("click", resume);
+    bankBtn.addEventListener("click", bankRun);
 
     // Pause when the tab is hidden so the wave doesn't run away mid-fight.
     let pausedByVisibility = false;

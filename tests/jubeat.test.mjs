@@ -298,7 +298,8 @@ assert(
     source.includes('id="jb-resume-countdown"') &&
     source.includes('id="jb-restart-song"') &&
     source.includes('id="jb-exit-song"') &&
-    source.includes("Exit to song select") &&
+    source.includes("Save score & end") &&
+    !source.includes("Exit to song select") &&
     !source.includes("Take a breather") &&
     source.includes("pausedAtMs = nowMs();") &&
     source.includes("audioEl.pause();") &&
@@ -311,7 +312,7 @@ assert(
     gameCss.includes(".jb-pause-overlay") &&
     gameCss.includes(".jb-resume-countdown") &&
     gameCss.includes("min-height: 1.75rem"),
-  "Pause must reserve its controls, freeze timing, count down on Resume, and return Exit to song select"
+  "Pause must reserve its controls, freeze timing, count down on Resume, and save the score on exit"
 );
 const songSelectionFunction = source.slice(
   source.indexOf("function showSongSelection()"),
@@ -325,6 +326,15 @@ assert(
     songSelectionFunction.includes("setupEl.hidden = false;") &&
     !songSelectionFunction.includes("await "),
   "Returning from results or pause must synchronously rebuild a usable song map"
+);
+const exitSongFunction = source.slice(
+  source.indexOf("function exitSongToSongSelect()"),
+  source.indexOf("function duckLobbyMusic")
+);
+assert(
+  exitSongFunction.includes("finish();") &&
+    !exitSongFunction.includes("showSongSelection()"),
+  "Pause exit banks the current chart instead of discarding it"
 );
 assert(
   source.includes("function primeResultAudio()") &&

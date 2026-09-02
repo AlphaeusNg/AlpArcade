@@ -57,10 +57,20 @@
         <div class="br-stage">
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
+          <section class="run-pause-overlay" id="br-pause-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="br-pause-heading">
+            <p class="run-pause-kicker" id="br-pause-heading">PAUSED</p>
+            <div class="run-pause-actions">
+              <button type="button" class="btn primary" id="br-resume">Resume</button>
+              <button type="button" class="btn ghost run-pause-bank" id="br-bank">Save score & end</button>
+            </div>
+          </section>
         </div>
         <p class="game-hint" id="br-hint">Pick a level · catch capsules with the paddle · 8×1 start</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
+          <button type="button" class="run-pause-btn" id="br-pause" hidden disabled aria-label="Pause" aria-pressed="false">
+            <span aria-hidden="true">Ⅱ</span><span>Pause</span>
+          </button>
         </div>
       </div>
     `;
@@ -71,6 +81,10 @@
     const rowEl = root.querySelector("#br-row");
     const hintEl = root.querySelector("#br-hint");
     const startBtn = root.querySelector("#br-start");
+    const pauseBtn = root.querySelector("#br-pause");
+    const pauseOverlay = root.querySelector("#br-pause-overlay");
+    const resumeBtn = root.querySelector("#br-resume");
+    const bankBtn = root.querySelector("#br-bank");
     const powersEl = root.querySelector("#br-powers");
     const pickupToast = root.querySelector("#br-pickup-toast");
     const levelsEl = root.querySelector("#br-levels");
@@ -374,6 +388,7 @@
     function endRun() {
       running = false;
       paused = false;
+      pausedByVisibility = false;
       cancelAnimationFrame(raf);
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
@@ -381,6 +396,7 @@
       hintEl.textContent = `Circuit fried · ${score} pts · level ${row}`;
       commitScore();
       paintLevels();
+      syncPauseUi();
     }
 
     function draw() {
@@ -429,11 +445,11 @@
       }
       if (glow) ctx.shadowBlur = 0;
 
-      if (!running) {
+      if (!running && !paused) {
         ctx.fillStyle = "rgba(226,232,240,0.9)";
         ctx.font = "16px Outfit, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(paused ? "Paused · tap to resume" : "Tap to start", W / 2, H / 2);
+        ctx.fillText(pausedByVisibility ? "Paused · return to resume" : "Tap to start", W / 2, H / 2);
       }
     }
 
@@ -600,12 +616,32 @@
       beginLevel(selectedLevel);
       running = true;
       paused = false;
+      pausedByVisibility = false;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
       paintLevels();
       last = 0;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);
+      syncPauseUi();
+    }
+
+    function syncPauseUi() {
+      const inRun = (running || paused) && !submitted && lives > 0;
+      pauseBtn.hidden = !inRun;
+      pauseBtn.disabled = !running || submitted;
+      pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+      pauseOverlay.hidden = !paused;
+    }
+
+    function pauseRun() {
+      if (!running || submitted || lives <= 0) return;
+      running = false;
+      paused = true;
+      cancelAnimationFrame(raf);
+      hintEl.textContent = "Paused · resume or save your score";
+      syncPauseUi();
+      draw();
     }
 
     function resume() {
@@ -619,6 +655,25 @@
       const L = layoutForLevel(row);
       hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
       raf = requestAnimationFrame(frame);
+      syncPauseUi();
+    }
+
+    function bankRun() {
+      if (submitted && !paused) return;
+      paused = false;
+      running = false;
+      pausedByVisibility = false;
+      cancelAnimationFrame(raf);
+      startBtn.disabled = false;
+      startBtn.textContent = "Start / Restart";
+      const hadScore = score > 0 || row > 1;
+      commitScore();
+      hintEl.textContent = hadScore
+        ? `Score saved · ${score} pts · level ${row}`
+        : "Run ended";
+      paintLevels();
+      syncPauseUi();
+      draw();
     }
 
     function pointerToX(clientX) {
@@ -630,37 +685,34 @@
     canvas.addEventListener("pointerdown", (e) => {
       pointerToX(e.clientX);
       canvas.setPointerCapture?.(e.pointerId);
-      if (paused || pausedByVisibility) resume();
+      if (paused) return;
+      if (pausedByVisibility) resume();
       else if (!running) start();
     });
     canvas.addEventListener("pointermove", (e) => {
       pointerToX(e.clientX);
     });
     startBtn.addEventListener("click", () => {
-      if (paused || pausedByVisibility) resume();
+      if (paused) return;
+      if (pausedByVisibility) resume();
       else start();
     });
+    pauseBtn.addEventListener("click", pauseRun);
+    resumeBtn.addEventListener("click", resume);
+    bankBtn.addEventListener("click", bankRun);
 
     function onKey(e) {
       if (e.key === "ArrowLeft" || e.key === "a") paddle.x = Math.max(paddle.w / 2, paddle.x - 18);
       if (e.key === "ArrowRight" || e.key === "d") paddle.x = Math.min(W - paddle.w / 2, paddle.x + 18);
       if (e.key.toLowerCase() === "p") {
-        if (running) {
-          running = false;
-          paused = true;
-          cancelAnimationFrame(raf);
-          startBtn.disabled = false;
-          startBtn.textContent = "Resume";
-          hintEl.textContent = "Paused · tap playfield or P to resume";
-          draw();
-        } else if (!submitted && lives > 0 && balls.length) {
-          resume();
-        }
+        e.preventDefault();
+        if (running) pauseRun();
+        else if (paused && !submitted && lives > 0) resume();
         return;
       }
-      if (!running && (e.key === " " || e.key === "Enter")) {
+      if (!running && !paused && (e.key === " " || e.key === "Enter")) {
         e.preventDefault();
-        if (paused || pausedByVisibility) resume();
+        if (pausedByVisibility) resume();
         else start();
       }
     }

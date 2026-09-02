@@ -511,7 +511,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.03.10");
+  await expect(page.locator("#site-version")).toContainText("2026.09.03.11");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
@@ -532,6 +532,47 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
   await page.locator("#sh-canvas").click({ position: { x: 120, y: 220 } });
   await expect(page.locator("#sh-hint")).toContainText(/Wave 1|WASD|powerups/i);
   await expect(page.locator("#sh-wave")).toHaveText("1");
+});
+
+test("endless cabinets pause and can save the current score before death", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Pause Banker",
+      xp: 10000,
+      gamesPlayed: 8,
+      highScores: {},
+      history: [],
+      hallOfFame: [],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await page.locator('[data-game="breaker"]').click();
+  await expect(page.locator("#br-canvas")).toBeVisible();
+  await page.locator("#br-canvas").click({ position: { x: 120, y: 220 } });
+  await expect(page.locator("#br-pause")).toBeVisible();
+  await page.locator("#br-pause").click();
+  await expect(page.locator("#br-pause-overlay")).toBeVisible();
+  await expect(page.locator("#br-bank")).toHaveText(/Save score & end/i);
+  await page.locator("#br-resume").click();
+  await expect(page.locator("#br-pause-overlay")).toBeHidden();
+  await expect(page.locator("#br-start")).toHaveText(/Running/);
+  await page.locator("#br-pause").click();
+  await page.locator("#br-bank").click();
+  await expect(page.locator("#br-pause-overlay")).toBeHidden();
+  await expect(page.locator("#br-start")).toBeEnabled();
+  await expect(page.locator("#br-hint")).toContainText(/saved|ended|fried/i);
+
+  await page.locator("#btn-back").click();
+  await page.locator('[data-game="snake"]').click();
+  await expect(page.locator("#snake-canvas")).toBeVisible();
+  await page.locator("#snake-start").click();
+  await expect(page.locator("#snake-pause")).toBeVisible();
+  await page.locator("#snake-pause").click();
+  await expect(page.locator("#snake-pause-overlay")).toBeVisible();
+  await page.locator("#snake-bank").click();
+  await expect(page.locator("#snake-pause-overlay")).toBeHidden();
+  await expect(page.locator("#snake-hint")).toContainText(/saved/i);
 });
 
 test("keeps Circuit Breaker's unchanged live power status stable between frames", async ({ page }) => {

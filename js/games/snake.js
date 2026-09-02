@@ -19,7 +19,16 @@
           </div>
           <p class="snake-progress-sub" id="snake-progress-sub">Eat 3 green food to advance</p>
         </div>
-        <canvas id="snake-canvas" width="360" height="360" aria-label="Snake game"></canvas>
+        <div class="snake-stage">
+          <canvas id="snake-canvas" width="360" height="360" aria-label="Snake game"></canvas>
+          <section class="run-pause-overlay" id="snake-pause-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="snake-pause-heading">
+            <p class="run-pause-kicker" id="snake-pause-heading">PAUSED</p>
+            <div class="run-pause-actions">
+              <button type="button" class="btn primary" id="snake-resume">Resume</button>
+              <button type="button" class="btn ghost run-pause-bank" id="snake-bank">Save score & end</button>
+            </div>
+          </section>
+        </div>
         <p class="game-hint" id="snake-hint">Arrows / WASD · swipe · on-screen pad · P pause</p>
         <div class="dpad" id="snake-dpad" aria-label="Direction pad">
           <button type="button" class="dpad-btn dpad-up" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
@@ -29,6 +38,9 @@
         </div>
         <div class="game-actions">
           <button type="button" class="btn primary" id="snake-start">Start / Restart</button>
+          <button type="button" class="run-pause-btn" id="snake-pause" hidden disabled aria-label="Pause" aria-pressed="false">
+            <span aria-hidden="true">Ⅱ</span><span>Pause</span>
+          </button>
         </div>
       </div>
     `;
@@ -41,6 +53,11 @@
     const progressText = root.querySelector("#snake-progress-text");
     const progressFill = root.querySelector("#snake-progress-fill");
     const progressSub = root.querySelector("#snake-progress-sub");
+    const startBtn = root.querySelector("#snake-start");
+    const pauseBtn = root.querySelector("#snake-pause");
+    const pauseOverlay = root.querySelector("#snake-pause-overlay");
+    const resumeBtn = root.querySelector("#snake-resume");
+    const bankBtn = root.querySelector("#snake-bank");
 
     const COLS = 18;
     const ROWS = 18;
@@ -61,6 +78,7 @@
     ];
 
     let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted, paused;
+    let pausedByVisibility = false;
 
     bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.eaten || 0);
 
@@ -489,6 +507,7 @@
     function gameOver() {
       running = false;
       paused = false;
+      pausedByVisibility = false;
       clearInterval(timer);
       ArcadeSFX?.lose();
       ctx.fillStyle = "rgba(5,8,15,0.65)";
@@ -501,6 +520,26 @@
       ctx.fillStyle = "#2dd4bf";
       ctx.fillText(`${eaten} eaten · Lv ${level}`, CSS_SIZE / 2, CSS_SIZE / 2 + 16);
       commitScore();
+      syncPauseUi();
+    }
+
+    function syncPauseUi() {
+      const inRun = (running || paused) && !submitted && snake;
+      pauseBtn.hidden = !inRun;
+      pauseBtn.disabled = !running || submitted;
+      pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+      pauseOverlay.hidden = !paused;
+    }
+
+    function pauseRun() {
+      if (!running || submitted || !snake) return;
+      running = false;
+      paused = true;
+      clearInterval(timer);
+      timer = null;
+      if (hintEl) hintEl.textContent = "Paused · resume or save your score";
+      startBtn.disabled = true;
+      syncPauseUi();
     }
 
     function resume() {
@@ -508,9 +547,25 @@
       paused = false;
       pausedByVisibility = false;
       running = true;
+      startBtn.disabled = false;
       clearInterval(timer);
       timer = setInterval(step, tickMs);
       if (hintEl) hintEl.textContent = "Arrows / WASD · swipe · P pause";
+      syncPauseUi();
+    }
+
+    function bankRun() {
+      if (submitted && !paused) return;
+      paused = false;
+      running = false;
+      pausedByVisibility = false;
+      clearInterval(timer);
+      timer = null;
+      startBtn.disabled = false;
+      commitScore();
+      if (hintEl) hintEl.textContent = `Score saved · ${eaten} eaten · Lv ${level}`;
+      syncPauseUi();
+      draw();
     }
 
     function start() {
@@ -519,11 +574,15 @@
       ArcadeSFX?.click();
       reset();
       running = true;
+      paused = false;
+      pausedByVisibility = false;
       draw();
       timer = setInterval(step, tickMs);
+      syncPauseUi();
     }
 
     function setDir(nx, ny) {
+      if (paused || pausedByVisibility) return;
       if (dir.x === -nx && dir.y === -ny) return;
       nextDir = { x: nx, y: ny };
       ArcadeSFX?.move();
@@ -534,20 +593,15 @@
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "p"].includes(k)) {
         e.preventDefault();
       }
+      if (k === "p") {
+        if (running) pauseRun();
+        else if (paused && snake && !submitted) resume();
+        return;
+      }
       if (k === "arrowup" || k === "w") setDir(0, -1);
       if (k === "arrowdown" || k === "s") setDir(0, 1);
       if (k === "arrowleft" || k === "a") setDir(-1, 0);
       if (k === "arrowright" || k === "d") setDir(1, 0);
-      if (k === "p") {
-        if (running) {
-          running = false;
-          paused = true;
-          clearInterval(timer);
-          if (hintEl) hintEl.textContent = "Paused · tap board or P to resume";
-        } else if (snake && !submitted) {
-          resume();
-        }
-      }
     }
 
     let touchStart = null;
@@ -561,9 +615,13 @@
       const dx = t.clientX - touchStart.x;
       const dy = t.clientY - touchStart.y;
       const dist = Math.hypot(dx, dy);
-      // Tap (not swipe) on playfield: resume a paused run, otherwise start
+      // Tap (not swipe) on playfield: resume a tab-hide pause, otherwise start
       if (!running && dist < 18) {
-        if (paused || pausedByVisibility) resume();
+        if (paused) {
+          touchStart = null;
+          return;
+        }
+        if (pausedByVisibility) resume();
         else start();
         touchStart = null;
         return;
@@ -576,7 +634,8 @@
     // Mouse / pen: click playfield to start when not running
     canvas.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "touch") return; // touch handled above
-      if (paused || pausedByVisibility) {
+      if (paused) return;
+      if (pausedByVisibility) {
         e.preventDefault();
         resume();
       } else if (!running) {
@@ -588,7 +647,10 @@
     window.addEventListener("keydown", onKey);
     canvas.addEventListener("touchstart", onTouchStart, { passive: true });
     canvas.addEventListener("touchend", onTouchEnd, { passive: true });
-    root.querySelector("#snake-start").addEventListener("click", start);
+    startBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", pauseRun);
+    resumeBtn.addEventListener("click", resume);
+    bankBtn.addEventListener("click", bankRun);
 
     root.querySelector("#snake-dpad")?.addEventListener("pointerdown", (e) => {
       const btn = e.target.closest("[data-dx]");
@@ -597,7 +659,6 @@
       setDir(Number(btn.dataset.dx), Number(btn.dataset.dy));
     });
 
-    let pausedByVisibility = false;
     function onVisibility() {
       if (document.hidden) {
         if (running) {

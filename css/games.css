@@ -400,7 +400,8 @@
   display: none;
 }
 
-.jb-pause-btn {
+.jb-pause-btn,
+.run-pause-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -418,18 +419,22 @@
 }
 
 .jb-pause-btn:hover,
-.jb-pause-btn:focus-visible {
+.jb-pause-btn:focus-visible,
+.run-pause-btn:hover,
+.run-pause-btn:focus-visible {
   border-color: rgba(56, 189, 248, 0.55);
   color: var(--cyan);
   outline: none;
 }
 
-.jb-pause-btn:disabled {
+.jb-pause-btn:disabled,
+.run-pause-btn:disabled {
   cursor: default;
   opacity: 0.48;
 }
 
-.jb-pause-btn > span:first-child {
+.jb-pause-btn > span:first-child,
+.run-pause-btn > span:first-child {
   color: var(--cyan);
   font-size: 0.72rem;
   letter-spacing: -0.16em;
@@ -1268,7 +1273,8 @@
   overscroll-behavior: none;
 }
 
-.jb-pause-overlay {
+.jb-pause-overlay,
+.run-pause-overlay {
   position: absolute;
   inset: 0;
   z-index: 20;
@@ -1285,11 +1291,13 @@
   text-align: center;
 }
 
-.jb-pause-overlay[hidden] {
+.jb-pause-overlay[hidden],
+.run-pause-overlay[hidden] {
   display: none;
 }
 
-.jb-pause-kicker {
+.jb-pause-kicker,
+.run-pause-kicker {
   margin: 0;
   color: var(--cyan);
   font: 800 0.62rem/1 var(--mono);
@@ -1307,18 +1315,38 @@
   display: none;
 }
 
-.jb-pause-actions {
+.jb-pause-actions,
+.run-pause-actions {
   display: grid;
   gap: 0.45rem;
   width: min(100%, 12rem);
 }
 
-.jb-pause-actions .btn {
+.jb-pause-actions .btn,
+.run-pause-actions .btn {
   width: 100%;
 }
 
-.jb-pause-actions .jb-exit-song {
+.jb-pause-actions .jb-exit-song,
+.run-pause-actions .run-pause-bank {
   color: #fda4af;
+}
+
+.snake-stage {
+  position: relative;
+  width: 360px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.tap-stage,
+.mem-stage {
+  position: relative;
+}
+
+.tapper-wrap,
+.memory-wrap {
+  position: relative;
 }
 
 .jb-playfield.is-paused .jb-grid {

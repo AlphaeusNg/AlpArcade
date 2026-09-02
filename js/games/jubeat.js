@@ -1478,7 +1478,7 @@
               <div class="jb-pause-actions">
                 <button type="button" class="btn primary" id="jb-resume">Resume</button>
                 <button type="button" class="btn ghost" id="jb-restart-song">Restart song</button>
-                <button type="button" class="btn ghost jb-exit-song" id="jb-exit-song">Exit to song select</button>
+                <button type="button" class="btn ghost jb-exit-song" id="jb-exit-song">Save score & end</button>
               </div>
             </section>
             <section class="jb-results" id="jb-results" hidden aria-live="polite" aria-label="Chart results">
@@ -1978,7 +1978,7 @@
 
     function exitSongToSongSelect() {
       if (!paused) return;
-      showSongSelection();
+      finish();
     }
 
     function duckLobbyMusic(on) {

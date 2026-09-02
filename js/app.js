@@ -61,13 +61,13 @@
 
   const GAME_CONTROLS = {
     tictactoe: "Click a cell · change AI difficulty anytime",
-    shooter: "WASD / arrows move · auto-fire · P pause",
-    snake: "WASD / arrows · swipe on mobile · P pause",
+    shooter: "WASD / arrows move · auto-fire · P pause · save score & end",
+    snake: "WASD / arrows · swipe on mobile · P pause · save score & end",
     reaction: "Click / tap the pad · wait for green",
-    memory: "Tap cards to match pairs · hearts are lives",
-    tapper: "Tap glowing cells · keys 1–9 · three lives",
-    jubeat: "Easy + Medium + Extreme · exact arcade charts · 1–4 QWER ASDF ZXCV",
-    breaker: "Pick a level · catch capsules with the paddle",
+    memory: "Tap cards to match pairs · P pause · save score & end",
+    tapper: "Tap glowing cells · keys 1–9 · P pause · save score & end",
+    jubeat: "Easy + Medium + Extreme · exact arcade charts · 1–4 QWER ASDF ZXCV · pause to save",
+    breaker: "Pick a level · catch capsules with the paddle · P pause · save score & end",
   };
 
   function loadLastRun() {

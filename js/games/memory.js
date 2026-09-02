@@ -56,8 +56,15 @@
     let hp = MAX_HP;
     let gameOver = false;
     let submitted = false;
+    let paused = false;
+    let pausedByVisibility = false;
     let levelTimer = null;
     let flipTimer = null;
+    let levelDueAt = 0;
+    let flipDueAt = 0;
+    let pausedLevelRemaining = 0;
+    let pausedFlipRemaining = 0;
+    let pendingMismatch = null;
     /** Card indices the player has already revealed this level */
     let seen = new Set();
 
@@ -72,10 +79,22 @@
           <span id="mem-matched">0 / 2 pairs</span>
           <span id="mem-board-size">2×2</span>
         </div>
-        <div class="mem-grid" id="mem-grid"></div>
+        <div class="mem-stage">
+          <div class="mem-grid" id="mem-grid"></div>
+          <section class="run-pause-overlay" id="mem-pause-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mem-pause-heading">
+            <p class="run-pause-kicker" id="mem-pause-heading">PAUSED</p>
+            <div class="run-pause-actions">
+              <button type="button" class="btn primary" id="mem-resume">Resume</button>
+              <button type="button" class="btn ghost run-pause-bank" id="mem-bank">Save score & end</button>
+            </div>
+          </section>
+        </div>
         <p class="game-hint" id="mem-hint">First peeks are free. Miss a card you've already seen → lose a heart.</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="mem-restart">New run</button>
+          <button type="button" class="run-pause-btn" id="mem-pause" hidden disabled aria-label="Pause" aria-pressed="false">
+            <span aria-hidden="true">Ⅱ</span><span>Pause</span>
+          </button>
         </div>
       </div>
     `;
@@ -87,6 +106,10 @@
     const matchedEl = root.querySelector("#mem-matched");
     const boardSizeEl = root.querySelector("#mem-board-size");
     const hintEl = root.querySelector("#mem-hint");
+    const pauseBtn = root.querySelector("#mem-pause");
+    const pauseOverlay = root.querySelector("#mem-pause-overlay");
+    const resumeBtn = root.querySelector("#mem-resume");
+    const bankBtn = root.querySelector("#mem-bank");
 
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
@@ -110,6 +133,11 @@
       clearTimeout(flipTimer);
       levelTimer = null;
       flipTimer = null;
+      pendingMismatch = null;
+      paused = false;
+      pausedByVisibility = false;
+      pausedLevelRemaining = 0;
+      pausedFlipRemaining = 0;
       level = 1;
       totalScore = 0;
       hp = MAX_HP;
@@ -117,6 +145,7 @@
       submitted = false;
       scoreEl.textContent = "0";
       startLevel();
+      syncPauseUi();
     }
 
     function startLevel() {
@@ -168,6 +197,7 @@
         );
         btn.disabled = (gameOver ? false : c.matched || lock);
         btn.addEventListener("click", () => {
+          if (paused || pausedByVisibility) return;
           // After a run ends, tap the board to start a new one
           if (gameOver) {
             ArcadeSFX?.click?.();
@@ -196,6 +226,8 @@
     function endRun() {
       if (gameOver) return;
       gameOver = true;
+      paused = false;
+      pausedByVisibility = false;
       lock = true;
       ArcadeSFX?.lose();
       hintEl.textContent = `Out of hearts · Level ${level} · ${totalScore} pts`;
@@ -207,14 +239,145 @@
           meta: { level, board: boardSizeEl.textContent },
         });
       }
+      syncPauseUi();
     }
 
     function markSeen(...indices) {
       for (const idx of indices) seen.add(idx);
     }
 
+    function resolveMismatch() {
+      if (!pendingMismatch) return;
+      const { a, b, shouldCostHeart } = pendingMismatch;
+      pendingMismatch = null;
+      markSeen(a, b);
+      flipped = [];
+      lock = false;
+      render();
+      if (shouldCostHeart) {
+        loseHeart();
+        if (!gameOver) {
+          hintEl.textContent = `Memory miss · ${hp} heart${hp === 1 ? "" : "s"} left`;
+        }
+      } else if (!gameOver) {
+        hintEl.textContent = "Scout peek — no heart lost";
+        ArcadeSFX?.tick?.();
+      }
+    }
+
+    function armMismatch(a, b, shouldCostHeart, delay) {
+      pendingMismatch = { a, b, shouldCostHeart };
+      lock = true;
+      flipDueAt = Date.now() + delay;
+      clearTimeout(flipTimer);
+      flipTimer = setTimeout(() => {
+        flipTimer = null;
+        resolveMismatch();
+      }, delay);
+    }
+
+    function armLevelAdvance(delay) {
+      levelDueAt = Date.now() + delay;
+      clearTimeout(levelTimer);
+      levelTimer = setTimeout(() => {
+        levelTimer = null;
+        if (gameOver || paused) return;
+        level += 1;
+        ArcadeSFX?.levelUp();
+        startLevel();
+      }, delay);
+    }
+
+    function freezeMemoryTimers() {
+      const now = Date.now();
+      if (flipTimer) {
+        clearTimeout(flipTimer);
+        flipTimer = null;
+        pausedFlipRemaining = Math.max(0, flipDueAt - now);
+      } else {
+        pausedFlipRemaining = 0;
+      }
+      if (levelTimer) {
+        clearTimeout(levelTimer);
+        levelTimer = null;
+        pausedLevelRemaining = Math.max(0, levelDueAt - now);
+      } else {
+        pausedLevelRemaining = 0;
+      }
+    }
+
+    function unfreezeMemoryTimers() {
+      if (pendingMismatch) {
+        const delay = Math.max(0, pausedFlipRemaining);
+        pausedFlipRemaining = 0;
+        if (delay <= 0) {
+          resolveMismatch();
+        } else {
+          flipDueAt = Date.now() + delay;
+          flipTimer = setTimeout(() => {
+            flipTimer = null;
+            resolveMismatch();
+          }, delay);
+        }
+      } else {
+        pausedFlipRemaining = 0;
+      }
+      if (pausedLevelRemaining > 0) {
+        const delay = pausedLevelRemaining;
+        pausedLevelRemaining = 0;
+        armLevelAdvance(delay);
+      }
+    }
+
+    function syncPauseUi() {
+      const inRun = !gameOver && !submitted;
+      pauseBtn.hidden = !inRun;
+      pauseBtn.disabled = !inRun || paused;
+      pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+      pauseOverlay.hidden = !paused;
+    }
+
+    function pauseRun() {
+      if (gameOver || paused || submitted) return;
+      paused = true;
+      freezeMemoryTimers();
+      hintEl.textContent = "Paused · resume or save your score";
+      syncPauseUi();
+    }
+
+    function resume() {
+      if (!paused || gameOver) return;
+      paused = false;
+      pausedByVisibility = false;
+      unfreezeMemoryTimers();
+      const L = layoutForLevel(level);
+      hintEl.textContent = L.pairs >= 50
+        ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+        : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`;
+      syncPauseUi();
+    }
+
+    function bankRun() {
+      if (gameOver) return;
+      paused = false;
+      pausedByVisibility = false;
+      freezeMemoryTimers();
+      if (!submitted && totalScore > 0) {
+        submitted = true;
+        onScore?.({
+          score: totalScore,
+          meta: { level, board: boardSizeEl?.textContent, endedEarly: true },
+        });
+      }
+      gameOver = true;
+      lock = true;
+      hintEl.textContent = `Score saved · Level ${level} · ${totalScore} pts`;
+      render();
+      syncPauseUi();
+    }
+
     function flip(i) {
-      if (gameOver || lock || cards[i].matched || flipped.includes(i)) return;
+      if (gameOver || paused || pausedByVisibility || lock || cards[i].matched || flipped.includes(i)) return;
       ArcadeSFX?.flip();
       flipped.push(i);
       render();
@@ -250,41 +413,19 @@
           // Don't submit mid-run — partial posts inflated gamesPlayed/XP and cloud noise.
           // Final score is recorded in endRun when hearts run out (or player restarts).
           hintEl.textContent = `Cleared! +${clearBonus} · expanding…`;
-          clearTimeout(levelTimer);
-          levelTimer = setTimeout(() => {
-            levelTimer = null;
-            if (gameOver) return;
-            level += 1;
-            ArcadeSFX?.levelUp();
-            startLevel();
-          }, 700);
+          armLevelAdvance(700);
         }
       } else {
         // Only punish if the player already knew at least one of these cards
         const shouldCostHeart = knewA || knewB;
-        lock = true;
-        clearTimeout(flipTimer);
-        flipTimer = setTimeout(() => {
-          flipTimer = null;
-          markSeen(a, b);
-          flipped = [];
-          lock = false;
-          render();
-          if (shouldCostHeart) {
-            loseHeart();
-            if (!gameOver) {
-              hintEl.textContent = `Memory miss · ${hp} heart${hp === 1 ? "" : "s"} left`;
-            }
-          } else if (!gameOver) {
-            hintEl.textContent = "Scout peek — no heart lost";
-            ArcadeSFX?.tick?.();
-          }
-        }, L.flipMs);
+        armMismatch(a, b, shouldCostHeart, L.flipMs);
       }
     }
 
     root.querySelector("#mem-restart").addEventListener("click", () => {
       ArcadeSFX?.click();
+      paused = false;
+      pausedByVisibility = false;
       // Bank the current run if they scored anything before restarting
       if (!submitted && totalScore > 0 && !gameOver) {
         submitted = true;
@@ -295,6 +436,35 @@
       }
       startRun();
     });
+    pauseBtn.addEventListener("click", pauseRun);
+    resumeBtn.addEventListener("click", resume);
+    bankBtn.addEventListener("click", bankRun);
+
+    function onKey(e) {
+      if (e.key.toLowerCase() !== "p") return;
+      e.preventDefault();
+      if (paused) resume();
+      else pauseRun();
+    }
+    window.addEventListener("keydown", onKey);
+
+    function onVisibility() {
+      if (document.hidden) {
+        if (!gameOver && !paused && !pausedByVisibility) {
+          pausedByVisibility = true;
+          freezeMemoryTimers();
+          hintEl.textContent = "Paused (tab hidden) · return to resume";
+        }
+      } else if (pausedByVisibility && !gameOver) {
+        pausedByVisibility = false;
+        unfreezeMemoryTimers();
+        const L = layoutForLevel(level);
+        hintEl.textContent = L.pairs >= 50
+          ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+          : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`;
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
 
     startRun();
 
@@ -312,6 +482,8 @@
         clearTimeout(flipTimer);
         levelTimer = null;
         flipTimer = null;
+        window.removeEventListener("keydown", onKey);
+        document.removeEventListener("visibilitychange", onVisibility);
         root.innerHTML = "";
       },
     };

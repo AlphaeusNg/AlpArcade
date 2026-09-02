@@ -154,6 +154,22 @@ assert(
   "long Space Shooter runs stay under the fairness cap and every endless cabinet commits on leave",
 );
 assert(
+  ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {
+    const src = read(`js/games/${id}.js`);
+    return (
+      src.includes("function pauseRun()") &&
+      src.includes("function bankRun()") &&
+      src.includes("Save score & end") &&
+      src.includes("run-pause-overlay")
+    );
+  }) &&
+    read("css/games.css").includes(".run-pause-overlay") &&
+    read("css/games.css").includes(".run-pause-bank") &&
+    read("js/games/jubeat.js").includes("Save score & end") &&
+    read("js/app.js").includes("save score & end"),
+  "endless cabinets share a pause overlay that can bank the current score",
+);
+assert(
   read("js/games/breaker.js").includes('id: "wide"')
     && read("js/games/breaker.js").includes("function splitBalls()")
     && read("js/games/breaker.js").includes('id: "extra"')
