@@ -511,7 +511,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.03.3");
+  await expect(page.locator("#site-version")).toContainText("2026.09.03.4");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
