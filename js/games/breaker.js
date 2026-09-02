@@ -27,6 +27,8 @@
   const BANK_TOP = 28;
   const SELECT_MAX = 12;
   const LAYOUT_W = 480;
+  const WIDE_END_GAP = 12;
+  const WIDE_MAX_STACKS = 6;
 
   function layoutDims(level, boardW = LAYOUT_W) {
     const n = Math.max(1, Math.floor(Number(level) || 1));
@@ -104,6 +106,7 @@
     let submitted = false;
     let toastTimer = 0;
     let powerMarkup = "";
+    let wideStacks = 0;
 
     function has(id) {
       return (active[id] || 0) > 0;
@@ -118,7 +121,10 @@
 
     function paddleWidth() {
       const L = layoutForLevel(row);
-      return L.paddleW + (has("wide") ? L.paddleW * 0.5 : 0);
+      const maxW = Math.max(L.paddleW, W - WIDE_END_GAP * 2);
+      if (wideStacks <= 0) return L.paddleW;
+      const t = Math.min(1, wideStacks / WIDE_MAX_STACKS);
+      return L.paddleW + (maxW - L.paddleW) * t;
     }
 
     function clampPaddle() {
@@ -196,6 +202,7 @@
       lives = 3;
       submitted = false;
       active = {};
+      wideStacks = 0;
       drops = [];
       spawnBank(level);
       paddle.x = W / 2;
@@ -215,7 +222,8 @@
       const chips = POWER_DROP_ORDER.filter((id) => POWERS[id].duration > 0 && has(id)).map((id) => {
         const p = POWERS[id];
         const t = Math.ceil((active[id] || 0) / 60);
-        return `<span class="br-power-chip" style="--pc:${p.color}">${p.glyph} ${p.label} <small>${t}s</small></span>`;
+        const stacks = id === "wide" && wideStacks > 1 ? ` ×${wideStacks}` : "";
+        return `<span class="br-power-chip" style="--pc:${p.color}">${p.glyph} ${p.label}${stacks} <small>${t}s</small></span>`;
       });
       if (balls.length > 1) {
         chips.unshift(
@@ -291,6 +299,23 @@
         paintPowers();
         hintEl.textContent =
           balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`;
+        return;
+      }
+
+      if (id === "wide") {
+        wideStacks = Math.min(WIDE_MAX_STACKS, wideStacks + 1);
+        active.wide = def.duration * 1.35;
+        showPickup(
+          wideStacks >= WIDE_MAX_STACKS ? "▬▬ Full width!" : `▬▬ Wide ×${wideStacks}`,
+          def.color
+        );
+        global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
+        clampPaddle();
+        paintPowers();
+        hintEl.textContent =
+          wideStacks >= WIDE_MAX_STACKS
+            ? "Paddle spans the board"
+            : `Wide ×${wideStacks} · more Wide grows the bar`;
         return;
       }
 
@@ -477,6 +502,7 @@
       livesEl.textContent = String(lives);
       submitted = false;
       active = {};
+      wideStacks = 0;
       drops = [];
       spawnBank(row);
       paddle.x = W / 2;
@@ -506,8 +532,10 @@
           active[id] -= dt;
           if (active[id] <= 0) {
             active[id] = 0;
+            if (id === "wide") wideStacks = 0;
             powersDirty = true;
             hintEl.textContent = `${POWERS[id]?.label || id} expired`;
+            if (id === "wide") clampPaddle();
           }
         }
       }
