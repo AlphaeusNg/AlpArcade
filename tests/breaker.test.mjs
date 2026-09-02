@@ -21,5 +21,9 @@ assertDims(2, 12, 2, "level 2 grows 1.5× to 12×2");
 assertDims(3, 18, 3, "level 3 grows 1.5× to 18×3");
 assert.ok(layoutDims(6).cols > layoutDims(5).cols || layoutDims(6).rows > layoutDims(5).rows);
 assert.ok(layoutDims(20).cols <= 72 && layoutDims(20).rows <= 32);
+for (let level = 1; level <= 12; level += 1) {
+  const d = layoutDims(level);
+  assert.ok(d.bw > d.bh, `level ${level} bricks stay wider than they are tall (${d.bw}×${d.bh})`);
+}
 
 console.log("Circuit Breaker level layout passed.");

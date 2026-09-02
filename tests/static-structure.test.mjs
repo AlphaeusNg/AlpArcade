@@ -167,6 +167,8 @@ assert(
     && read("js/games/breaker.js").includes("function layoutDims")
     && !read("js/games/breaker.js").includes("function ballCaught")
     && read("js/games/breaker.js").includes("if (paddleCaught(p))")
+    && read("js/games/breaker.js").includes('id="br-levels"')
+    && read("js/games/breaker.js").includes("function beginLevel")
     && read("css/games.css").includes(".br-powers")
     && read("css/games.css").includes(".br-power-chip"),
   "Circuit Breaker ships large banks and exponential split floods without slow-mo",

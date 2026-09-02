@@ -25,8 +25,10 @@
   const MAX_COLS = 72;
   const MAX_ROWS = 32;
   const BANK_TOP = 28;
+  const SELECT_MAX = 12;
+  const LAYOUT_W = 480;
 
-  function layoutDims(level) {
+  function layoutDims(level, boardW = LAYOUT_W) {
     const n = Math.max(1, Math.floor(Number(level) || 1));
     let cols = BASE_COLS;
     let rows = BASE_ROWS;
@@ -34,12 +36,16 @@
       cols = Math.min(MAX_COLS, Math.max(cols + 1, Math.round(cols * LEVEL_GROWTH)));
       rows = Math.min(MAX_ROWS, Math.max(rows + 1, Math.round(rows * LEVEL_GROWTH)));
     }
-    return { cols, rows };
+    const gap = cols >= 36 ? 1 : cols >= 18 ? 2 : 4;
+    const bw = Math.max(3, (boardW - gap * (cols + 1)) / cols);
+    const bh = Math.max(3, Math.min(bw * 0.4, 16));
+    return { cols, rows, gap, bw, bh, rowStep: bh + gap };
   }
 
   function mount(root, { onScore }) {
     root.innerHTML = `
       <div class="breaker-wrap">
+        <div class="diff-bar" id="br-levels" role="tablist" aria-label="Level"></div>
         <div class="game-hud">
           <div><span class="hud-label">Score</span><strong id="br-score">0</strong></div>
           <div><span class="hud-label">Lives</span><strong id="br-lives">3</strong></div>
@@ -50,7 +56,7 @@
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
         </div>
-        <p class="game-hint" id="br-hint">Catch capsules with the paddle · level 1 is 8×1</p>
+        <p class="game-hint" id="br-hint">Pick a level · catch capsules with the paddle · 8×1 start</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
         </div>
@@ -65,6 +71,7 @@
     const startBtn = root.querySelector("#br-start");
     const powersEl = root.querySelector("#br-powers");
     const pickupToast = root.querySelector("#br-pickup-toast");
+    const levelsEl = root.querySelector("#br-levels");
 
     const W = 480;
     const H = 560;
@@ -88,6 +95,7 @@
     let score = 0;
     let lives = 3;
     let row = 1;
+    let selectedLevel = 1;
     let paddle = { x: W / 2, w: 148, h: 12, y: H - 32 };
     let balls = [];
     let bricks = [];
@@ -102,16 +110,10 @@
     }
 
     function layoutForLevel(level) {
-      const { cols, rows } = layoutDims(level);
-      const gap = cols >= 36 ? 1 : cols >= 18 ? 2 : 4;
-      const playH = Math.max(48, paddle.y - 36 - BANK_TOP);
-      const maxBh = rows === 1 ? 40 : 26;
-      const rowStep = Math.min(maxBh + gap, playH / rows);
-      const bh = Math.max(3, rowStep - gap);
-      const bw = Math.max(3, (W - gap * (cols + 1)) / cols);
-      const paddleW = Math.max(22, Math.min(160, bw * 2.35));
-      const ballR = Math.max(2.6, Math.min(BALL_R, Math.min(bw, bh) * 0.22 + 2.4));
-      return { cols, rows, gap, bw, bh, rowStep, paddleW, ballR };
+      const L = layoutDims(level, W);
+      const paddleW = Math.max(22, Math.min(160, L.bw * 2.35));
+      const ballR = Math.max(2.6, Math.min(BALL_R, L.bw * 0.18 + 2.2));
+      return { ...L, paddleW, ballR };
     }
 
     function paddleWidth() {
@@ -168,6 +170,45 @@
         bricks.push(...makeRow(BANK_TOP + r * L.rowStep, L, level + r));
       }
       applyLayout(L);
+    }
+
+    function paintLevels() {
+      if (!levelsEl) return;
+      levelsEl.innerHTML = Array.from({ length: SELECT_MAX }, (_, i) => {
+        const n = i + 1;
+        const on = n === selectedLevel;
+        return `<button type="button" class="diff-chip${on ? " active" : ""}" data-level="${n}" ${running ? "disabled" : ""} role="tab" aria-selected="${on ? "true" : "false"}">Lv ${n}</button>`;
+      }).join("");
+      levelsEl.querySelectorAll("[data-level]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (running) return;
+          selectedLevel = Number(btn.dataset.level) || 1;
+          window.ArcadeSFX?.click?.();
+          previewLevel(selectedLevel);
+        });
+      });
+    }
+
+    function previewLevel(level) {
+      row = level;
+      selectedLevel = level;
+      score = 0;
+      lives = 3;
+      submitted = false;
+      active = {};
+      drops = [];
+      spawnBank(level);
+      paddle.x = W / 2;
+      clampPaddle();
+      resetBalls();
+      scoreEl.textContent = "0";
+      livesEl.textContent = "3";
+      rowEl.textContent = String(level);
+      const L = layoutForLevel(level);
+      hintEl.textContent = `Level ${level} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
+      paintLevels();
+      paintPowers();
+      draw();
     }
 
     function paintPowers() {
@@ -293,23 +334,9 @@
     }
 
     function init() {
-      score = 0;
-      lives = 3;
-      row = 1;
-      submitted = false;
       paused = false;
       pausedByVisibility = false;
-      active = {};
-      drops = [];
-      bricks = [];
-      spawnBank(1);
-      paddle.x = W / 2;
-      clampPaddle();
-      resetBalls();
-      scoreEl.textContent = "0";
-      livesEl.textContent = "3";
-      rowEl.textContent = "1";
-      paintPowers();
+      previewLevel(selectedLevel);
     }
 
     function commitScore() {
@@ -325,8 +352,10 @@
       cancelAnimationFrame(raf);
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
+      selectedLevel = row;
       hintEl.textContent = `Circuit fried · ${score} pts · level ${row}`;
       commitScore();
+      paintLevels();
     }
 
     function draw() {
@@ -437,14 +466,33 @@
       return false;
     }
 
-    function floodClear() {
-      showPickup(`LEVEL ${row + 1} · ×${balls.length}`, "#38bdf8");
-      global.ArcadeSFX?.win?.() || global.ArcadeSFX?.levelUp?.();
-      row += 1;
+    function beginLevel(level, { keepScore = false } = {}) {
+      row = Math.max(1, level);
+      selectedLevel = row;
+      if (!keepScore) {
+        score = 0;
+        scoreEl.textContent = "0";
+      }
+      lives = keepScore ? lives : 3;
+      livesEl.textContent = String(lives);
+      submitted = false;
+      active = {};
+      drops = [];
+      spawnBank(row);
+      paddle.x = W / 2;
+      clampPaddle();
+      resetBalls();
       rowEl.textContent = String(row);
       const L = layoutForLevel(row);
-      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · ${balls.length} balls still flying`;
-      spawnBank(row);
+      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
+      paintLevels();
+      paintPowers();
+    }
+
+    function floodClear() {
+      showPickup(`LEVEL ${row + 1}`, "#38bdf8");
+      global.ArcadeSFX?.win?.() || global.ArcadeSFX?.levelUp?.();
+      beginLevel(row + 1, { keepScore: true });
     }
 
     function frame(ts) {
@@ -521,13 +569,12 @@
 
     function start() {
       cancelAnimationFrame(raf);
-      init();
+      beginLevel(selectedLevel);
       running = true;
       paused = false;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      const L0 = layoutForLevel(1);
-      hintEl.textContent = `Level 1 · ${L0.cols}×${L0.rows} · catch capsules with the paddle`;
+      paintLevels();
       last = 0;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);

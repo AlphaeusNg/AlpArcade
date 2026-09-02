@@ -3252,6 +3252,17 @@
   width: 100%;
 }
 
+.breaker-wrap .diff-bar {
+  margin-bottom: 0.5rem;
+  gap: 0.3rem;
+  max-width: 480px;
+}
+
+.breaker-wrap .diff-chip {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 .br-stage {
   position: relative;
   width: min(100%, 480px);

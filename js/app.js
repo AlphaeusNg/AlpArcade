@@ -67,7 +67,7 @@
     memory: "Tap cards to match pairs · hearts are lives",
     tapper: "Tap glowing cells · keys 1–9 · three lives",
     jubeat: "Easy + Medium + Extreme · exact arcade charts · 1–4 QWER ASDF ZXCV",
-    breaker: "Drag paddle · boards grow 1.5× each clear",
+    breaker: "Pick a level · catch capsules with the paddle",
   };
 
   function loadLastRun() {
