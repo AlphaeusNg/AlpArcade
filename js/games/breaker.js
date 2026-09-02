@@ -40,7 +40,7 @@
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
         </div>
-        <p class="game-hint" id="br-hint">Drag the paddle · tap to start · stack Split until the field floods</p>
+        <p class="game-hint" id="br-hint">Drag the paddle · balls and paddle both grab capsules</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
         </div>
@@ -248,12 +248,31 @@
       const def = POWERS[id];
       drops.push({
         x,
-        y,
+        y: y + 12,
         id,
         vy: 1.7 + Math.random() * 0.5,
         color: def.color,
         glyph: def.glyph,
       });
+    }
+
+    function paddleCaught(p) {
+      return (
+        p.y + 8 >= paddle.y &&
+        p.y - 8 <= paddle.y + paddle.h &&
+        p.x >= paddle.x - paddle.w / 2 - 8 &&
+        p.x <= paddle.x + paddle.w / 2 + 8
+      );
+    }
+
+    function ballCaught(p) {
+      return balls.some(
+        (ball) =>
+          ball.x + ball.r > p.x - 11 &&
+          ball.x - ball.r < p.x + 11 &&
+          ball.y + ball.r > p.y - 8 &&
+          ball.y - ball.r < p.y + 8
+      );
     }
 
     function init() {
@@ -466,12 +485,7 @@
 
       drops = drops.filter((p) => {
         p.y += p.vy * dt;
-        const caught =
-          p.y + 8 >= paddle.y &&
-          p.y - 8 <= paddle.y + paddle.h &&
-          p.x >= paddle.x - paddle.w / 2 - 8 &&
-          p.x <= paddle.x + paddle.w / 2 + 8;
-        if (caught) {
+        if (paddleCaught(p) || ballCaught(p)) {
           applyPower(p.id);
           return false;
         }

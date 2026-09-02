@@ -162,6 +162,8 @@ assert(
     && read("js/games/breaker.js").includes("const START_ROWS = 14")
     && read("js/games/breaker.js").includes("function floodClear()")
     && read("js/games/breaker.js").includes("0.48 + row * 0.01")
+    && read("js/games/breaker.js").includes("function ballCaught")
+    && read("js/games/breaker.js").includes("paddleCaught(p) || ballCaught(p)")
     && read("css/games.css").includes(".br-powers")
     && read("css/games.css").includes(".br-power-chip"),
   "Circuit Breaker ships large banks and exponential split floods without slow-mo",
