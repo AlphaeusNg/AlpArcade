@@ -235,9 +235,9 @@
     }
 
     function maybeDrop(x, y) {
-      if (drops.length > 12) return;
+      if (drops.length > 18) return;
       const swarm = balls.length >= 8;
-      const chance = swarm ? 0.12 : Math.min(0.36, 0.2 + row * 0.008);
+      const chance = swarm ? 0.34 : Math.min(0.62, 0.48 + row * 0.01);
       if (Math.random() > chance) return;
       const roll = Math.random();
       let id = "wide";
@@ -384,8 +384,8 @@
             if (minX < minY) ball.vx *= -1;
             else ball.vy *= -1;
           }
+          maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
           if (b.hp <= 0) {
-            maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
             bricks.splice(i, 1);
             score += 20 + Math.min(40, row);
             scoreEl.textContent = String(score);
