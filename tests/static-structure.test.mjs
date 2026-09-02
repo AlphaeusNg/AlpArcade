@@ -148,9 +148,12 @@ assert(
     && read("js/games/breaker.js").includes("function splitBalls()")
     && read("js/games/breaker.js").includes('id: "extra"')
     && !read("js/games/breaker.js").includes('id: "slow"')
+    && read("js/games/breaker.js").includes("const MAX_BALLS = 96")
+    && read("js/games/breaker.js").includes("const START_ROWS = 14")
+    && read("js/games/breaker.js").includes("function floodClear()")
     && read("css/games.css").includes(".br-powers")
     && read("css/games.css").includes(".br-power-chip"),
-  "Circuit Breaker ships wide paddle, split, and extra-ball power-ups without slow-mo",
+  "Circuit Breaker ships large banks and exponential split floods without slow-mo",
 );
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");

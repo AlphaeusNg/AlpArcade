@@ -1,6 +1,7 @@
 /**
  * Circuit Breaker — endless brick breaker with falling power-ups.
- * Wide paddle, split / extra balls, and extra lives.
+ * Wide paddle, exponential split / extra balls, and extra lives.
+ * Split doubles the swarm until the field floods and a bank clears.
  */
 (function (global) {
   "use strict";
@@ -16,9 +17,15 @@
   };
 
   const POWER_DROP_ORDER = ["wide", "multi", "extra", "life"];
-  const MAX_BALLS = 8;
-  const BASE_PADDLE_W = 78;
-  const BALL_R = 6;
+  const MAX_BALLS = 96;
+  const BASE_PADDLE_W = 100;
+  const BALL_R = 5;
+  const COLS = 14;
+  const START_ROWS = 14;
+  const ROW_GAP = 3;
+  const BRICK_H = 15;
+  const ROW_STEP = BRICK_H + ROW_GAP;
+  const BANK_TOP = 28;
 
   function mount(root, { onScore }) {
     root.innerHTML = `
@@ -30,10 +37,10 @@
         </div>
         <div class="br-powers" id="br-powers" aria-live="polite"></div>
         <div class="br-stage">
-          <canvas id="br-canvas" width="420" height="480" aria-label="Circuit Breaker"></canvas>
+          <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
         </div>
-        <p class="game-hint" id="br-hint">Drag / move to aim the paddle · tap canvas to start · catch falling power-ups</p>
+        <p class="game-hint" id="br-hint">Drag the paddle · tap to start · stack Split until the field floods</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
         </div>
@@ -49,8 +56,8 @@
     const powersEl = root.querySelector("#br-powers");
     const pickupToast = root.querySelector("#br-pickup-toast");
 
-    const W = 420;
-    const H = 480;
+    const W = 480;
+    const H = 560;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
@@ -71,7 +78,7 @@
     let score = 0;
     let lives = 3;
     let row = 1;
-    let paddle = { x: W / 2, w: BASE_PADDLE_W, h: 12, y: H - 28 };
+    let paddle = { x: W / 2, w: BASE_PADDLE_W, h: 12, y: H - 32 };
     let balls = [];
     let bricks = [];
     let drops = [];
@@ -85,9 +92,13 @@
     }
 
     function paddleWidth() {
-      const shrink = Math.floor(row / 8) * 2;
-      const wide = has("wide") ? 42 : 0;
-      return Math.max(48, Math.min(160, BASE_PADDLE_W - shrink + wide));
+      const shrink = Math.floor(row / 10) * 2;
+      const wide = has("wide") ? 56 : 0;
+      return Math.max(64, Math.min(200, BASE_PADDLE_W - shrink + wide));
+    }
+
+    function bankRows() {
+      return START_ROWS + Math.min(6, Math.floor(Math.max(0, row - 1) / 3));
     }
 
     function clampPaddle() {
@@ -110,22 +121,26 @@
     }
 
     function makeRow(y, hardness) {
-      const cols = 8;
-      const gap = 4;
-      const bw = (W - gap * (cols + 1)) / cols;
-      const bh = 14;
+      const gap = ROW_GAP;
+      const bw = (W - gap * (COLS + 1)) / COLS;
       const list = [];
-      for (let c = 0; c < cols; c++) {
-        if (Math.random() < 0.12) continue;
+      for (let c = 0; c < COLS; c++) {
+        if (Math.random() < 0.04) continue;
         list.push({
           x: gap + c * (bw + gap),
           y,
           w: bw,
-          h: bh,
-          hp: 1 + Math.floor(hardness / 4) + (Math.random() < 0.2 ? 1 : 0),
+          h: BRICK_H,
+          hp: 1 + Math.floor(hardness / 5) + (Math.random() < 0.18 ? 1 : 0),
         });
       }
       return list;
+    }
+
+    function spawnBank(fromY, count, hardness) {
+      for (let r = 0; r < count; r++) {
+        bricks.push(...makeRow(fromY + r * ROW_STEP, hardness + r));
+      }
     }
 
     function paintPowers() {
@@ -141,7 +156,7 @@
       }
       const nextMarkup = chips.length
         ? chips.join("")
-        : `<span class="br-power-empty">Break bricks · catch falling power-ups</span>`;
+        : `<span class="br-power-empty">Stack Split to flood the field</span>`;
       if (nextMarkup === powerMarkup) return;
       powerMarkup = nextMarkup;
       powersEl.innerHTML = nextMarkup;
@@ -163,20 +178,18 @@
     }
 
     function splitBalls() {
-      const next = [];
+      if (!balls.length || balls.length >= MAX_BALLS) return;
+      const spawned = [];
       for (const ball of balls) {
-        if (next.length >= MAX_BALLS) {
-          next.push(ball);
-          continue;
-        }
-        const speed = Math.max(2.6, Math.hypot(ball.vx, ball.vy));
+        if (balls.length + spawned.length >= MAX_BALLS) break;
+        const speed = Math.max(2.8, Math.hypot(ball.vx, ball.vy));
         const ang = Math.atan2(ball.vy, ball.vx);
-        next.push(makeBall(ball.x, ball.y, Math.cos(ang - 0.42) * speed, Math.sin(ang - 0.42) * speed));
-        if (next.length < MAX_BALLS) {
-          next.push(makeBall(ball.x, ball.y, Math.cos(ang + 0.42) * speed, Math.sin(ang + 0.42) * speed));
-        }
+        const spread = 0.32 + Math.random() * 0.28;
+        spawned.push(
+          makeBall(ball.x, ball.y, Math.cos(ang + spread) * speed, Math.sin(ang + spread) * speed)
+        );
       }
-      balls = next.slice(0, MAX_BALLS);
+      balls = balls.concat(spawned).slice(0, MAX_BALLS);
     }
 
     function applyPower(id) {
@@ -194,19 +207,22 @@
 
       if (id === "multi") {
         splitBalls();
-        showPickup("✱ Split shot!", def.color);
+        showPickup(`✱ Split · ×${balls.length}`, def.color);
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
         paintPowers();
-        hintEl.textContent = `${balls.length} balls in play`;
+        hintEl.textContent =
+          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`;
         return;
       }
 
       if (id === "extra") {
-        if (balls.length < MAX_BALLS) balls.push(serveBall());
-        showPickup("+ Extra ball!", def.color);
+        const add = Math.max(1, Math.min(MAX_BALLS - balls.length, balls.length));
+        for (let i = 0; i < add; i++) balls.push(serveBall());
+        showPickup(add > 1 ? `+ ${add} balls · ×${balls.length}` : "+ Extra ball!", def.color);
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
         paintPowers();
-        hintEl.textContent = `${balls.length} balls in play`;
+        hintEl.textContent =
+          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`;
         return;
       }
 
@@ -219,12 +235,15 @@
     }
 
     function maybeDrop(x, y) {
-      if (Math.random() > Math.min(0.34, 0.16 + row * 0.008)) return;
+      if (drops.length > 12) return;
+      const swarm = balls.length >= 8;
+      const chance = swarm ? 0.12 : Math.min(0.36, 0.2 + row * 0.008);
+      if (Math.random() > chance) return;
       const roll = Math.random();
       let id = "wide";
-      if (roll < 0.08) id = "life";
-      else if (roll < 0.32) id = "multi";
-      else if (roll < 0.56) id = "extra";
+      if (roll < 0.06) id = "life";
+      else if (roll < (swarm ? 0.58 : 0.4)) id = "multi";
+      else if (roll < (swarm ? 0.84 : 0.68)) id = "extra";
       else id = "wide";
       const def = POWERS[id];
       drops.push({
@@ -247,9 +266,7 @@
       active = {};
       drops = [];
       bricks = [];
-      for (let r = 0; r < 5; r++) {
-        bricks.push(...makeRow(40 + r * 20, r + 1));
-      }
+      spawnBank(BANK_TOP, START_ROWS, 1);
       paddle.x = W / 2;
       clampPaddle();
       resetBalls();
@@ -308,15 +325,19 @@
       ctx.fillRect(paddle.x - paddle.w / 2, paddle.y, paddle.w, paddle.h);
       ctx.shadowBlur = 0;
 
-      for (const ball of balls) {
-        ctx.beginPath();
-        ctx.fillStyle = balls.length > 1 ? "#38bdf8" : "#fbbf24";
+      const swarm = balls.length > 1;
+      const glow = balls.length < 12;
+      ctx.fillStyle = swarm ? "#38bdf8" : "#fbbf24";
+      if (glow) {
         ctx.shadowColor = ctx.fillStyle;
         ctx.shadowBlur = 8;
-        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
       }
+      for (const ball of balls) {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, balls.length > 40 ? 4 : ball.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (glow) ctx.shadowBlur = 0;
 
       if (!running) {
         ctx.fillStyle = "rgba(226,232,240,0.9)";
@@ -338,7 +359,7 @@
         ball.vy = -Math.abs(ball.vy);
         const offset = (ball.x - paddle.x) / (paddle.w / 2);
         ball.vx = offset * 3.6;
-        global.ArcadeSFX?.tick?.();
+        if (balls.length < 12) global.ArcadeSFX?.tick?.();
       }
     }
 
@@ -358,15 +379,20 @@
           const overlapB = b.y + b.h - (ball.y - ball.r);
           const minX = Math.min(overlapL, overlapR);
           const minY = Math.min(overlapT, overlapB);
-          if (minX < minY) ball.vx *= -1;
-          else ball.vy *= -1;
+          const flood = balls.length >= 16;
+          if (!flood || Math.random() < 0.35) {
+            if (minX < minY) ball.vx *= -1;
+            else ball.vy *= -1;
+          }
           if (b.hp <= 0) {
             maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
             bricks.splice(i, 1);
             score += 20 + Math.min(40, row);
             scoreEl.textContent = String(score);
-            global.ArcadeSFX?.hit?.() || global.ArcadeSFX?.click?.();
-          } else {
+            if (!flood || Math.random() < 0.08) {
+              global.ArcadeSFX?.hit?.() || global.ArcadeSFX?.click?.();
+            }
+          } else if (!flood) {
             global.ArcadeSFX?.tick?.();
           }
           return true;
@@ -375,15 +401,25 @@
       return false;
     }
 
+    function floodClear() {
+      showPickup(`FLOOD CLEAR · ×${balls.length}`, "#38bdf8");
+      global.ArcadeSFX?.win?.() || global.ArcadeSFX?.levelUp?.();
+      row += 1;
+      rowEl.textContent = String(row);
+      hintEl.textContent = `Bank cleared · row ${row} · ${balls.length} balls still flying`;
+      spawnBank(BANK_TOP, bankRows(), row);
+      clampPaddle();
+    }
+
     function pushNewRow() {
-      for (const b of bricks) b.y += 20;
+      for (const b of bricks) b.y += ROW_STEP;
       if (bricks.some((b) => b.y + b.h >= paddle.y - 8)) {
         endRun();
         return;
       }
       row += 1;
       rowEl.textContent = String(row);
-      bricks.push(...makeRow(36, row));
+      spawnBank(BANK_TOP, bricks.length ? 2 : bankRows(), row);
       clampPaddle();
     }
 
@@ -442,7 +478,9 @@
         return p.y < H + 20;
       });
 
-      if (!bricks.length || bricks.every((b) => b.y > 100)) {
+      if (!bricks.length) {
+        floodClear();
+      } else if (bricks.every((b) => b.y > 160)) {
         pushNewRow();
         if (!running) {
           draw();
@@ -475,7 +513,7 @@
       paused = false;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear bricks · catch power-ups · rows never stop";
+      hintEl.textContent = "Clear the bank · stack Split to flood";
       last = 0;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);
@@ -489,7 +527,7 @@
       last = 0;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear bricks · catch power-ups · rows never stop";
+      hintEl.textContent = "Clear the bank · stack Split to flood";
       raf = requestAnimationFrame(frame);
     }
 
