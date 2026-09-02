@@ -1,6 +1,6 @@
 /**
- * Circuit Breaker — endless brick breaker with falling power-ups.
- * Wide paddle, exponential split / extra balls, and extra lives.
+ * Circuit Breaker — brick banks that grow 1.5× each clear.
+ * Level 1 is 8×1; bricks and the paddle shrink to fit denser boards.
  * Split doubles the swarm until the field floods and a bank clears.
  */
 (function (global) {
@@ -18,13 +18,12 @@
 
   const POWER_DROP_ORDER = ["wide", "multi", "extra", "life"];
   const MAX_BALLS = 96;
-  const BASE_PADDLE_W = 100;
   const BALL_R = 5;
-  const COLS = 14;
-  const START_ROWS = 14;
-  const ROW_GAP = 3;
-  const BRICK_H = 15;
-  const ROW_STEP = BRICK_H + ROW_GAP;
+  const LEVEL_GROWTH = 1.5;
+  const BASE_COLS = 8;
+  const BASE_ROWS = 1;
+  const MAX_COLS = 72;
+  const MAX_ROWS = 32;
   const BANK_TOP = 28;
 
   function mount(root, { onScore }) {
@@ -33,14 +32,14 @@
         <div class="game-hud">
           <div><span class="hud-label">Score</span><strong id="br-score">0</strong></div>
           <div><span class="hud-label">Lives</span><strong id="br-lives">3</strong></div>
-          <div><span class="hud-label">Row</span><strong id="br-row">1</strong></div>
+          <div><span class="hud-label">Level</span><strong id="br-row">1</strong></div>
         </div>
         <div class="br-powers" id="br-powers" aria-live="polite"></div>
         <div class="br-stage">
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
         </div>
-        <p class="game-hint" id="br-hint">Drag the paddle · balls and paddle both grab capsules</p>
+        <p class="game-hint" id="br-hint">Level 1 is 8 bricks · boards grow 1.5× and shrink to fit</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
         </div>
@@ -78,7 +77,7 @@
     let score = 0;
     let lives = 3;
     let row = 1;
-    let paddle = { x: W / 2, w: BASE_PADDLE_W, h: 12, y: H - 32 };
+    let paddle = { x: W / 2, w: 148, h: 12, y: H - 32 };
     let balls = [];
     let bricks = [];
     let drops = [];
@@ -91,28 +90,45 @@
       return (active[id] || 0) > 0;
     }
 
-    function paddleWidth() {
-      const shrink = Math.floor(row / 10) * 2;
-      const wide = has("wide") ? 56 : 0;
-      return Math.max(64, Math.min(200, BASE_PADDLE_W - shrink + wide));
+    function layoutForLevel(level) {
+      const n = Math.max(1, Math.floor(Number(level) || 1));
+      const scale = Math.pow(LEVEL_GROWTH, n - 1);
+      const cols = Math.min(MAX_COLS, Math.max(BASE_COLS, Math.round(BASE_COLS * scale)));
+      const rows = Math.min(MAX_ROWS, Math.max(BASE_ROWS, Math.round(BASE_ROWS * scale)));
+      const gap = cols >= 36 ? 1 : cols >= 18 ? 2 : 4;
+      const playH = Math.max(48, paddle.y - 36 - BANK_TOP);
+      const rowStep = Math.min(30, playH / rows);
+      const bh = Math.max(3, rowStep - gap);
+      const bw = Math.max(3, (W - gap * (cols + 1)) / cols);
+      const paddleW = Math.max(22, Math.min(160, bw * 2.35));
+      const ballR = Math.max(2.6, Math.min(BALL_R, Math.min(bw, bh) * 0.28));
+      return { cols, rows, gap, bw, bh, rowStep, paddleW, ballR };
     }
 
-    function bankRows() {
-      return START_ROWS + Math.min(6, Math.floor(Math.max(0, row - 1) / 3));
+    function paddleWidth() {
+      const L = layoutForLevel(row);
+      return L.paddleW + (has("wide") ? L.paddleW * 0.5 : 0);
     }
 
     function clampPaddle() {
       paddle.w = paddleWidth();
+      paddle.h = Math.max(7, Math.min(12, layoutForLevel(row).bh * 0.45 + 6));
       paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, paddle.x));
     }
 
+    function applyLayout(L) {
+      const layout = L || layoutForLevel(row);
+      for (const ball of balls) ball.r = layout.ballR;
+      clampPaddle();
+    }
+
     function makeBall(x, y, vx, vy) {
-      return { x, y, vx, vy, r: BALL_R };
+      return { x, y, vx, vy, r: layoutForLevel(row).ballR };
     }
 
     function serveBall() {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
-      const sp = 3.2 + Math.min(4, row * 0.08);
+      const sp = 3.2 + Math.min(5.5, (row - 1) * 0.35);
       return makeBall(paddle.x, paddle.y - 16, Math.cos(a) * sp, Math.sin(a) * sp);
     }
 
@@ -120,27 +136,29 @@
       balls = [serveBall()];
     }
 
-    function makeRow(y, hardness) {
-      const gap = ROW_GAP;
-      const bw = (W - gap * (COLS + 1)) / COLS;
+    function makeRow(y, L, hardness) {
       const list = [];
-      for (let c = 0; c < COLS; c++) {
-        if (Math.random() < 0.04) continue;
+      const skip = L.cols <= 12 ? 0 : 0.03;
+      for (let c = 0; c < L.cols; c++) {
+        if (Math.random() < skip) continue;
         list.push({
-          x: gap + c * (bw + gap),
+          x: L.gap + c * (L.bw + L.gap),
           y,
-          w: bw,
-          h: BRICK_H,
-          hp: 1 + Math.floor(hardness / 5) + (Math.random() < 0.18 ? 1 : 0),
+          w: L.bw,
+          h: L.bh,
+          hp: 1 + Math.floor(hardness / 6) + (Math.random() < 0.12 ? 1 : 0),
         });
       }
       return list;
     }
 
-    function spawnBank(fromY, count, hardness) {
-      for (let r = 0; r < count; r++) {
-        bricks.push(...makeRow(fromY + r * ROW_STEP, hardness + r));
+    function spawnBank(level) {
+      const L = layoutForLevel(level);
+      bricks = [];
+      for (let r = 0; r < L.rows; r++) {
+        bricks.push(...makeRow(BANK_TOP + r * L.rowStep, L, level + r));
       }
+      applyLayout(L);
     }
 
     function paintPowers() {
@@ -285,7 +303,7 @@
       active = {};
       drops = [];
       bricks = [];
-      spawnBank(BANK_TOP, START_ROWS, 1);
+      spawnBank(1);
       paddle.x = W / 2;
       clampPaddle();
       resetBalls();
@@ -308,7 +326,7 @@
       cancelAnimationFrame(raf);
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
-      hintEl.textContent = `Circuit fried · ${score} pts · row ${row}`;
+      hintEl.textContent = `Circuit fried · ${score} pts · level ${row}`;
       commitScore();
     }
 
@@ -421,25 +439,13 @@
     }
 
     function floodClear() {
-      showPickup(`FLOOD CLEAR · ×${balls.length}`, "#38bdf8");
+      showPickup(`LEVEL ${row + 1} · ×${balls.length}`, "#38bdf8");
       global.ArcadeSFX?.win?.() || global.ArcadeSFX?.levelUp?.();
       row += 1;
       rowEl.textContent = String(row);
-      hintEl.textContent = `Bank cleared · row ${row} · ${balls.length} balls still flying`;
-      spawnBank(BANK_TOP, bankRows(), row);
-      clampPaddle();
-    }
-
-    function pushNewRow() {
-      for (const b of bricks) b.y += ROW_STEP;
-      if (bricks.some((b) => b.y + b.h >= paddle.y - 8)) {
-        endRun();
-        return;
-      }
-      row += 1;
-      rowEl.textContent = String(row);
-      spawnBank(BANK_TOP, bricks.length ? 2 : bankRows(), row);
-      clampPaddle();
+      const L = layoutForLevel(row);
+      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · ${balls.length} balls still flying`;
+      spawnBank(row);
     }
 
     function frame(ts) {
@@ -494,12 +500,6 @@
 
       if (!bricks.length) {
         floodClear();
-      } else if (bricks.every((b) => b.y > 160)) {
-        pushNewRow();
-        if (!running) {
-          draw();
-          return;
-        }
       }
 
       if (!balls.length) {
@@ -527,7 +527,7 @@
       paused = false;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear the bank · stack Split to flood";
+      hintEl.textContent = "Clear the bank · each level grows 1.5×";
       last = 0;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);
@@ -541,7 +541,7 @@
       last = 0;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear the bank · stack Split to flood";
+      hintEl.textContent = "Clear the bank · each level grows 1.5×";
       raf = requestAnimationFrame(frame);
     }
 
