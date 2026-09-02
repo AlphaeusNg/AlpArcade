@@ -1,7 +1,7 @@
 /**
  * Circuit Breaker — brick banks that grow 1.5× each clear.
  * Level 1 is 8×1; bricks and the paddle shrink to fit denser boards.
- * Split doubles the swarm until the field floods and a bank clears.
+ * Split grows a small swarm; later banks drop fewer capsules so clears stay skillful.
  */
 (function (global) {
   "use strict";
@@ -29,6 +29,7 @@
   const LAYOUT_W = 480;
   const WIDE_END_GAP = 12;
   const WIDE_MAX_STACKS = 14;
+  const DROP_FIELD_MAX = 6;
 
   function layoutDims(level, boardW = LAYOUT_W) {
     const n = Math.max(1, Math.floor(Number(level) || 1));
@@ -42,6 +43,55 @@
     const bw = Math.max(3, (boardW - gap * (cols + 1)) / cols);
     const bh = Math.max(3, Math.min(bw * 0.4, 16));
     return { cols, rows, gap, bw, bh, rowStep: bh + gap };
+  }
+
+  /** Expected capsules per bank stay ~2–4; denser boards and swarms drop less often per brick. */
+  function dropChance(level, brickCount, ballCount) {
+    const lv = Math.max(1, Math.floor(Number(level) || 1));
+    const bricks = Math.max(8, Number(brickCount) || 8);
+    const swarm = Math.max(1, Number(ballCount) || 1);
+    const target = 2.2 + Math.min(1.6, (lv - 1) * 0.12);
+    const swarmTrim = swarm >= 8 ? 0.65 : swarm >= 4 ? 0.8 : 1;
+    const base = Math.max(0.008, Math.min(0.26, target / bricks));
+    return base * swarmTrim;
+  }
+
+  function pickPowerId(level, ballCount, rand = Math.random) {
+    const roll = rand();
+    const swarm = (Number(ballCount) || 1) >= 4;
+    const hard = (Number(level) || 1) >= 5;
+    const life = 0.07;
+    let splitEnd;
+    let extraEnd;
+    if (swarm) {
+      splitEnd = life + 0.1;
+      extraEnd = splitEnd + 0.08;
+    } else if (hard) {
+      splitEnd = life + 0.18;
+      extraEnd = splitEnd + 0.12;
+    } else {
+      splitEnd = life + 0.28;
+      extraEnd = splitEnd + 0.18;
+    }
+    if (roll < life) return "life";
+    if (roll < splitEnd) return "multi";
+    if (roll < extraEnd) return "extra";
+    return "wide";
+  }
+
+  /** Double a tiny swarm; later catches add a couple of balls instead of copying the field. */
+  function splitSpawnCount(ballCount) {
+    const n = Math.max(0, Math.floor(Number(ballCount) || 0));
+    if (n <= 0) return 0;
+    if (n <= 2) return n;
+    if (n < 8) return 2;
+    return 1;
+  }
+
+  function extraSpawnCount(ballCount) {
+    const n = Math.max(0, Math.floor(Number(ballCount) || 0));
+    if (n <= 0) return 0;
+    return 1;
   }
 
   function mount(root, { onScore }) {
@@ -246,7 +296,7 @@
       }
       const nextMarkup = chips.length
         ? chips.join("")
-        : `<span class="br-power-empty">Stack Split to flood the field</span>`;
+        : `<span class="br-power-empty">Wide stacks · Split stays scarce on later banks</span>`;
       if (nextMarkup === powerMarkup) return;
       powerMarkup = nextMarkup;
       powersEl.innerHTML = nextMarkup;
@@ -269,9 +319,10 @@
 
     function splitBalls() {
       if (!balls.length || balls.length >= MAX_BALLS) return;
+      const add = Math.min(MAX_BALLS - balls.length, splitSpawnCount(balls.length));
       const spawned = [];
-      for (const ball of balls) {
-        if (balls.length + spawned.length >= MAX_BALLS) break;
+      for (let i = 0; i < add; i++) {
+        const ball = balls[i % balls.length];
         const speed = Math.max(2.8, Math.hypot(ball.vx, ball.vy));
         const ang = Math.atan2(ball.vy, ball.vx);
         const spread = 0.32 + Math.random() * 0.28;
@@ -279,7 +330,7 @@
           makeBall(ball.x, ball.y, Math.cos(ang + spread) * speed, Math.sin(ang + spread) * speed)
         );
       }
-      balls = balls.concat(spawned).slice(0, MAX_BALLS);
+      balls = balls.concat(spawned);
     }
 
     function applyPower(id) {
@@ -306,7 +357,7 @@
       }
 
       if (id === "extra") {
-        const add = Math.max(1, Math.min(MAX_BALLS - balls.length, balls.length));
+        const add = Math.min(MAX_BALLS - balls.length, extraSpawnCount(balls.length));
         for (let i = 0; i < add; i++) balls.push(serveBall());
         showPickup(add > 1 ? `+ ${add} balls · ×${balls.length}` : "+ Extra ball!", def.color);
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
@@ -342,16 +393,11 @@
     }
 
     function maybeDrop(x, y) {
-      if (drops.length > 18) return;
-      const swarm = balls.length >= 8;
-      const chance = swarm ? 0.34 : Math.min(0.62, 0.48 + row * 0.01);
+      if (drops.length >= DROP_FIELD_MAX) return;
+      const L = layoutDims(row);
+      const chance = dropChance(row, L.cols * L.rows, balls.length);
       if (Math.random() > chance) return;
-      const roll = Math.random();
-      let id = "wide";
-      if (roll < 0.06) id = "life";
-      else if (roll < (swarm ? 0.58 : 0.4)) id = "multi";
-      else if (roll < (swarm ? 0.84 : 0.68)) id = "extra";
-      else id = "wide";
+      const id = pickPowerId(row, balls.length);
       const def = POWERS[id];
       drops.push({
         x,
@@ -490,11 +536,11 @@
             if (minX < minY) ball.vx *= -1;
             else ball.vy *= -1;
           }
-          maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
           if (b.hp <= 0) {
             bricks.splice(i, 1);
             score += 20 + Math.min(40, row);
             scoreEl.textContent = String(score);
+            maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
             if (!flood || Math.random() < 0.08) {
               global.ArcadeSFX?.hit?.() || global.ArcadeSFX?.click?.();
             }
@@ -749,5 +795,12 @@
     };
   }
 
-  global.GameBreaker = { mount, layoutDims };
+  global.GameBreaker = {
+    mount,
+    layoutDims,
+    dropChance,
+    pickPowerId,
+    splitSpawnCount,
+    extraSpawnCount,
+  };
 })(window);

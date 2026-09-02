@@ -8,7 +8,8 @@ const source = fs.readFileSync(path.join(root, "js/games/breaker.js"), "utf8");
 const context = { window: {}, Math, Number };
 vm.createContext(context);
 vm.runInContext(source, context);
-const { layoutDims } = context.window.GameBreaker;
+const { layoutDims, dropChance, pickPowerId, splitSpawnCount, extraSpawnCount } =
+  context.window.GameBreaker;
 
 function assertDims(level, cols, rows, message) {
   const d = layoutDims(level);
@@ -25,5 +26,27 @@ for (let level = 1; level <= 12; level += 1) {
   const d = layoutDims(level);
   assert.ok(d.bw > d.bh, `level ${level} bricks stay wider than they are tall (${d.bw}×${d.bh})`);
 }
+
+const level1Bricks = layoutDims(1).cols * layoutDims(1).rows;
+const level6Bricks = layoutDims(6).cols * layoutDims(6).rows;
+assert.ok(
+  dropChance(1, level1Bricks, 1) > dropChance(6, level6Bricks, 1),
+  "later banks drop capsules less often per brick"
+);
+assert.ok(
+  dropChance(6, level6Bricks, 8) < dropChance(6, level6Bricks, 1),
+  "a swarm trims drop chance so floods do not rain more capsules"
+);
+assert.ok(dropChance(1, level1Bricks, 1) <= 0.26);
+assert.ok(dropChance(6, level6Bricks, 1) < 0.05);
+assert.equal(splitSpawnCount(1), 1);
+assert.equal(splitSpawnCount(2), 2);
+assert.equal(splitSpawnCount(7), 2);
+assert.equal(splitSpawnCount(16), 1);
+assert.equal(extraSpawnCount(8), 1);
+assert.equal(pickPowerId(1, 1, () => 0.6), "wide");
+assert.equal(pickPowerId(1, 1, () => 0.2), "multi");
+assert.equal(pickPowerId(6, 8, () => 0.2), "extra");
+assert.equal(pickPowerId(6, 8, () => 0.4), "wide");
 
 console.log("Circuit Breaker level layout passed.");
