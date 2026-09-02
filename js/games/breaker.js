@@ -1,6 +1,6 @@
 /**
  * Circuit Breaker — endless brick breaker with falling power-ups.
- * Wide paddle, split / extra balls, slow-mo, and extra lives.
+ * Wide paddle, split / extra balls, and extra lives.
  */
 (function (global) {
   "use strict";
@@ -12,11 +12,10 @@
     wide: { id: "wide", label: "Wide", color: "#2dd4bf", glyph: "▬▬", duration: 520 },
     multi: { id: "multi", label: "Split", color: "#38bdf8", glyph: "✱", duration: 0 },
     extra: { id: "extra", label: "Extra ball", color: "#a78bfa", glyph: "+", duration: 0 },
-    slow: { id: "slow", label: "Slow-mo", color: "#fbbf24", glyph: "⏳", duration: 420 },
     life: { id: "life", label: "+Life", color: "#fb7185", glyph: "♥", duration: 0 },
   };
 
-  const POWER_DROP_ORDER = ["wide", "multi", "extra", "slow", "life"];
+  const POWER_DROP_ORDER = ["wide", "multi", "extra", "life"];
   const MAX_BALLS = 8;
   const BASE_PADDLE_W = 78;
   const BALL_R = 6;
@@ -224,9 +223,8 @@
       const roll = Math.random();
       let id = "wide";
       if (roll < 0.08) id = "life";
-      else if (roll < 0.28) id = "multi";
-      else if (roll < 0.48) id = "extra";
-      else if (roll < 0.68) id = "slow";
+      else if (roll < 0.32) id = "multi";
+      else if (roll < 0.56) id = "extra";
       else id = "wide";
       const def = POWERS[id];
       drops.push({
@@ -393,7 +391,6 @@
       if (!running) return;
       const dt = Math.min(32, ts - (last || ts)) / 16.67;
       last = ts;
-      const ballDt = has("slow") ? dt * 0.55 : dt;
 
       let powersDirty = false;
       for (const id of Object.keys(active)) {
@@ -409,8 +406,8 @@
       if (powersDirty || Math.floor(ts / 250) % 2 === 0) paintPowers();
 
       for (const ball of balls) {
-        ball.x += ball.vx * ballDt;
-        ball.y += ball.vy * ballDt;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
 
         if (ball.x < ball.r) {
           ball.x = ball.r;

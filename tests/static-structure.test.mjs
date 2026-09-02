@@ -147,9 +147,10 @@ assert(
   read("js/games/breaker.js").includes('id: "wide"')
     && read("js/games/breaker.js").includes("function splitBalls()")
     && read("js/games/breaker.js").includes('id: "extra"')
+    && !read("js/games/breaker.js").includes('id: "slow"')
     && read("css/games.css").includes(".br-powers")
     && read("css/games.css").includes(".br-power-chip"),
-  "Circuit Breaker ships wide paddle, split, and extra-ball power-ups",
+  "Circuit Breaker ships wide paddle, split, and extra-ball power-ups without slow-mo",
 );
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
