@@ -308,15 +308,6 @@
       if (raw) {
         const data = JSON.parse(raw);
         const restored = storedStation(data);
-        if (isRecord(data) && data.stopped === true) {
-          const selected = restored || defaultStation();
-          currentId = selected.id;
-          currentLabel = selected.label;
-          lastEmbed = selected.embed;
-          persistPreference(true);
-          updateLabels();
-          return;
-        }
         if (restored) {
           play(restored.id, restored.embed, restored.label);
           nudgeAutoplayOnGesture();

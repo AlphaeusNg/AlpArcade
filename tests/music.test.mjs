@@ -222,8 +222,9 @@ check(restored.buttons[1].classList.contains("is-active"), "saved station button
 const stopped = bootMusic({
   preference: JSON.stringify({ id: "dgray", embed: DGRAY, label: "D.Gray-Man", stopped: true }),
 });
-check(!stopped.music.isPlaying(), "an exact saved stop preference suppresses autoplay");
-check(stopped.elements["bg-music-frame"].srcAssignments === 0, "stopped hydration never mounts media");
+check(stopped.music.isPlaying(), "a saved stop preference cannot suppress autoplay on a new visit");
+check(stopped.elements["bg-music-frame"].src.includes("3OXFbQpZflLoxvjQ5vGJrL"), "a new visit resumes the saved station");
+check(JSON.parse(stopped.stored.get(MUSIC_KEY)).stopped === false, "startup clears a saved stop preference");
 
 const corrupt = bootMusic({ preference: "{bad-json" });
 check(corrupt.music.isPlaying(), "corrupt preference storage falls back to default autoplay");
