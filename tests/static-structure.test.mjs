@@ -186,7 +186,7 @@ assert(
     && read("js/games/breaker.js").includes('id="br-levels"')
     && read("js/games/breaker.js").includes("function beginLevel")
     && read("js/games/breaker.js").includes("const WIDE_END_GAP = 12")
-    && read("js/games/breaker.js").includes("const WIDE_MAX_STACKS = 6")
+    && read("js/games/breaker.js").includes("const WIDE_MAX_STACKS = 14")
     && read("css/games.css").includes(".br-powers")
     && read("css/games.css").includes(".br-power-chip"),
   "Circuit Breaker ships large banks and exponential split floods without slow-mo",

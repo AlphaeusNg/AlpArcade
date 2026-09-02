@@ -28,7 +28,7 @@
   const SELECT_MAX = 12;
   const LAYOUT_W = 480;
   const WIDE_END_GAP = 12;
-  const WIDE_MAX_STACKS = 6;
+  const WIDE_MAX_STACKS = 14;
 
   function layoutDims(level, boardW = LAYOUT_W) {
     const n = Math.max(1, Math.floor(Number(level) || 1));
@@ -329,7 +329,7 @@
         hintEl.textContent =
           wideStacks >= WIDE_MAX_STACKS
             ? "Paddle spans the board"
-            : `Wide ×${wideStacks} · more Wide grows the bar`;
+            : `Wide ×${wideStacks}/${WIDE_MAX_STACKS} · more Wide grows the bar`;
         return;
       }
 
