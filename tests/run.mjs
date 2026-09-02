@@ -11,5 +11,6 @@ import "./achievements.test.mjs";
 import "./error-log.test.mjs";
 import "./jubeat.test.mjs";
 import "./cloud-scores.test.mjs";
+import "./breaker.test.mjs";
 
 console.log("All AlpArcade tests passed.");

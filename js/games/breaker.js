@@ -26,6 +26,17 @@
   const MAX_ROWS = 32;
   const BANK_TOP = 28;
 
+  function layoutDims(level) {
+    const n = Math.max(1, Math.floor(Number(level) || 1));
+    let cols = BASE_COLS;
+    let rows = BASE_ROWS;
+    for (let i = 1; i < n; i++) {
+      cols = Math.min(MAX_COLS, Math.max(cols + 1, Math.round(cols * LEVEL_GROWTH)));
+      rows = Math.min(MAX_ROWS, Math.max(rows + 1, Math.round(rows * LEVEL_GROWTH)));
+    }
+    return { cols, rows };
+  }
+
   function mount(root, { onScore }) {
     root.innerHTML = `
       <div class="breaker-wrap">
@@ -39,7 +50,7 @@
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
         </div>
-        <p class="game-hint" id="br-hint">Level 1 is 8 bricks · boards grow 1.5× and shrink to fit</p>
+        <p class="game-hint" id="br-hint">Catch capsules with the paddle · level 1 is 8×1</p>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
         </div>
@@ -91,17 +102,15 @@
     }
 
     function layoutForLevel(level) {
-      const n = Math.max(1, Math.floor(Number(level) || 1));
-      const scale = Math.pow(LEVEL_GROWTH, n - 1);
-      const cols = Math.min(MAX_COLS, Math.max(BASE_COLS, Math.round(BASE_COLS * scale)));
-      const rows = Math.min(MAX_ROWS, Math.max(BASE_ROWS, Math.round(BASE_ROWS * scale)));
+      const { cols, rows } = layoutDims(level);
       const gap = cols >= 36 ? 1 : cols >= 18 ? 2 : 4;
       const playH = Math.max(48, paddle.y - 36 - BANK_TOP);
-      const rowStep = Math.min(30, playH / rows);
+      const maxBh = rows === 1 ? 40 : 26;
+      const rowStep = Math.min(maxBh + gap, playH / rows);
       const bh = Math.max(3, rowStep - gap);
       const bw = Math.max(3, (W - gap * (cols + 1)) / cols);
       const paddleW = Math.max(22, Math.min(160, bw * 2.35));
-      const ballR = Math.max(2.6, Math.min(BALL_R, Math.min(bw, bh) * 0.28));
+      const ballR = Math.max(2.6, Math.min(BALL_R, Math.min(bw, bh) * 0.22 + 2.4));
       return { cols, rows, gap, bw, bh, rowStep, paddleW, ballR };
     }
 
@@ -280,16 +289,6 @@
         p.y - 8 <= paddle.y + paddle.h &&
         p.x >= paddle.x - paddle.w / 2 - 8 &&
         p.x <= paddle.x + paddle.w / 2 + 8
-      );
-    }
-
-    function ballCaught(p) {
-      return balls.some(
-        (ball) =>
-          ball.x + ball.r > p.x - 11 &&
-          ball.x - ball.r < p.x + 11 &&
-          ball.y + ball.r > p.y - 8 &&
-          ball.y - ball.r < p.y + 8
       );
     }
 
@@ -491,7 +490,7 @@
 
       drops = drops.filter((p) => {
         p.y += p.vy * dt;
-        if (paddleCaught(p) || ballCaught(p)) {
+        if (paddleCaught(p)) {
           applyPower(p.id);
           return false;
         }
@@ -527,7 +526,8 @@
       paused = false;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear the bank · each level grows 1.5×";
+      const L0 = layoutForLevel(1);
+      hintEl.textContent = `Level 1 · ${L0.cols}×${L0.rows} · catch capsules with the paddle`;
       last = 0;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);
@@ -541,7 +541,8 @@
       last = 0;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Clear the bank · each level grows 1.5×";
+      const L = layoutForLevel(row);
+      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
       raf = requestAnimationFrame(frame);
     }
 
@@ -621,5 +622,5 @@
     };
   }
 
-  global.GameBreaker = { mount };
+  global.GameBreaker = { mount, layoutDims };
 })(window);
