@@ -194,6 +194,14 @@ assert(
   "Circuit Breaker ships large banks and exponential split floods without slow-mo",
 );
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
+
+assert(
+  read("js/games/shooter.js").includes("powerMarkup")
+    && read("js/games/shooter.js").includes("if (powersDirty) paintPowers()")
+    && !read("js/games/shooter.js").includes("Math.floor(ts / 250)"),
+  "Space Shooter must cache the power strip and paint only when powersDirty",
+);
+
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
 
 console.log(
