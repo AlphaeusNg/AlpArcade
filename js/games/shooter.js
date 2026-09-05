@@ -105,6 +105,7 @@
       hitAnim,
       hitBannerTimer,
       toastTimer,
+      powerMarkup,
       multiLevel; // stacks multi (1 = double, 2 = triple…)
 
     /**
@@ -148,9 +149,12 @@
         // permanent stacks shouldn't happen; multi is timed
       }
       // Always fill the reserved power strip so the canvas never jumps mid-run
-      powersEl.innerHTML = chips.length
+      const nextMarkup = chips.length
         ? chips.join("")
         : `<span class="sh-power-empty">Powerups drop from wrecks</span>`;
+      if (nextMarkup === powerMarkup) return;
+      powerMarkup = nextMarkup;
+      powersEl.innerHTML = nextMarkup;
     }
 
     function showPickup(text, color) {
@@ -230,6 +234,7 @@
       particles = [];
       powerups = [];
       active = {};
+      powerMarkup = "";
       multiLevel = 0;
       keys = {};
       score = 0;
@@ -455,7 +460,7 @@
           }
         }
       }
-      if (powersDirty || (Math.floor(ts / 250) % 2 === 0)) paintPowers();
+      if (powersDirty) paintPowers();
 
       // 4-direction movement — mild wave bonus so ship keeps up without snowballing
       const baseSpeed = 5.2 + m.pressure * 0.055 + (has("speed") ? 2.4 : 0);

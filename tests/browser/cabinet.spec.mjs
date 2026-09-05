@@ -511,7 +511,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.03.14");
+  await expect(page.locator("#site-version")).toContainText("2026.09.06.1");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
@@ -599,6 +599,43 @@ test("keeps Circuit Breaker's unchanged live power status stable between frames"
   await page.waitForTimeout(650);
 
   const mutations = await page.evaluate(() => window.__breakerPowerMutations);
+  expect(mutations, "unchanged aria-live status must not be replaced every animation frame").toBeLessThanOrEqual(1);
+});
+
+test("keeps Space Shooter's unchanged live power status stable between frames", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Power Strip",
+      xp: 10000,
+      gamesPlayed: 8,
+      highScores: {},
+      history: [],
+      hallOfFame: [],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="shooter"]').click();
+  await expect(page.locator("#sh-canvas")).toBeVisible();
+
+  await page.evaluate(() => {
+    window.__shooterPowerMutations = 0;
+    window.__shooterPowerObserver = new MutationObserver((records) => {
+      window.__shooterPowerMutations += records.filter((record) => record.type === "childList").length;
+    });
+    window.__shooterPowerObserver.observe(document.querySelector("#sh-powers"), {
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  await page.locator("#sh-canvas").click({ position: { x: 210, y: 420 } });
+  await page.waitForTimeout(80);
+  await page.evaluate(() => {
+    window.__shooterPowerMutations = 0;
+  });
+  await page.waitForTimeout(650);
+
+  const mutations = await page.evaluate(() => window.__shooterPowerMutations);
   expect(mutations, "unchanged aria-live status must not be replaced every animation frame").toBeLessThanOrEqual(1);
 });
 
