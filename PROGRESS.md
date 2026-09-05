@@ -1,6 +1,10 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-01 (AlpArcade Cycle 81)
+Last updated: 2026-09-06 (AlpArcade Cycle 82)
+
+## Latest cycle: stop Space Shooter power-strip churn
+
+Space Shooter now caches live power-strip markup and skips identical `innerHTML` writes during the animation loop, matching Circuit Breaker's unchanged-status guard.
 
 ## Current state
 
