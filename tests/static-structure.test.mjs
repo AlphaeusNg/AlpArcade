@@ -34,6 +34,11 @@ for (const file of htmlFiles) {
 const app = read("js/app.js");
 const indexHtml = read("index.html");
 assert(
+  indexHtml.includes('rel="stylesheet" media="print" onload="this.onload=null;this.media=\'all\'"')
+    && /<noscript><link href="https:\/\/fonts\.googleapis\.com\/[^>]+ rel="stylesheet" \/><\/noscript>/.test(indexHtml),
+  "Google Fonts must not block first render and must retain a no-JavaScript fallback",
+);
+assert(
   indexHtml.indexOf('src="js/core/script-loader.js"') >= 0
     && indexHtml.indexOf('src="js/core/script-loader.js"') < indexHtml.indexOf('src="js/app.js"'),
   "the shared lazy script loader must initialize before app.js",

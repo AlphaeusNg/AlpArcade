@@ -40,6 +40,32 @@ test.afterEach(async ({ page }) => {
   expect(runtimeErrors.get(page), "unexpected browser runtime errors").toEqual([]);
 });
 
+test("initializes the lobby without waiting for Google Fonts", async ({ page }) => {
+  let releaseFont;
+  let sawFontRequest;
+  const fontRequested = new Promise((resolve) => {
+    sawFontRequest = resolve;
+  });
+  const fontReleased = new Promise((resolve) => {
+    releaseFont = resolve;
+  });
+  await page.route("https://fonts.googleapis.com/**", async (route) => {
+    sawFontRequest();
+    await fontReleased;
+    await route.fulfill({ status: 200, contentType: "text/css", body: "" });
+  });
+
+  const navigation = page.goto("/", { waitUntil: "domcontentloaded" });
+  await fontRequested;
+  try {
+    await expect(page.locator("#daily-card .daily-badge")).toBeVisible();
+  } finally {
+    releaseFont();
+  }
+  await navigation;
+  await expect(page.locator('link[href^="https://fonts.googleapis.com/"]')).toHaveAttribute("media", "all");
+});
+
 test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const cabinet = page.locator('[data-game="jubeat"]');
@@ -511,7 +537,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.06.1");
+  await expect(page.locator("#site-version")).toContainText("2026.09.06.2");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
