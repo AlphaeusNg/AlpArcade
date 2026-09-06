@@ -104,6 +104,12 @@
       livesEl.textContent = "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives));
     }
 
+    function paintCombo() {
+      const next = String(combo);
+      if (comboEl.textContent === next) return;
+      comboEl.textContent = next;
+    }
+
     function clearAll() {
       if (spawnTimer) clearTimeout(spawnTimer);
       spawnTimer = null;
@@ -200,7 +206,7 @@
     function loseLife(reason) {
       lives -= 1;
       combo = 0;
-      comboEl.textContent = "0";
+      paintCombo();
       paintLives();
       misses += 1;
       window.ArcadeSFX?.foul?.();
@@ -258,7 +264,7 @@
         // Wrong cell while something is active → soft penalty
         if (active.size) {
           combo = 0;
-          comboEl.textContent = "0";
+          paintCombo();
           cell.classList.add("is-miss");
           setTimeout(() => cell.classList.remove("is-miss"), 150);
           window.ArcadeSFX?.tick?.();
@@ -277,7 +283,7 @@
       const pts = 10 + Math.min(40, (combo - 1) * 4) + diff * 2;
       score += pts;
       scoreEl.textContent = String(score);
-      comboEl.textContent = String(combo);
+      paintCombo();
       window.ArcadeSFX?.match?.() || window.ArcadeSFX?.click?.();
       hintEl.textContent = combo >= 5 ? `On fire · combo ×${combo}` : "Nice!";
     }
@@ -343,7 +349,7 @@
       pausedByVisibility = false;
       running = true;
       scoreEl.textContent = "0";
-      comboEl.textContent = "0";
+      paintCombo();
       paintLives();
       paintDiffs();
       startBtn.textContent = "Running…";

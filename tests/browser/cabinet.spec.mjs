@@ -537,7 +537,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.06.2");
+  await expect(page.locator("#site-version")).toContainText("2026.09.06.3");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
@@ -626,6 +626,42 @@ test("keeps Circuit Breaker's unchanged live power status stable between frames"
 
   const mutations = await page.evaluate(() => window.__breakerPowerMutations);
   expect(mutations, "unchanged aria-live status must not be replaced every animation frame").toBeLessThanOrEqual(1);
+});
+
+test("keeps Target Tap's zero combo HUD stable across consecutive misses", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="tapper"]').click();
+  await expect(page.locator("#tap-grid")).toBeVisible();
+  await page.locator("#tap-start").click();
+  await expect(page.locator("#tap-grid .tap-cell.is-on")).toHaveCount(1);
+
+  await page.evaluate(() => {
+    window.__tapComboMutations = 0;
+    window.__tapComboObserver = new MutationObserver((records) => {
+      window.__tapComboMutations += records.filter((record) =>
+        record.type === "childList" || record.type === "characterData"
+      ).length;
+    });
+    window.__tapComboObserver.observe(document.querySelector("#tap-combo"), {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    const wrongCell = [...document.querySelectorAll("#tap-grid .tap-cell")]
+      .find((cell) => !cell.classList.contains("is-on"));
+    wrongCell.click();
+    wrongCell.click();
+    wrongCell.click();
+  });
+  await page.waitForTimeout(25);
+
+  const result = await page.evaluate(() => ({
+    combo: document.querySelector("#tap-combo").textContent,
+    mutations: window.__tapComboMutations,
+  }));
+  expect(result.combo).toBe("0");
+  expect(result.mutations, "repeated zero-combo misses must not replace unchanged HUD text").toBe(0);
 });
 
 test("scoreboard category chips show top 3 per game and filter local runs", async ({ page }) => {
