@@ -537,7 +537,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.06.3");
+  await expect(page.locator("#site-version")).toContainText("2026.09.08.1");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
@@ -692,8 +692,17 @@ test("scoreboard category chips show top 3 per game and filter local runs", asyn
   await expect(page.locator("#highscores-list")).toContainText("Snake");
   await expect(page.locator("#highscores-list")).toContainText("Target Tap");
 
-  await page.locator('#lb-filters [data-lb-game="snake"]').click();
-  await expect(page.locator("#lb-filters [data-lb-game='snake']")).toHaveClass(/is-active/);
+  const filters = page.getByRole("group", { name: "Leaderboard game filter" });
+  const allGames = filters.getByRole("button", { name: "All games" });
+  const snake = filters.getByRole("button", { name: "Snake" });
+  await expect(allGames).toHaveAttribute("aria-pressed", "true");
+  await expect(snake).toHaveAttribute("aria-pressed", "false");
+  await snake.focus();
+  await page.keyboard.press("Space");
+  await expect(snake).toBeFocused();
+  await expect(snake).toHaveClass(/is-active/);
+  await expect(snake).toHaveAttribute("aria-pressed", "true");
+  await expect(allGames).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#pb-sub")).toContainText("Snake");
   await expect(page.locator("#hof-sub")).toContainText("Snake");
   await expect(page.locator("#highscores-list .hs-game")).toHaveCount(1);
@@ -705,7 +714,11 @@ test("scoreboard category chips show top 3 per game and filter local runs", asyn
   await expect(page.locator("#history-list")).toContainText("Snake");
   await expect(page.locator("#history-list")).not.toContainText("Target Tap");
 
-  await page.locator('#lb-filters [data-lb-game="all"]').click();
+  await allGames.focus();
+  await page.keyboard.press("Enter");
+  await expect(allGames).toBeFocused();
+  await expect(allGames).toHaveAttribute("aria-pressed", "true");
+  await expect(snake).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#highscores-list")).toContainText("Target Tap");
   await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
 });

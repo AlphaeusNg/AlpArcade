@@ -745,7 +745,7 @@
     $$("#lb-filters [data-lb-game]").forEach((chip) => {
       const on = chip.dataset.lbGame === filter;
       chip.classList.toggle("is-active", on);
-      chip.setAttribute("aria-selected", on ? "true" : "false");
+      chip.setAttribute("aria-pressed", on ? "true" : "false");
     });
   }
 

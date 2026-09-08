@@ -1,8 +1,39 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-06 (AlpArcade Cycle 82)
+Last updated: 2026-09-08 (AlpArcade Cycle 83)
 
-## Latest cycle: stop Space Shooter power-strip churn
+## Latest cycle: give leaderboard filters honest button semantics
+
+### Why this was selected
+
+The leaderboard game choices were exposed as a tablist even though they do not
+control tab panels. That mismatched accessibility contract could make assistive
+technology announce navigation behavior the interface does not implement.
+
+### Changes
+
+- Expose the choices as a named group of native toggle buttons and keep exactly
+  one `aria-pressed` state synchronized with the visible score category.
+- Preserve the existing chip layout, click behavior, filtering, and focus.
+- Lock the semantic contract into the static suite and exercise Space and Enter
+  activation, focus retention, exclusive state, and filtered results in Chromium.
+- Version `2026.09.08.1`.
+
+### Verification and scores
+
+- Test-first: both the structural contract and focused keyboard journey failed
+  against the old tab markup before the runtime change, then passed afterward.
+- `npm test`, all 20 Chromium journeys (26.6s), the zero-vulnerability audit,
+  recursive syntax checks, and `git diff --check` pass.
+- Accessibility: screen readers now receive the interface that is actually
+  present; keyboard and pointer behavior remain equivalent.
+
+### Next opportunity
+
+No higher-impact unblocked AlpArcade item is currently recorded. Rotate to
+another clean repository and return when new runtime or player evidence appears.
+
+## Previous cycle: stop Space Shooter power-strip churn
 
 Space Shooter now caches live power-strip markup and skips identical `innerHTML` writes during the animation loop, matching Circuit Breaker's unchanged-status guard.
 
@@ -10,12 +41,12 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.01.1`.
+- Deployment version: `2026.09.08.1`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
-- Local verification: locked npm test dependencies, comprehensive `npm test`, 16/16 real Chromium journeys (25.2s), and syntax checks across all JavaScript and test modules.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, 20/20 real Chromium journeys (26.6s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
-## Latest cycle: keep Circuit Breaker's live power status stable
+## Previous cycle: keep Circuit Breaker's live power status stable
 
 ### Why this was selected
 

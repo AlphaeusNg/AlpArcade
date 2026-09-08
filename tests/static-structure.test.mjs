@@ -123,6 +123,19 @@ assert(
     && read("index.html").includes('id="pb-sub"'),
   "scoreboard All view is top 3 per game and category chips filter local runs",
 );
+const leaderboardFilterMarkup = indexHtml.slice(
+  indexHtml.indexOf('<div class="lb-filters"'),
+  indexHtml.indexOf('<div class="scores-grid">'),
+);
+assert(
+  leaderboardFilterMarkup.includes('id="lb-filters" role="group" aria-label="Leaderboard game filter"')
+    && [...leaderboardFilterMarkup.matchAll(/data-lb-game="[^"]+"[^>]+aria-pressed="(?:true|false)"/g)].length === 9
+    && !leaderboardFilterMarkup.includes('role="tablist"')
+    && !leaderboardFilterMarkup.includes('role="tab"')
+    && !leaderboardFilterMarkup.includes("aria-selected")
+    && app.includes('chip.setAttribute("aria-pressed", on ? "true" : "false")'),
+  "leaderboard filters must be a named group of toggle buttons with one pressed state, not tabs without panels",
+);
 assert(
   app.includes("navigator.share") && app.includes("AbortError"),
   "last-run share uses the native share sheet when the browser offers it",
