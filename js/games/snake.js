@@ -80,7 +80,13 @@
     let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted, paused;
     let pausedByVisibility = false;
 
-    bestEl.textContent = String(window.ArcadeScores?.getState()?.highScores?.snake?.eaten || 0);
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
+    setText(bestEl, window.ArcadeScores?.getState()?.highScores?.snake?.eaten || 0);
 
     function levelConfig(lv) {
       return {
@@ -294,16 +300,19 @@
       const need = cfg.need;
       const have = foodsThisLevel;
       const left = Math.max(0, need - have);
-      progressText.textContent = `${have} / ${need} food`;
+      setText(progressText, `${have} / ${need} food`);
       const pct = Math.min(100, (have / need) * 100);
-      progressFill.style.width = pct + "%";
-      progressSub.textContent =
+      const width = pct + "%";
+      if (progressFill && progressFill.style.width !== width) progressFill.style.width = width;
+      setText(
+        progressSub,
         left === 0
           ? `Level ${level} complete — advancing…`
           : left === 1
             ? `1 more food → Level ${level + 1}`
-            : `${left} more food → Level ${level + 1}`;
-      levelEl.textContent = String(level);
+            : `${left} more food → Level ${level + 1}`
+      );
+      setText(levelEl, level);
     }
 
     function reset() {
@@ -324,8 +333,8 @@
       const cfg = levelConfig(level);
       tickMs = cfg.tick;
       placeFood();
-      scoreEl.textContent = "0";
-      levelEl.textContent = "1";
+      setText(scoreEl, "0");
+      setText(levelEl, "1");
       hintEl.textContent = "Eat green food · avoid red ✕ spikes";
       updateProgressUI();
     }
@@ -443,7 +452,7 @@
         guard++;
       }
 
-      levelEl.textContent = String(level);
+      setText(levelEl, level);
       hintEl.textContent = next.wrap
         ? `Level ${level} · wrap on · spikes placed with safe path`
         : `Level ${level} · solid walls · spikes placed with safe path`;
@@ -481,7 +490,7 @@
         eaten += 1;
         score += cfg.bonus;
         foodsThisLevel += 1;
-        scoreEl.textContent = String(eaten);
+        setText(scoreEl, eaten);
         updateProgressUI();
         if (foodsThisLevel >= cfg.need) {
           advanceLevel();

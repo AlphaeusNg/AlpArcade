@@ -168,6 +168,8 @@ assert(
     && read("js/games/shooter.js").includes("if (nextMarkup === powerMarkup) return")
     && read("js/games/shooter.js").includes("if (powersDirty) paintPowers()")
     && !read("js/games/shooter.js").includes("Math.floor(ts / 250)")
+    && read("js/games/snake.js").includes("function setText(el, value)")
+    && read("js/games/tapper.js").includes("if (comboEl.textContent === next) return")
     && read("js/games/snake.js").includes("function commitScore()")
     && read("js/games/tapper.js").includes("function commitScore()")
     && read("js/games/breaker.js").includes("function commitScore()")

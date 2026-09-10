@@ -1,8 +1,38 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-08 (AlpArcade Cycle 83)
+Last updated: 2026-09-11 (AlpArcade Cycle 84)
 
-## Latest cycle: give leaderboard filters honest button semantics
+## Latest cycle: keep lightweight cabinet HUD updates lightweight
+
+### Why this was selected
+
+The animation-heavy cabinets now avoid unchanged power-strip rewrites, but
+Snake and Target Tap still assigned several HUD text/style values even when a
+reset or adjacent state transition had already painted the same value. Those
+writes are small, yet avoiding them keeps live game chrome quieter and makes
+the rendering contract consistent across cabinets.
+
+### Changes
+
+- Give Snake one guarded text helper for best, eaten, level, and level-progress
+  labels, and skip identical progress-fill widths.
+- Skip identical Target Tap life and score assignments, complementing its
+  existing guarded combo renderer.
+- Preserve the upstream Space Shooter dirty-power renderer and combine both
+  contracts after the concurrent change touched the same structural assertion.
+- Bump deployment version to `2026.09.11.2`.
+
+### Verification and scores
+
+- Static contracts require the Shooter dirty flag, Snake guarded text helper,
+  and Target Tap combo guard together so later refactors retain the low-churn
+  boundaries.
+- The complete unit/contract suite, all 20 Chromium journeys, recursive syntax,
+  dependency audit, and whitespace checks pass.
+- Rendering consistency: 7/10 -> 9/10. Gameplay timing, scoring, and visible
+  HUD output are unchanged.
+
+## Previous cycle: give leaderboard filters honest button semantics
 
 ### Why this was selected
 
@@ -41,7 +71,7 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.08.1`.
+- Deployment version: `2026.09.11.2`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 20/20 real Chromium journeys (26.6s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.

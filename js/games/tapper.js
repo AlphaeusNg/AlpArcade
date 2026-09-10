@@ -101,7 +101,9 @@
     }
 
     function paintLives() {
-      livesEl.textContent = "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives));
+      const next = "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives));
+      if (livesEl.textContent === next) return;
+      livesEl.textContent = next;
     }
 
     function paintCombo() {
@@ -282,7 +284,7 @@
       if (combo > bestCombo) bestCombo = combo;
       const pts = 10 + Math.min(40, (combo - 1) * 4) + diff * 2;
       score += pts;
-      scoreEl.textContent = String(score);
+      if (scoreEl.textContent !== String(score)) scoreEl.textContent = String(score);
       paintCombo();
       window.ArcadeSFX?.match?.() || window.ArcadeSFX?.click?.();
       hintEl.textContent = combo >= 5 ? `On fire · combo ×${combo}` : "Nice!";
