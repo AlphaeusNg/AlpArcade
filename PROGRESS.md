@@ -1,8 +1,33 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-11 (AlpArcade Cycle 84)
+Last updated: 2026-09-11 (AlpArcade Cycle 85)
 
-## Latest cycle: keep lightweight cabinet HUD updates lightweight
+## Latest cycle: skip identical Reaction Lab HUD text
+
+### Why this was selected
+
+Snake and Target Tap now skip HUD text writes when the painted string has not
+changed, but Reaction Lab still assigned chain, last, best, hint, and pad
+message text on every state transition. Those writes are small, yet guarding
+them keeps the remaining live chrome consistent with the other cabinets.
+
+### Changes
+
+- Give Reaction Lab one guarded text helper for chain, last, best, hint, and
+  pad message labels, skipping identical writes.
+- Lock the helper and unguarded-assignment boundary in the static suite.
+- Bump deployment version to `2026.09.11.3`.
+
+### Verification and scores
+
+- Static contracts require Reaction Lab's guarded text helper alongside Snake
+  and Target Tap so later refactors retain the low-churn HUD boundary.
+- The complete unit/contract suite and recursive syntax checks pass. Playwright
+  was not run this cycle.
+- Rendering consistency: 9/10 -> 10/10. Gameplay timing, scoring, and visible
+  HUD output are unchanged.
+
+## Previous cycle: keep lightweight cabinet HUD updates lightweight
 
 ### Why this was selected
 
@@ -71,7 +96,7 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.11.2`.
+- Deployment version: `2026.09.11.3`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 20/20 real Chromium journeys (26.6s), and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.

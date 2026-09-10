@@ -41,8 +41,14 @@
     const modesEl = root.querySelector("#rx-modes");
     const hintEl = root.querySelector("#rx-hint");
 
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
     const saved = window.ArcadeScores?.getState()?.highScores?.reaction?.best;
-    bestEl.textContent = saved != null ? `${saved} ms` : "—";
+    setText(bestEl, saved != null ? `${saved} ms` : "—");
 
     function paintModes() {
       modesEl.innerHTML = MODES.map(
@@ -54,8 +60,10 @@
           mode = Number(btn.dataset.m);
           ArcadeSFX?.click();
           paintModes();
-          hintEl.textContent =
-            mode === 2 ? "Chaos: ignore orange flashes — only green counts." : "Wait for green.";
+          setText(
+            hintEl,
+            mode === 2 ? "Chaos: ignore orange flashes — only green counts." : "Wait for green."
+          );
         });
       });
     }
@@ -69,7 +77,7 @@
 
     function setPhase(p, text, cls) {
       phase = p;
-      msg.textContent = text;
+      setText(msg, text);
       pad.className = "rx-pad " + cls;
     }
 
@@ -122,7 +130,7 @@
       if (phase === "wait") {
         clearTimers();
         chain = 0;
-        chainEl.textContent = "0";
+        setText(chainEl, "0");
         setPhase("result", "Too soon! Tap to retry", "foul");
         ArcadeSFX?.foul();
         return;
@@ -133,8 +141,8 @@
         tries += 1;
         round += 1;
         chain += 1;
-        chainEl.textContent = String(chain);
-        lastEl.textContent = `${ms} ms`;
+        setText(chainEl, chain);
+        setText(lastEl, `${ms} ms`);
         if (bestInSession == null || ms < bestInSession) bestInSession = ms;
         setPhase("result", `${ms} ms — ${rating(ms)}. Tap again!`, "result");
         ArcadeSFX?.match();
@@ -143,11 +151,11 @@
           mode += 1;
           paintModes();
           ArcadeSFX?.levelUp();
-          hintEl.textContent = `Chain ${chain}! Mode → ${MODES[mode].label}`;
+          setText(hintEl, `Chain ${chain}! Mode → ${MODES[mode].label}`);
         }
         onScore?.({ score: ms, meta: { mode: MODES[mode].id, chain } });
         const b = window.ArcadeScores?.getState()?.highScores?.reaction?.best;
-        bestEl.textContent = b != null ? `${b} ms` : "—";
+        setText(bestEl, b != null ? `${b} ms` : "—");
       }
     }
 

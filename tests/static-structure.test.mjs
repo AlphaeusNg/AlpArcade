@@ -169,12 +169,20 @@ assert(
     && read("js/games/shooter.js").includes("if (powersDirty) paintPowers()")
     && !read("js/games/shooter.js").includes("Math.floor(ts / 250)")
     && read("js/games/snake.js").includes("function setText(el, value)")
+    && read("js/games/reaction.js").includes("function setText(el, value)")
     && read("js/games/tapper.js").includes("if (comboEl.textContent === next) return")
     && read("js/games/snake.js").includes("function commitScore()")
     && read("js/games/tapper.js").includes("function commitScore()")
     && read("js/games/breaker.js").includes("function commitScore()")
     && read("js/games/memory.js").includes("abandoned: true"),
   "long Space Shooter runs stay under the fairness cap and every endless cabinet commits on leave",
+);
+const reaction = read("js/games/reaction.js");
+assert(
+  reaction.includes("function setText(el, value)")
+    && reaction.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:chainEl|lastEl|bestEl|hintEl|msg)\.textContent\s*=/.test(reaction),
+  "Reaction Lab HUD text writes must skip identical strings",
 );
 assert(
   ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {
