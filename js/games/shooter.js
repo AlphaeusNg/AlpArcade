@@ -234,6 +234,7 @@
       particles = [];
       powerups = [];
       active = {};
+      powerMarkup = "";
       multiLevel = 0;
       keys = {};
       score = 0;
@@ -459,7 +460,7 @@
           }
         }
       }
-      if (powersDirty || Math.floor(ts / 250) % 2 === 0) paintPowers();
+      if (powersDirty) paintPowers();
 
       // 4-direction movement — mild wave bonus so ship keeps up without snowballing
       const baseSpeed = 5.2 + m.pressure * 0.055 + (has("speed") ? 2.4 : 0);
