@@ -111,6 +111,12 @@
     const resumeBtn = root.querySelector("#mem-resume");
     const bankBtn = root.querySelector("#mem-bank");
 
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -123,7 +129,7 @@
       const hearts = Array.from({ length: MAX_HP }, (_, i) =>
         i < hp ? "❤️" : "🖤"
       ).join("");
-      hpEl.textContent = hearts;
+      setText(hpEl, hearts);
       hpEl.classList.toggle("low", hp <= 2 && hp > 0);
       hpEl.classList.toggle("dead", hp <= 0);
     }
@@ -143,7 +149,7 @@
       hp = MAX_HP;
       gameOver = false;
       submitted = false;
-      scoreEl.textContent = "0";
+      setText(scoreEl, "0");
       startLevel();
       syncPauseUi();
     }
@@ -162,16 +168,19 @@
       matched = 0;
       seen = new Set();
 
-      levelEl.textContent = String(level);
-      matchedEl.textContent = `0 / ${L.pairs} pairs`;
-      boardSizeEl.textContent = `${L.cols}×${L.rows}`;
-      scoreEl.textContent = String(totalScore);
+      setText(levelEl, level);
+      setText(matchedEl, `0 / ${L.pairs} pairs`);
+      setText(boardSizeEl, `${L.cols}×${L.rows}`);
+      setText(scoreEl, totalScore);
       paintHp();
 
       const atCap = L.pairs >= 50;
-      hintEl.textContent = atCap
-        ? `Level ${level} · 10×10 · free scouting, paid mistakes`
-        : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`;
+      setText(
+        hintEl,
+        atCap
+          ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+          : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`
+      );
 
       grid.style.gridTemplateColumns = `repeat(${L.cols}, 1fr)`;
       grid.classList.toggle("mem-grid-dense", L.cols >= 8);
@@ -230,7 +239,7 @@
       pausedByVisibility = false;
       lock = true;
       ArcadeSFX?.lose();
-      hintEl.textContent = `Out of hearts · Level ${level} · ${totalScore} pts`;
+      setText(hintEl, `Out of hearts · Level ${level} · ${totalScore} pts`);
       render();
       if (!submitted) {
         submitted = true;
@@ -257,10 +266,10 @@
       if (shouldCostHeart) {
         loseHeart();
         if (!gameOver) {
-          hintEl.textContent = `Memory miss · ${hp} heart${hp === 1 ? "" : "s"} left`;
+          setText(hintEl, `Memory miss · ${hp} heart${hp === 1 ? "" : "s"} left`);
         }
       } else if (!gameOver) {
-        hintEl.textContent = "Scout peek — no heart lost";
+        setText(hintEl, "Scout peek — no heart lost");
         ArcadeSFX?.tick?.();
       }
     }
@@ -341,7 +350,7 @@
       if (gameOver || paused || submitted) return;
       paused = true;
       freezeMemoryTimers();
-      hintEl.textContent = "Paused · resume or save your score";
+      setText(hintEl, "Paused · resume or save your score");
       syncPauseUi();
     }
 
@@ -351,9 +360,12 @@
       pausedByVisibility = false;
       unfreezeMemoryTimers();
       const L = layoutForLevel(level);
-      hintEl.textContent = L.pairs >= 50
-        ? `Level ${level} · 10×10 · free scouting, paid mistakes`
-        : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`;
+      setText(
+        hintEl,
+        L.pairs >= 50
+          ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+          : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`
+        );
       syncPauseUi();
     }
 
@@ -371,7 +383,7 @@
       }
       gameOver = true;
       lock = true;
-      hintEl.textContent = `Score saved · Level ${level} · ${totalScore} pts`;
+      setText(hintEl, `Score saved · Level ${level} · ${totalScore} pts`);
       render();
       syncPauseUi();
     }
@@ -394,17 +406,17 @@
         cards[a].matched = cards[b].matched = true;
         markSeen(a, b);
         matched += 1;
-        matchedEl.textContent = `${matched} / ${L.pairs} pairs`;
+        setText(matchedEl, `${matched} / ${L.pairs} pairs`);
         flipped = [];
         ArcadeSFX?.match();
         totalScore += 10 + level * 2;
-        scoreEl.textContent = String(totalScore);
+        setText(scoreEl, totalScore);
         render();
 
         if (matched === L.pairs) {
           const clearBonus = 40 + L.pairs * 8 + level * 5 + hp * 15;
           totalScore += clearBonus;
-          scoreEl.textContent = String(totalScore);
+          setText(scoreEl, totalScore);
           if (hp < MAX_HP) {
             hp += 1;
             paintHp();
@@ -412,7 +424,7 @@
           ArcadeSFX?.win();
           // Don't submit mid-run — partial posts inflated gamesPlayed/XP and cloud noise.
           // Final score is recorded in endRun when hearts run out (or player restarts).
-          hintEl.textContent = `Cleared! +${clearBonus} · expanding…`;
+          setText(hintEl, `Cleared! +${clearBonus} · expanding…`);
           armLevelAdvance(700);
         }
       } else {
@@ -453,15 +465,18 @@
         if (!gameOver && !paused && !pausedByVisibility) {
           pausedByVisibility = true;
           freezeMemoryTimers();
-          hintEl.textContent = "Paused (tab hidden) · return to resume";
+          setText(hintEl, "Paused (tab hidden) · return to resume");
         }
       } else if (pausedByVisibility && !gameOver) {
         pausedByVisibility = false;
         unfreezeMemoryTimers();
         const L = layoutForLevel(level);
-        hintEl.textContent = L.pairs >= 50
-          ? `Level ${level} · 10×10 · free scouting, paid mistakes`
-          : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`;
+        setText(
+          hintEl,
+          L.pairs >= 50
+            ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+            : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`
+          );
       }
     }
     document.addEventListener("visibilitychange", onVisibility);

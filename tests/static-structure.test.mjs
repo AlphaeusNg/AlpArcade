@@ -170,6 +170,7 @@ assert(
     && !read("js/games/shooter.js").includes("Math.floor(ts / 250)")
     && read("js/games/snake.js").includes("function setText(el, value)")
     && read("js/games/reaction.js").includes("function setText(el, value)")
+    && read("js/games/memory.js").includes("function setText(el, value)")
     && read("js/games/tapper.js").includes("if (comboEl.textContent === next) return")
     && read("js/games/snake.js").includes("function commitScore()")
     && read("js/games/tapper.js").includes("function commitScore()")
@@ -183,6 +184,13 @@ assert(
     && reaction.includes("if (!el || el.textContent === next) return")
     && !/\b(?:chainEl|lastEl|bestEl|hintEl|msg)\.textContent\s*=/.test(reaction),
   "Reaction Lab HUD text writes must skip identical strings",
+);
+const memory = read("js/games/memory.js");
+assert(
+  memory.includes("function setText(el, value)")
+    && memory.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:hpEl|scoreEl|levelEl|matchedEl|boardSizeEl|hintEl)\.textContent\s*=/.test(memory),
+  "Memory Match HUD text writes must skip identical strings",
 );
 assert(
   ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {
