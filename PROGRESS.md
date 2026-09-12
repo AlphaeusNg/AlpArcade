@@ -1,8 +1,45 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-11 (AlpArcade Cycle 85)
+Last updated: 2026-09-13 (AlpArcade Cycle 87)
 
-## Latest cycle: skip identical Reaction Lab HUD text
+## Latest cycle: keep modal focus inside the active decision
+
+### Why this was selected
+
+Help and optional cloud-save prompts looked modal, but keyboard focus could
+still leave them for the covered lobby. Closing either prompt also discarded
+the player's prior focus, making keyboard navigation restart from the page.
+
+### Changes
+
+- Give both dialogs one shared modal boundary that marks every top-level
+  background surface inert while a prompt is open.
+- Trap forward and reverse Tab navigation inside the active dialog, preserve
+  any pre-existing inert state, and restore focus to the exact launcher after
+  closing.
+- Keep explicit launcher identity across asynchronous cloud setup, where the
+  temporarily disabled Post bests button would otherwise lose focus.
+- Reset the ordinary cloud-save title before specialized batch/username flows
+  customize it, preventing stale prompt copy on a later run.
+- Bump deployment version to `2026.09.13.1`.
+
+### Verification and scores
+
+- Test-first: the new Help browser journey failed because the prompt did not
+  receive focus before the shared boundary was implemented.
+- Dedicated Chromium journeys cover Help and cloud-save focus entry, Tab and
+  Shift+Tab wrapping, background isolation, close, focus restoration, and
+  inert cleanup.
+- Accessibility and keyboard continuity improve without changing pointer
+  behavior, game state, or cloud opt-in semantics.
+
+## Previous cycle: skip identical Memory Match HUD text
+
+Memory Match now routes its health, score, level, board, match, and hint labels
+through the same guarded text helper as the lighter cabinets. Version
+`2026.09.11.4`; the complete contract suite and 20 Chromium journeys passed.
+
+## Previous cycle: skip identical Reaction Lab HUD text
 
 ### Why this was selected
 
@@ -96,9 +133,9 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.11.3`.
+- Deployment version: `2026.09.13.1`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
-- Local verification: locked npm test dependencies, comprehensive `npm test`, 20/20 real Chromium journeys (26.6s), and syntax checks across all JavaScript and test modules.
+- Local verification: locked npm test dependencies, comprehensive `npm test`, 23 real Chromium journeys, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.
 
 ## Previous cycle: keep Circuit Breaker's live power status stable

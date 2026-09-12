@@ -878,10 +878,92 @@
     if (el) el.textContent = text || "";
   }
 
-  function openCloudSaveModal(payload) {
-    pendingSave = payload;
+  let activeModal = null;
+  let modalReturnFocus = null;
+  const modalInertState = new Map();
+  const MODAL_FOCUSABLE = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(",");
+
+  function modalFocusableElements(modal) {
+    return $$(MODAL_FOCUSABLE, modal).filter(
+      (el) => !el.hidden && el.getAttribute("aria-hidden") !== "true" && el.getClientRects().length
+    );
+  }
+
+  function showModalLayer(modal, initialFocus, returnFocus = null) {
+    if (!modal || (activeModal && activeModal !== modal)) return false;
+    if (activeModal === modal) return true;
+
+    modalReturnFocus = returnFocus instanceof HTMLElement
+      ? returnFocus
+      : document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement
+        : null;
+    modalInertState.clear();
+    for (const sibling of document.body.children) {
+      if (sibling === modal || sibling.tagName === "SCRIPT") continue;
+      modalInertState.set(sibling, sibling.inert);
+      sibling.inert = true;
+    }
+
+    modal.hidden = false;
+    activeModal = modal;
+    const target = initialFocus || modalFocusableElements(modal)[0];
+    target?.focus({ preventScroll: true });
+    return true;
+  }
+
+  function hideModalLayer(modal) {
+    if (!modal) return;
+    modal.hidden = true;
+    if (activeModal !== modal) return;
+
+    for (const [sibling, wasInert] of modalInertState) sibling.inert = wasInert;
+    modalInertState.clear();
+    activeModal = null;
+    const returnFocus = modalReturnFocus;
+    modalReturnFocus = null;
+    if (returnFocus?.isConnected && !returnFocus.inert) {
+      returnFocus.focus({ preventScroll: true });
+    }
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || !activeModal) return;
+    const focusable = modalFocusableElements(activeModal);
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const outside = !activeModal.contains(document.activeElement);
+    if (outside || (!event.shiftKey && document.activeElement === last)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  });
+
+  function openCloudSaveModal(payload, returnFocus = null) {
     const modal = $("#cloud-save-modal");
-    if (!modal || !window.ArcadeCloud?.isConfigured?.()) return;
+    if (
+      !modal
+      || !window.ArcadeCloud?.isConfigured?.()
+      || (activeModal && activeModal !== modal)
+    ) return;
+    pendingSave = payload;
+
+    const title = $("#cloud-save-title");
+    if (title) title.textContent = "Save this score?";
 
     const g = ArcadeScores.GAMES[payload.gameId];
     const summary = $("#cloud-save-summary");
@@ -913,13 +995,12 @@
         : "Optional. Keep playing with zero account. Global board needs a quick Google sign-in.";
     }
 
-    modal.hidden = false;
-    goBtn?.focus({ preventScroll: true });
+    showModalLayer(modal, goBtn, returnFocus);
   }
 
   function closeCloudSaveModal() {
     const modal = $("#cloud-save-modal");
-    if (modal) modal.hidden = true;
+    hideModalLayer(modal);
     pendingSave = null;
     setModalStatus("");
   }
@@ -1082,12 +1163,15 @@
       }
 
       // Need Google + maybe username — modal guides the rest
-      openCloudSaveModal({
-        gameId: items[0].gameId,
-        score: items[0].best,
-        isHighScore: true,
-        meta: { shared: true },
-      });
+      openCloudSaveModal(
+        {
+          gameId: items[0].gameId,
+          score: items[0].best,
+          isHighScore: true,
+          meta: { shared: true },
+        },
+        shareBtn
+      );
       pendingSave = { batch: true };
       const summary = $("#cloud-save-summary");
       if (summary) {
@@ -1546,11 +1630,11 @@
 
   function openHelp() {
     const m = $("#help-modal");
-    if (m) m.hidden = false;
+    showModalLayer(m, m?.querySelector("button[data-close-help]"));
   }
   function closeHelp() {
     const m = $("#help-modal");
-    if (m) m.hidden = true;
+    hideModalLayer(m);
   }
   $("#btn-help")?.addEventListener("click", openHelp);
   $$("[data-close-help]").forEach((el) => el.addEventListener("click", closeHelp));
@@ -1723,12 +1807,15 @@
       const s = cloudState();
       if (!s.hasUsername) {
         pendingSave = { setupOnly: true };
-        openCloudSaveModal({
-          gameId: "snake",
-          score: 0,
-          isHighScore: false,
-          meta: { setupOnly: true },
-        });
+        openCloudSaveModal(
+          {
+            gameId: "snake",
+            score: 0,
+            isHighScore: false,
+            meta: { setupOnly: true },
+          },
+          $("#btn-google-signin")
+        );
         $("#cloud-save-title").textContent = "Choose a username";
         $("#cloud-save-summary").textContent = "This name appears on the global leaderboard.";
         $("#cloud-save-step-main").hidden = true;

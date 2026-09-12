@@ -140,6 +140,15 @@ assert(
   app.includes("navigator.share") && app.includes("AbortError"),
   "last-run share uses the native share sheet when the browser offers it",
 );
+assert(
+  app.includes("function showModalLayer(modal, initialFocus, returnFocus = null)")
+    && app.includes("function hideModalLayer(modal)")
+    && app.includes("sibling.inert = true")
+    && app.includes("sibling.inert = wasInert")
+    && app.includes('event.key !== "Tab" || !activeModal')
+    && app.includes("returnFocus.focus({ preventScroll: true })"),
+  "modal dialogs must isolate background controls, trap focus, and restore their launcher",
+);
 localRefs.push(...[...app.matchAll(/"(js\/games\/[^"]+\.js)"/g)].map((match) => match[1]));
 for (const ref of new Set(localRefs)) {
   assert(fs.existsSync(path.join(root, ref)), `Missing local reference: ${ref}`);

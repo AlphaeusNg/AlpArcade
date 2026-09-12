@@ -81,6 +81,57 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(page.locator("#toast")).toContainText("Reach Lv 15");
 });
 
+test("Help isolates the arcade, traps focus, and returns it to the launcher", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const launcher = page.locator("#btn-help");
+  const modal = page.locator("#help-modal");
+  const closeButton = modal.locator("[data-close-help]").last();
+  await launcher.click();
+
+  await expect(modal).toBeVisible();
+  await expect(closeButton).toBeFocused();
+  await expect(page.locator("main")).toHaveJSProperty("inert", true);
+  await expect(page.locator(".topbar")).toHaveJSProperty("inert", true);
+
+  await page.keyboard.press("Tab");
+  await expect(closeButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(closeButton).toBeFocused();
+
+  await closeButton.click();
+  await expect(modal).toBeHidden();
+  await expect(launcher).toBeFocused();
+  await expect(page.locator("main")).toHaveJSProperty("inert", false);
+  await expect(page.locator(".topbar")).toHaveJSProperty("inert", false);
+});
+
+test("cloud save keeps keyboard focus inside its shared dialog boundary", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    window.ArcadeScores.submitScore("snake", 4, { eaten: 4 });
+  });
+
+  const launcher = page.locator("#btn-share-cloud");
+  const modal = page.locator("#cloud-save-modal");
+  const goButton = page.locator("#btn-cloud-save-go");
+  const skipButton = page.locator("#btn-cloud-save-skip");
+  await launcher.click();
+
+  await expect(modal).toBeVisible();
+  await expect(goButton).toBeFocused();
+  await expect(page.locator("main")).toHaveJSProperty("inert", true);
+  await page.keyboard.press("Shift+Tab");
+  await expect(skipButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(goButton).toBeFocused();
+
+  await skipButton.click();
+  await expect(modal).toBeHidden();
+  await expect(launcher).toBeFocused();
+  await expect(page.locator("main")).toHaveJSProperty("inert", false);
+});
+
 test("Pulse Grid keeps separate Easy, Medium, and Hard highs for each song", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
@@ -537,7 +588,7 @@ test("playfield tap starts Circuit Breaker and Space Shooter without using Launc
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#site-version")).toContainText("2026.09.11.4");
+  await expect(page.locator("#site-version")).toContainText("2026.09.13.1");
 
   await page.locator('[data-game="breaker"]').click();
   await expect(page.locator("#br-canvas")).toBeVisible();
