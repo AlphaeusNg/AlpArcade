@@ -201,6 +201,14 @@ assert(
     && !/\b(?:hpEl|scoreEl|levelEl|matchedEl|boardSizeEl|hintEl)\.textContent\s*=/.test(memory),
   "Memory Match HUD text writes must skip identical strings",
 );
+
+const jubeat = read("js/games/jubeat.js");
+assert(
+  jubeat.includes("function setText(el, value)")
+    && jubeat.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|comboEl|excEl|missEl|gridComboValueEl)\.textContent\s*=/.test(jubeat),
+  "Pulse Grid HUD text writes must skip identical strings",
+);
 assert(
   ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {
     const src = read(`js/games/${id}.js`);
