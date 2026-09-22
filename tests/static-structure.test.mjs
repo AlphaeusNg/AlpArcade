@@ -209,6 +209,13 @@ assert(
     && !/\b(?:scoreEl|comboEl|excEl|missEl|gridComboValueEl)\.textContent\s*=/.test(jubeat),
   "Pulse Grid HUD text writes must skip identical strings",
 );
+const breaker = read("js/games/breaker.js");
+assert(
+  breaker.includes("function setText(el, value)")
+    && breaker.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|livesEl|rowEl|hintEl)\.textContent\s*=/.test(breaker),
+  "Circuit Breaker HUD text writes must skip identical strings",
+);
 assert(
   ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {
     const src = read(`js/games/${id}.js`);
