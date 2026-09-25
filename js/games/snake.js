@@ -701,7 +701,7 @@
       timer = null;
       lastStepAt = null;
       pausedByVisibility = true;
-      if (hintEl) hintEl.textContent = "Paused · resume to continue";
+      setText(hintEl, "Paused (tab hidden) · return to resume");
     }
 
     function onLifecycle(reason) {
