@@ -8,6 +8,13 @@
   ];
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     let mode = 0;
     let round = 0;
     let bestInSession = null;
@@ -107,7 +114,13 @@
       setPhase("wait", "Wait for green…", "wait");
       ArcadeSFX?.countdown();
       scheduleDecoys(cfg);
+      const due = performance.now() + delay;
       timer = setTimeout(() => {
+        timer = null;
+        if (global.ArcadeCabinetSession.scoredTimeout(due, performance.now()) === "suspended") {
+          setPhase("result", "Interrupted · tap to retry", "foul");
+          return;
+        }
         startAt = performance.now();
         setPhase("go", "NOW!", "go");
         ArcadeSFX?.go();
@@ -170,14 +183,32 @@
       e.preventDefault();
       onPad();
     }
-    window.addEventListener("keydown", onKey);
+    life.listen(window, "keydown", onKey);
+
+    function interruptAttempt() {
+      if (phase !== "wait" && phase !== "go") return;
+      clearTimers();
+      setPhase("result", "Interrupted · tap to retry", "foul");
+    }
+
+    global.ArcadeCabinetSession.bindSuspension(life, document, (reason) => {
+      if (
+        reason === "hidden" ||
+        reason === "pagehide" ||
+        reason === "freeze" ||
+        reason === "pageshow" ||
+        reason === "resume"
+      ) {
+        interruptAttempt();
+      }
+    });
 
     paintModes();
 
     return {
       destroy() {
         clearTimers();
-        window.removeEventListener("keydown", onKey);
+        life.dispose();
         root.innerHTML = "";
       },
     };

@@ -47,6 +47,13 @@
   }
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     let level = 1;
     let cards = [];
     let flipped = [];
@@ -315,6 +322,28 @@
       }
     }
 
+    function enforceMemoryClock() {
+      const now = Date.now();
+      if (
+        pendingMismatch &&
+        flipDueAt &&
+        global.ArcadeCabinetSession.scoredTimeout(flipDueAt, now) !== "pending"
+      ) {
+        clearTimeout(flipTimer);
+        flipTimer = null;
+        resolveMismatch();
+      }
+      if (
+        levelTimer &&
+        levelDueAt &&
+        global.ArcadeCabinetSession.scoredTimeout(levelDueAt, now) === "suspended"
+      ) {
+        clearTimeout(levelTimer);
+        levelTimer = null;
+        if (!gameOver && !paused) armLevelAdvance(0);
+      }
+    }
+
     function unfreezeMemoryTimers() {
       if (pendingMismatch) {
         const delay = Math.max(0, pausedFlipRemaining);
@@ -458,28 +487,38 @@
       if (paused) resume();
       else pauseRun();
     }
-    window.addEventListener("keydown", onKey);
+    life.listen(window, "keydown", onKey);
 
-    function onVisibility() {
-      if (document.hidden) {
+    function restoreMemoryHint() {
+      const L = layoutForLevel(level);
+      setText(
+        hintEl,
+        L.pairs >= 50
+          ? `Level ${level} · 10×10 · free scouting, paid mistakes`
+          : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`
+      );
+    }
+
+    function onLifecycle(reason) {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
         if (!gameOver && !paused && !pausedByVisibility) {
           pausedByVisibility = true;
           freezeMemoryTimers();
-          setText(hintEl, "Paused (tab hidden) · return to resume");
+          setText(hintEl, "Paused · resume to continue");
         }
-      } else if (pausedByVisibility && !gameOver) {
+        return;
+      }
+      if (document.hidden || gameOver) return;
+      if (pausedByVisibility) {
         pausedByVisibility = false;
         unfreezeMemoryTimers();
-        const L = layoutForLevel(level);
-        setText(
-          hintEl,
-          L.pairs >= 50
-            ? `Level ${level} · 10×10 · free scouting, paid mistakes`
-            : `Level ${level} · ${L.cols}×${L.rows} · new cards free to peek`
-          );
+        restoreMemoryHint();
+        return;
       }
+      enforceMemoryClock();
     }
-    document.addEventListener("visibilitychange", onVisibility);
+    global.ArcadeCabinetSession.bindSuspension(life, document, onLifecycle);
 
     startRun();
 
@@ -497,8 +536,7 @@
         clearTimeout(flipTimer);
         levelTimer = null;
         flipTimer = null;
-        window.removeEventListener("keydown", onKey);
-        document.removeEventListener("visibilitychange", onVisibility);
+        life.dispose();
         root.innerHTML = "";
       },
     };

@@ -181,6 +181,72 @@
   margin-bottom: 1.15rem;
 }
 
+.cab-quick {
+  margin: 0 0 0.35rem;
+  min-width: 0;
+}
+
+.cab-quick-empty {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--dim);
+}
+
+.cab-quick-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.cab-chip {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(8, 14, 26, 0.55);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font: inherit;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.cab-chip.is-recent {
+  color: var(--muted);
+}
+
+.cabinet-slot {
+  position: relative;
+  min-width: 0;
+}
+
+.cabinet-slot > .cabinet {
+  width: 100%;
+}
+
+.cab-fav {
+  position: absolute;
+  z-index: 3;
+  top: 0.22rem;
+  left: 0.22rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(5, 8, 15, 0.78);
+  color: var(--dim);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cab-fav[aria-pressed="true"] {
+  color: var(--gold);
+}
+
 .cabinet-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

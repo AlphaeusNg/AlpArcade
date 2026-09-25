@@ -1,8 +1,19 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-13 (AlpArcade Cycle 87)
+Last updated: 2026-09-25
 
-## Latest cycle: keep modal focus inside the active decision
+## Latest cycle: fair timers, cabinet lifecycle, controls, and pins
+
+Timed cabinets now drop hidden-tab, lock, and long-suspension gaps instead of
+fast-forwarding physics or awarding that time. Each mount tracks timers,
+animation frames, input listeners, and audio, and dispose clears them on leave.
+Snake, Space Shooter, and Circuit Breaker can remap keys and resize their touch
+pad; other cabinets do not get a remap panel. Circuit Breaker shows a compact
+named legend and active Wide/ball stack. Players can star cabinets and pin a
+short favorites/recent row that still opens through the lazy route. Version
+`2026.09.25.1`.
+
+## Previous cycle: keep modal focus inside the active decision
 
 ### Why this was selected
 
@@ -133,7 +144,7 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.13.1`.
+- Deployment version: `2026.09.25.1`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 23 real Chromium journeys, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.

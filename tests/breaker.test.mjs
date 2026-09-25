@@ -52,5 +52,12 @@ assert.equal(pickPowerId(1, 1, () => 0.7), "wide");
 assert.equal(pickPowerId(1, 1, () => 0.2), "multi");
 assert.equal(pickPowerId(6, 8, () => 0.2), "multi");
 assert.equal(pickPowerId(6, 8, () => 0.5), "wide");
+assert.match(source, /<b>Wide<\/b> longer paddle, timed/);
+assert.match(source, /<b>Split<\/b> more balls/);
+assert.match(source, /<b>Extra ball<\/b> adds balls/);
+assert.match(source, /<b>Life<\/b> \+1 life/);
+assert.match(source, /Wide ×\$\{Math\.max\(1, wideStacks\)\} · \$\{seconds\}s/);
+assert.match(source, /Balls ×\$\{balls\.length\}/);
+assert.doesNotMatch(source, /br-power-empty/);
 
 console.log("Circuit Breaker level layout passed.");

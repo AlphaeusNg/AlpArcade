@@ -2,6 +2,13 @@
   "use strict";
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     root.innerHTML = `
       <div class="snake-wrap">
         <div class="game-hud">
@@ -30,12 +37,15 @@
           </section>
         </div>
         <p class="game-hint" id="snake-hint">Arrows / WASD · swipe · on-screen pad · P pause</p>
-        <div class="dpad" id="snake-dpad" aria-label="Direction pad">
-          <button type="button" class="dpad-btn dpad-up" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
-          <button type="button" class="dpad-btn dpad-left" data-dx="-1" data-dy="0" aria-label="Left">◀</button>
-          <button type="button" class="dpad-btn dpad-down" data-dx="0" data-dy="1" aria-label="Down">▼</button>
-          <button type="button" class="dpad-btn dpad-right" data-dx="1" data-dy="0" aria-label="Right">▶</button>
+        <div class="touch-cluster" id="snake-touch">
+          <div class="dpad" id="snake-dpad" aria-label="Direction pad">
+            <button type="button" class="dpad-btn dpad-up" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
+            <button type="button" class="dpad-btn dpad-left" data-dx="-1" data-dy="0" aria-label="Left">◀</button>
+            <button type="button" class="dpad-btn dpad-down" data-dx="0" data-dy="1" aria-label="Down">▼</button>
+            <button type="button" class="dpad-btn dpad-right" data-dx="1" data-dy="0" aria-label="Right">▶</button>
+          </div>
         </div>
+        <div id="snake-controls"></div>
         <div class="game-actions">
           <button type="button" class="btn primary" id="snake-start">Start / Restart</button>
           <button type="button" class="run-pause-btn" id="snake-pause" hidden disabled aria-label="Pause" aria-pressed="false">
@@ -79,6 +89,7 @@
 
     let snake, dir, nextDir, food, hazards, score, eaten, level, foodsThisLevel, running, tickMs, timer, submitted, paused;
     let pausedByVisibility = false;
+    let lastStepAt = null;
 
     function setText(el, value) {
       const next = String(value);
@@ -464,6 +475,18 @@
 
     function step() {
       if (!running) return;
+      const now = Date.now();
+      if (lastStepAt != null) {
+        const elapsed = now - lastStepAt;
+        const gap = global.ArcadeCabinetSession.frameGap(now, lastStepAt);
+        if (gap.stalled) {
+          lastStepAt = null;
+          if (document.hidden) suspendFromBrowser();
+          return;
+        }
+        if (elapsed >= 0 && elapsed < tickMs * 0.5) return;
+      }
+      lastStepAt = now;
       const cfg = levelConfig(level);
       dir = nextDir;
       let head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
@@ -556,6 +579,7 @@
       paused = false;
       pausedByVisibility = false;
       running = true;
+      lastStepAt = null;
       startBtn.disabled = false;
       clearInterval(timer);
       timer = setInterval(step, tickMs);
@@ -585,6 +609,7 @@
       running = true;
       paused = false;
       pausedByVisibility = false;
+      lastStepAt = null;
       draw();
       timer = setInterval(step, tickMs);
       syncPauseUi();
@@ -599,18 +624,19 @@
 
     function onKey(e) {
       const k = e.key.toLowerCase();
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "p"].includes(k)) {
-        e.preventDefault();
-      }
+      const matched = [
+        ["up", 0, -1],
+        ["down", 0, 1],
+        ["left", -1, 0],
+        ["right", 1, 0],
+      ].find(([action]) => global.ArcadeControls?.matches?.("snake", action, e));
+      if (matched || k === "p") e.preventDefault();
       if (k === "p") {
         if (running) pauseRun();
         else if (paused && snake && !submitted) resume();
         return;
       }
-      if (k === "arrowup" || k === "w") setDir(0, -1);
-      if (k === "arrowdown" || k === "s") setDir(0, 1);
-      if (k === "arrowleft" || k === "a") setDir(-1, 0);
-      if (k === "arrowright" || k === "d") setDir(1, 0);
+      if (matched) setDir(matched[1], matched[2]);
     }
 
     let touchStart = null;
@@ -653,7 +679,7 @@
       }
     });
 
-    window.addEventListener("keydown", onKey);
+    life.listen(window, "keydown", onKey);
     canvas.addEventListener("touchstart", onTouchStart, { passive: true });
     canvas.addEventListener("touchend", onTouchEnd, { passive: true });
     startBtn.addEventListener("click", start);
@@ -668,20 +694,28 @@
       setDir(Number(btn.dataset.dx), Number(btn.dataset.dy));
     });
 
-    function onVisibility() {
-      if (document.hidden) {
-        if (running) {
-          running = false;
-          clearInterval(timer);
-          timer = null;
-          pausedByVisibility = true;
-          if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to continue";
-        }
-      } else if (pausedByVisibility && snake && !submitted) {
-        resume();
-      }
+    function suspendFromBrowser() {
+      if (!running || paused) return;
+      running = false;
+      clearInterval(timer);
+      timer = null;
+      lastStepAt = null;
+      pausedByVisibility = true;
+      if (hintEl) hintEl.textContent = "Paused · resume to continue";
     }
-    document.addEventListener("visibilitychange", onVisibility);
+
+    function onLifecycle(reason) {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
+        suspendFromBrowser();
+        return;
+      }
+      if (document.hidden) return;
+      if (pausedByVisibility && snake && !submitted) resume();
+      else if (running) lastStepAt = null;
+    }
+    global.ArcadeCabinetSession.bindSuspension(life, document, onLifecycle);
+    const releaseControls = global.ArcadeControls?.mountPanel?.(root.querySelector("#snake-controls"), "snake", life) || (() => {});
 
     reset();
     draw();
@@ -700,8 +734,8 @@
         running = false;
         paused = false;
         clearInterval(timer);
-        window.removeEventListener("keydown", onKey);
-        document.removeEventListener("visibilitychange", onVisibility);
+        releaseControls();
+        life.dispose();
         root.innerHTML = "";
       },
     };

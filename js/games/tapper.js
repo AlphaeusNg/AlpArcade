@@ -11,6 +11,13 @@
   ];
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     let diff = 1;
     let score = 0;
     let lives = 3;
@@ -126,17 +133,36 @@
       });
     }
 
+    function releaseCell(i, { miss = false } = {}) {
+      const rec = active.get(i);
+      if (rec?.timer) clearTimeout(rec.timer);
+      active.delete(i);
+      const cell = grid.querySelector(`[data-i="${i}"]`);
+      if (!cell) return;
+      cell.classList.remove("is-on");
+      if (!miss) return;
+      cell.classList.add("is-miss");
+      setTimeout(() => cell.classList.remove("is-miss"), 180);
+    }
+
     function expireCell(i) {
       const rec = active.get(i);
       if (!rec) return;
-      active.delete(i);
-      const cell = grid.querySelector(`[data-i="${i}"]`);
-      if (cell) {
-        cell.classList.remove("is-on");
-        cell.classList.add("is-miss");
-        setTimeout(() => cell.classList.remove("is-miss"), 180);
+      const state = global.ArcadeCabinetSession.scoredTimeout(rec.expiresAt, Date.now());
+      if (state === "suspended") {
+        releaseCell(i);
+        return;
       }
+      releaseCell(i, { miss: true });
       if (running && !paused) loseLife("Too slow!");
+    }
+
+    function sweepSuspendedTargets() {
+      for (const [i, rec] of [...active]) {
+        if (global.ArcadeCabinetSession.scoredTimeout(rec.expiresAt, Date.now()) === "suspended") {
+          releaseCell(i);
+        }
+      }
     }
 
     function freezeTimers() {
@@ -244,6 +270,12 @@
           : Math.max(220, cfg.spawnMs - Math.floor(score / 50) * 12);
       spawnDueAt = Date.now() + delay;
       spawnTimer = setTimeout(() => {
+        spawnTimer = null;
+        if (global.ArcadeCabinetSession.scoredTimeout(spawnDueAt, Date.now()) === "suspended") {
+          if (document.hidden) suspendFromBrowser();
+          else if (running && !paused) scheduleSpawn();
+          return;
+        }
         if (!running || paused) return;
         round += 1;
         const n = Math.min(cfg.multi + (score > 200 ? 1 : 0), 3);
@@ -274,6 +306,10 @@
         return;
       }
       const rec = active.get(i);
+      if (global.ArcadeCabinetSession.scoredTimeout(rec.expiresAt, Date.now()) !== "pending") {
+        expireCell(i);
+        return;
+      }
       if (rec?.timer) clearTimeout(rec.timer);
       active.delete(i);
       cell.classList.remove("is-on");
@@ -387,21 +423,27 @@
         onCell(Number(e.key) - 1);
       }
     }
-    window.addEventListener("keydown", onKey);
+    life.listen(window, "keydown", onKey);
 
-    function onVisibility() {
-      if (document.hidden) {
-        if (running) {
-          running = false;
-          pausedByVisibility = true;
-          freezeTimers();
-          hintEl.textContent = "Paused (tab hidden) · return to resume";
-        }
-      } else if (pausedByVisibility && !submitted && lives > 0) {
-        resume();
-      }
+    function suspendFromBrowser() {
+      if (!running || paused) return;
+      running = false;
+      pausedByVisibility = true;
+      freezeTimers();
+      hintEl.textContent = "Paused · resume to continue";
     }
-    document.addEventListener("visibilitychange", onVisibility);
+
+    function onLifecycle(reason) {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
+        suspendFromBrowser();
+        return;
+      }
+      if (document.hidden) return;
+      if (pausedByVisibility && !submitted && lives > 0) resume();
+      else sweepSuspendedTargets();
+    }
+    global.ArcadeCabinetSession.bindSuspension(life, document, onLifecycle);
 
     return {
       destroy() {
@@ -409,8 +451,7 @@
         running = false;
         paused = false;
         clearAll();
-        window.removeEventListener("keydown", onKey);
-        document.removeEventListener("visibilitychange", onVisibility);
+        life.dispose();
         root.innerHTML = "";
       },
     };

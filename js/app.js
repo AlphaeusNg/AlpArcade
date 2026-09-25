@@ -439,6 +439,70 @@
         ? bestLabel
         : `Best ${bestLabel}`;
     });
+    paintQuickRow();
+  }
+
+  let favoriteButtonsReady = false;
+
+  function ensureFavoriteButtons() {
+    $$(".cabinet-grid > .cabinet[data-game]").forEach((card) => {
+      const slot = document.createElement("div");
+      slot.className = "cabinet-slot";
+      card.replaceWith(slot);
+      slot.appendChild(card);
+      const fav = document.createElement("button");
+      fav.type = "button";
+      fav.className = "cab-fav";
+      fav.dataset.fav = card.dataset.game;
+      const label = ArcadeScores.GAMES[card.dataset.game]?.label || card.dataset.game;
+      fav.setAttribute("aria-label", `Favorite ${label}`);
+      fav.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.ArcadeFavorites?.toggle?.(card.dataset.game);
+        paintQuickRow();
+        window.ArcadeSFX?.click?.();
+      });
+      slot.appendChild(fav);
+    });
+  }
+
+  function paintQuickRow() {
+    if (!favoriteButtonsReady) {
+      ensureFavoriteButtons();
+      favoriteButtonsReady = true;
+    }
+    const pinned = window.ArcadeFavorites?.pins?.() || { favorites: [], recent: [], persistDenied: false };
+    const empty = $("#cab-quick-empty");
+    const line = $("#cab-quick-line");
+    const host = $("#cab-quick");
+    if (!line || !empty) return;
+    $$("[data-fav]").forEach((btn) => {
+      const on = pinned.favorites.includes(btn.dataset.fav);
+      const label = ArcadeScores.GAMES[btn.dataset.fav]?.label || btn.dataset.fav;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.textContent = on ? "★" : "☆";
+      btn.setAttribute("aria-label", on ? `Unfavorite ${label}` : `Favorite ${label}`);
+    });
+    const hasPins = pinned.favorites.length + pinned.recent.length > 0;
+    empty.hidden = hasPins;
+    line.hidden = !hasPins;
+    line.replaceChildren();
+    const addChip = (id, kind) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = kind === "recent" ? "cab-chip is-recent" : "cab-chip";
+      const label = ArcadeScores.GAMES[id]?.label || id;
+      button.dataset.launch = id;
+      button.textContent = kind === "recent" ? `Recent · ${label}` : `★ ${label}`;
+      button.addEventListener("click", () => openGame(id));
+      line.appendChild(button);
+    };
+    pinned.favorites.forEach((id) => addChip(id, "favorite"));
+    pinned.recent.forEach((id) => addChip(id, "recent"));
+    if (!host) return;
+    if (pinned.persistDenied) host.title = "Pins stay for this visit. Allow site storage to keep them.";
+    else host.removeAttribute("title");
   }
 
   // ----- Player / HUD -----
@@ -1410,6 +1474,8 @@
       return;
     }
     persistLastCabinet(id);
+    window.ArcadeFavorites?.remember?.(id);
+    paintQuickRow();
     // Re-activating the same game via hash is a no-op once mounted.
     if (activeGameId === id && activeGame && !playView.hidden) return;
 

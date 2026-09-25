@@ -1239,6 +1239,13 @@
   }
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     let songIndex = 0;
     let difficultyId = "easy";
     let markerId = "flower";
@@ -1596,7 +1603,7 @@
     const gridComboValueEl = root.querySelector("#jb-grid-combo-value");
     const startBtn = root.querySelector("#jb-start");
     const musicNoteEl = root.querySelector("#jb-music-note");
-    const audioEl = root.querySelector("#jb-audio");
+    const audioEl = life.trackAudio(root.querySelector("#jb-audio"));
     const startSequenceEl = root.querySelector("#jb-start-sequence");
     const startSequenceLabelEl = root.querySelector("#jb-start-sequence-label");
     const startSequenceSongEl = root.querySelector("#jb-start-sequence-song");
@@ -1696,6 +1703,7 @@
     let lastProgressAria = -1;
     let comboPulseAnimation = null;
     let lastBlipAt = -Infinity;
+    let lastChartSample = null;
     let practiceLastPaintMs = -Infinity;
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
@@ -2815,7 +2823,7 @@
         if (!audioCtx) {
           const C = window.AudioContext || window.webkitAudioContext;
           if (!C) return;
-          audioCtx = new C();
+          audioCtx = life.trackAudio(new C());
         }
         if (audioCtx.state === "suspended") audioCtx.resume();
         const t = audioCtx.currentTime;
@@ -3355,9 +3363,49 @@
       }
     }
 
+    function discardChartJump(frozenMs) {
+      const ms = Number.isFinite(frozenMs) ? frozenMs : 0;
+      const perf = performance.now();
+      t0 = perf - ms;
+      clockAnchorAudioMs = ms;
+      clockAnchorPerf = perf;
+      try {
+        audioEl?.pause();
+      } catch {
+        /* The chart clock is already rebased if media pause fails. */
+      }
+      if (!running || submitted || paused) return;
+      if (clockStarted && pauseAvailable) {
+        pauseSong();
+        return;
+      }
+      cancelAnimationFrame(raf);
+      raf = 0;
+      clearCountIn();
+      if (clockStarted) {
+        paused = true;
+        pauseAvailable = true;
+        pausedAtMs = ms;
+        if (musicNoteEl) musicNoteEl.textContent = `Paused · ${song().title}`;
+        syncPauseUi({ focusResume: true });
+        return;
+      }
+      running = false;
+      startBtn.disabled = false;
+      if (musicNoteEl) musicNoteEl.textContent = "Start interrupted · press Play";
+    }
+
     function frame() {
       if (!running || submitted || paused) return;
       const t = nowMs();
+      if (lastChartSample != null) {
+        const gap = global.ArcadeCabinetSession.frameGap(t, lastChartSample);
+        if (gap.stalled) {
+          discardChartJump(lastChartSample);
+          return;
+        }
+      }
+      lastChartSample = t;
       const ch = chart;
       const visualInterval = phoneAnimationMedia?.matches ? 1000 / 30 : 0;
       const paintVisuals =
@@ -3403,6 +3451,7 @@
     function beginChartClock(fromAudio, leadInMs = 0) {
       if (clockStarted || !running || destroyed) return;
       clockStarted = true;
+      lastChartSample = null;
       const perf = performance.now();
       t0 = perf + Math.max(0, leadInMs);
       useAudioClock = !!fromAudio;
@@ -3730,8 +3779,16 @@
         onPanel(map[k]);
       }
     }
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("arcadegamescreenchange", onJubeatFullscreenChange);
+    life.listen(window, "keydown", onKey);
+    life.listen(document, "arcadegamescreenchange", onJubeatFullscreenChange);
+    global.ArcadeCabinetSession.bindSuspension(life, document, (reason) => {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
+        if (running && !paused && !submitted) discardChartJump(lastChartSample);
+        return;
+      }
+      if (!document.hidden && running && !paused && !submitted) discardChartJump(lastChartSample);
+    });
     practiceCellEl.addEventListener("click", (event) => {
       if (event.detail === 0) practiceTap();
     });
@@ -3766,9 +3823,8 @@
         stopSlideHits();
         stopBgm();
         duckLobbyMusic(false);
-        window.removeEventListener("keydown", onKey);
-        document.removeEventListener("arcadegamescreenchange", onJubeatFullscreenChange);
         stopMuteSync();
+        life.dispose();
         restoreFullscreenButton({ show: true });
         try {
           if (audioEl) {

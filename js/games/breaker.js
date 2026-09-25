@@ -95,6 +95,13 @@
   }
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     root.innerHTML = `
       <div class="breaker-wrap">
         <div class="diff-bar" id="br-levels" role="tablist" aria-label="Level"></div>
@@ -103,7 +110,15 @@
           <div><span class="hud-label">Lives</span><strong id="br-lives">3</strong></div>
           <div><span class="hud-label">Level</span><strong id="br-row">1</strong></div>
         </div>
-        <div class="br-powers" id="br-powers" aria-live="polite"></div>
+        <div class="br-powers" id="br-powers">
+          <ul class="br-legend" aria-label="Power-ups">
+            <li><b>Wide</b> longer paddle, timed</li>
+            <li><b>Split</b> more balls</li>
+            <li><b>Extra ball</b> adds balls</li>
+            <li><b>Life</b> +1 life</li>
+          </ul>
+          <p class="br-active" id="br-active" aria-live="polite"></p>
+        </div>
         <div class="br-stage">
           <canvas id="br-canvas" width="480" height="560" aria-label="Circuit Breaker"></canvas>
           <div class="br-pickup-toast" id="br-pickup-toast" hidden></div>
@@ -116,6 +131,13 @@
           </section>
         </div>
         <p class="game-hint" id="br-hint">Pick a level · catch capsules with the paddle · 8×1 start</p>
+        <div class="touch-cluster" id="br-touch">
+          <div class="dpad br-nudge" aria-label="Move paddle">
+            <button type="button" class="dpad-btn dpad-left" data-dir="left" aria-label="Left">◀</button>
+            <button type="button" class="dpad-btn dpad-right" data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+        <div id="br-controls"></div>
         <div class="game-actions">
           <button type="button" class="btn primary" id="br-start">Start / Restart</button>
           <button type="button" class="run-pause-btn" id="br-pause" hidden disabled aria-label="Pause" aria-pressed="false">
@@ -135,7 +157,7 @@
     const pauseOverlay = root.querySelector("#br-pause-overlay");
     const resumeBtn = root.querySelector("#br-resume");
     const bankBtn = root.querySelector("#br-bank");
-    const powersEl = root.querySelector("#br-powers");
+    const activeEl = root.querySelector("#br-active");
     const pickupToast = root.querySelector("#br-pickup-toast");
     const levelsEl = root.querySelector("#br-levels");
 
@@ -157,7 +179,7 @@
     let paused = false;
     let pausedByVisibility = false;
     let raf = 0;
-    let last = 0;
+    let last = null;
     let score = 0;
     let lives = 3;
     let row = 1;
@@ -171,6 +193,7 @@
     let toastTimer = 0;
     let powerMarkup = "";
     let wideStacks = 0;
+    let nudgeTimer = 0;
 
     function has(id) {
       return (active[id] || 0) > 0;
@@ -283,23 +306,18 @@
     }
 
     function paintPowers() {
-      const chips = POWER_DROP_ORDER.filter((id) => POWERS[id].duration > 0 && has(id)).map((id) => {
-        const p = POWERS[id];
-        const t = Math.ceil((active[id] || 0) / 60);
-        const stacks = id === "wide" && wideStacks > 1 ? ` ×${wideStacks}` : "";
-        return `<span class="br-power-chip" style="--pc:${p.color}">${p.glyph} ${p.label}${stacks} <small>${t}s</small></span>`;
-      });
-      if (balls.length > 1) {
-        chips.unshift(
-          `<span class="br-power-chip" style="--pc:#38bdf8">●×${balls.length} balls</span>`
-        );
+      const parts = [];
+      if (has("wide")) {
+        const seconds = Math.max(1, Math.ceil((active.wide || 0) / 60));
+        parts.push(`Wide ×${Math.max(1, wideStacks)} · ${seconds}s`);
       }
-      const nextMarkup = chips.length
-        ? chips.join("")
-        : `<span class="br-power-empty">Wide stacks · Split stays scarce on later banks</span>`;
+      if (balls.length > 1) parts.push(`Balls ×${balls.length}`);
+      const nextMarkup = parts.join(" · ");
       if (nextMarkup === powerMarkup) return;
       powerMarkup = nextMarkup;
-      powersEl.innerHTML = nextMarkup;
+      if (!activeEl) return;
+      activeEl.textContent = nextMarkup;
+      activeEl.hidden = !nextMarkup;
     }
 
     function showPickup(text, color) {
@@ -586,8 +604,18 @@
 
     function frame(ts) {
       if (!running) return;
-      const dt = Math.min(32, ts - (last || ts)) / 16.67;
-      last = ts;
+      const gap = global.ArcadeCabinetSession.frameGap(ts, last);
+      last = gap.now;
+      if (gap.stalled) {
+        if (document.hidden) suspendFromBrowser();
+        else raf = requestAnimationFrame(frame);
+        return;
+      }
+      const dt = gap.stepMs / 16.67;
+      if (!(dt > 0)) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
 
       let powersDirty = false;
       for (const id of Object.keys(active)) {
@@ -667,7 +695,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
       paintLevels();
-      last = 0;
+      last = null;
       global.ArcadeSFX?.go?.() || global.ArcadeSFX?.click?.();
       raf = requestAnimationFrame(frame);
       syncPauseUi();
@@ -696,7 +724,7 @@
       paused = false;
       pausedByVisibility = false;
       running = true;
-      last = 0;
+      last = null;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
       const L = layoutForLevel(row);
@@ -748,9 +776,24 @@
     resumeBtn.addEventListener("click", resume);
     bankBtn.addEventListener("click", bankRun);
 
+    function nudge(dir) {
+      const step = dir < 0 ? -18 : 18;
+      paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, paddle.x + step));
+    }
+
+    function stopNudge() {
+      clearInterval(nudgeTimer);
+      nudgeTimer = 0;
+    }
+
     function onKey(e) {
-      if (e.key === "ArrowLeft" || e.key === "a") paddle.x = Math.max(paddle.w / 2, paddle.x - 18);
-      if (e.key === "ArrowRight" || e.key === "d") paddle.x = Math.min(W - paddle.w / 2, paddle.x + 18);
+      if (global.ArcadeControls?.matches?.("breaker", "left", e)) {
+        e.preventDefault();
+        nudge(-1);
+      } else if (global.ArcadeControls?.matches?.("breaker", "right", e)) {
+        e.preventDefault();
+        nudge(1);
+      }
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         if (running) pauseRun();
@@ -763,21 +806,42 @@
         else start();
       }
     }
-    window.addEventListener("keydown", onKey);
+    life.listen(window, "keydown", onKey);
+    root.querySelectorAll("#br-touch [data-dir]").forEach((btn) => {
+      const dir = btn.dataset.dir === "left" ? -1 : 1;
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        stopNudge();
+        nudge(dir);
+        nudgeTimer = setInterval(() => nudge(dir), 70);
+      });
+      btn.addEventListener("pointerup", stopNudge);
+      btn.addEventListener("pointercancel", stopNudge);
+      btn.addEventListener("pointerleave", stopNudge);
+    });
 
-    function onVisibility() {
-      if (document.hidden) {
-        if (running) {
-          running = false;
-          cancelAnimationFrame(raf);
-          pausedByVisibility = true;
-          hintEl.textContent = "Paused (tab hidden) · return to resume";
-        }
-      } else if (pausedByVisibility && !submitted && lives > 0) {
-        resume();
-      }
+    function suspendFromBrowser() {
+      if (!running || paused) return;
+      running = false;
+      cancelAnimationFrame(raf);
+      stopNudge();
+      pausedByVisibility = true;
+      last = null;
+      hintEl.textContent = "Paused · resume to continue";
     }
-    document.addEventListener("visibilitychange", onVisibility);
+
+    function onLifecycle(reason) {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
+        suspendFromBrowser();
+        return;
+      }
+      if (document.hidden) return;
+      if (pausedByVisibility && !submitted && lives > 0) resume();
+      else if (running) last = null;
+    }
+    global.ArcadeCabinetSession.bindSuspension(life, document, onLifecycle);
+    const releaseControls = global.ArcadeControls?.mountPanel?.(root.querySelector("#br-controls"), "breaker", life) || (() => {});
 
     init();
     draw();
@@ -789,8 +853,9 @@
         paused = false;
         cancelAnimationFrame(raf);
         clearTimeout(toastTimer);
-        window.removeEventListener("keydown", onKey);
-        document.removeEventListener("visibilitychange", onVisibility);
+        stopNudge();
+        releaseControls();
+        life.dispose();
         root.innerHTML = "";
       },
     };

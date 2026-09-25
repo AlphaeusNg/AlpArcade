@@ -95,6 +95,9 @@
   }
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
     let board = empty();
     let locked = false;
     let streak = 0;
@@ -271,6 +274,7 @@
       destroy() {
         clearTimeout(aiTimer);
         aiTimer = null;
+        life.dispose();
         root.innerHTML = "";
       },
     };

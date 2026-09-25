@@ -108,6 +108,10 @@
 
       <section class="cabinets" id="cabinets">
         <h2 class="section-title">Cabinets</h2>
+        <div class="cab-quick" id="cab-quick" aria-label="Favorites and recent cabinets">
+          <p class="cab-quick-empty" id="cab-quick-empty">Star a cabinet to pin it.</p>
+          <div class="cab-quick-line" id="cab-quick-line" hidden></div>
+        </div>
         <div class="cabinet-grid">
           <!-- Free (top) -->
           <button type="button" class="cabinet" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
@@ -438,6 +442,8 @@
   <script src="js/firebase-config.js" defer></script>
   <script src="js/core/script-loader.js" defer></script>
   <script src="js/core/cabinet-session.js" defer></script>
+  <script src="js/core/controls.js" defer></script>
+  <script src="js/core/favorites.js" defer></script>
   <script src="js/core/game-screen.js" defer></script>
   <script src="js/core/audio.js" defer></script>
   <script src="js/core/scores.js" defer></script>

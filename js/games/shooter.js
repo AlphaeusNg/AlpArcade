@@ -17,6 +17,13 @@
   const POWER_DROP_ORDER = ["rapid", "multi", "spread", "speed", "pierce", "shield", "life"];
 
   function mount(root, { onScore }) {
+    const life = global.ArcadeCabinetSession.createLifecycle();
+    const setTimeout = life.setTimeout;
+    const clearTimeout = life.clearTimeout;
+    const setInterval = life.setInterval;
+    const clearInterval = life.clearInterval;
+    const requestAnimationFrame = life.requestAnimationFrame;
+    const cancelAnimationFrame = life.cancelAnimationFrame;
     root.innerHTML = `
       <div class="shooter-wrap">
         <div class="game-hud">
@@ -42,6 +49,15 @@
           </section>
         </div>
         <p class="game-hint" id="sh-hint">WASD / arrows · full flight · auto-fire · grab powerups</p>
+        <div class="touch-cluster" id="sh-touch">
+          <div class="dpad" aria-label="Move">
+            <button type="button" class="dpad-btn dpad-up" data-dir="up" aria-label="Up">▲</button>
+            <button type="button" class="dpad-btn dpad-left" data-dir="left" aria-label="Left">◀</button>
+            <button type="button" class="dpad-btn dpad-down" data-dir="down" aria-label="Down">▼</button>
+            <button type="button" class="dpad-btn dpad-right" data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+        <div id="sh-controls"></div>
         <div class="game-actions">
           <button type="button" class="btn primary" id="sh-start">Launch</button>
           <button type="button" class="run-pause-btn" id="sh-pause" hidden disabled aria-label="Pause" aria-pressed="false">
@@ -421,18 +437,23 @@
     }
 
     function moving(dir) {
-      if (dir === "left") return keys.ArrowLeft || keys.a || keys.A;
-      if (dir === "right") return keys.ArrowRight || keys.d || keys.D;
-      if (dir === "up") return keys.ArrowUp || keys.w || keys.W;
-      if (dir === "down") return keys.ArrowDown || keys.s || keys.S;
-      return false;
+      return !!keys[dir];
     }
 
     function frame(ts) {
       if (!running) return;
-      if (!last) last = ts;
-      const dt = Math.min(32, ts - last) / 16.67;
-      last = ts;
+      const gap = global.ArcadeCabinetSession.frameGap(ts, last);
+      last = gap.now;
+      if (gap.stalled) {
+        if (document.hidden) suspendFromBrowser();
+        else raf = requestAnimationFrame(frame);
+        return;
+      }
+      const dt = gap.stepMs / 16.67;
+      if (!(dt > 0)) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
       const m = waveMods(wave);
 
       ctx.fillStyle = "#04070e";
@@ -723,7 +744,7 @@
       pausedByVisibility = false;
       running = true;
       startBtn.disabled = false;
-      last = 0;
+      last = null;
       raf = requestAnimationFrame(frame);
       if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
       syncPauseUi();
@@ -749,16 +770,22 @@
       init();
       running = true;
       paused = false;
-      last = 0;
+      last = null;
       raf = requestAnimationFrame(frame);
       syncPauseUi();
     }
 
+    const MOVE_DIRS = ["up", "down", "left", "right"];
     function onKeyDown(e) {
-      keys[e.key] = true;
-      keys[e.key.toLowerCase()] = true;
-      // prevent page scroll with arrows / space
+      let matched = false;
+      for (const dir of MOVE_DIRS) {
+        if (global.ArcadeControls?.matches?.("shooter", dir, e)) {
+          keys[dir] = true;
+          matched = true;
+        }
+      }
       if (
+        matched ||
         ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " ", "Space"].includes(e.key) ||
         e.code === "Space"
       ) {
@@ -770,8 +797,9 @@
       }
     }
     function onKeyUp(e) {
-      keys[e.key] = false;
-      keys[e.key.toLowerCase()] = false;
+      for (const dir of MOVE_DIRS) {
+        if (global.ArcadeControls?.matches?.("shooter", dir, e)) keys[dir] = false;
+      }
     }
 
     let dragging = false;
@@ -807,8 +835,21 @@
       dragging = false;
     });
 
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
+    life.listen(window, "keydown", onKeyDown);
+    life.listen(window, "keyup", onKeyUp);
+    root.querySelectorAll("#sh-touch [data-dir]").forEach((btn) => {
+      const dir = btn.dataset.dir;
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        keys[dir] = true;
+      });
+      const release = () => {
+        keys[dir] = false;
+      };
+      btn.addEventListener("pointerup", release);
+      btn.addEventListener("pointercancel", release);
+      btn.addEventListener("pointerleave", release);
+    });
     startBtn.addEventListener("click", start);
     pauseBtn.addEventListener("click", pauseRun);
     resumeBtn.addEventListener("click", resume);
@@ -816,21 +857,28 @@
 
     // Pause when the tab is hidden so the wave doesn't run away mid-fight.
     let pausedByVisibility = false;
-    function onVisibility() {
-      if (document.hidden) {
-        if (running) {
-          running = false;
-          cancelAnimationFrame(raf);
-          pausedByVisibility = true;
-          keys = Object.create(null); // drop held keys so resume doesn't strafe
-          dragging = false;
-          if (hintEl) hintEl.textContent = "Paused (tab hidden) · return to resume";
-        }
-      } else if (pausedByVisibility && ship && lives > 0 && !submitted) {
-        resume();
-      }
+    function suspendFromBrowser() {
+      if (!running || paused) return;
+      running = false;
+      cancelAnimationFrame(raf);
+      pausedByVisibility = true;
+      last = null;
+      keys = Object.create(null);
+      dragging = false;
+      if (hintEl) hintEl.textContent = "Paused · resume to continue";
     }
-    document.addEventListener("visibilitychange", onVisibility);
+    function onLifecycle(reason) {
+      const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
+      if (suspending) {
+        suspendFromBrowser();
+        return;
+      }
+      if (document.hidden) return;
+      if (pausedByVisibility && ship && lives > 0 && !submitted) resume();
+      else if (running) last = null;
+    }
+    global.ArcadeCabinetSession.bindSuspension(life, document, onLifecycle);
+    const releaseControls = global.ArcadeControls?.mountPanel?.(root.querySelector("#sh-controls"), "shooter", life) || (() => {});
 
     init();
     ctx.fillStyle = "#04070e";
@@ -850,9 +898,8 @@
         cancelAnimationFrame(raf);
         clearTimeout(hitBannerTimer);
         clearTimeout(toastTimer);
-        window.removeEventListener("keydown", onKeyDown);
-        window.removeEventListener("keyup", onKeyUp);
-        document.removeEventListener("visibilitychange", onVisibility);
+        releaseControls();
+        life.dispose();
         root.innerHTML = "";
       },
     };
