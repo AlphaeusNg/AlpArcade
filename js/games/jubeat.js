@@ -1589,6 +1589,11 @@
     const comboEl = root.querySelector("#jb-combo");
     const excEl = root.querySelector("#jb-exc");
     const missEl = root.querySelector("#jb-miss");
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
     const metaEl = root.querySelector("#jb-meta");
     const hintEl = root.querySelector("#jb-hint");
     const srJudgeEl = root.querySelector("#jb-sr-judge");
@@ -2907,9 +2912,9 @@
 
     function paintCombo() {
       const value = Math.max(0, combo);
-      comboEl.textContent = String(value);
+      setText(comboEl, value);
       if (!gridComboEl || !gridComboValueEl) return;
-      gridComboValueEl.textContent = String(value);
+      setText(gridComboValueEl, value);
       gridComboEl.classList.toggle("is-active", value > 0);
       comboPulseAnimation?.cancel?.();
       comboPulseAnimation = null;
@@ -3077,7 +3082,7 @@
       if (!running || submitted || paused) return;
       recordAccuracy(n, "miss", tapTime);
       counts.miss += 1;
-      missEl.textContent = String(counts.miss);
+      setText(missEl, counts.miss);
       combo = 0;
       paintCombo();
       panel.setJudge("MISS", "miss", nowMs, runApproachMs);
@@ -3123,9 +3128,9 @@
       unlockPerfectTimingAchievement(accuracy);
       if (combo > bestCombo) bestCombo = combo;
       score = scoreTracker?.register(grade, combo) || 0;
-      scoreEl.textContent = formatScore(score);
+      setText(scoreEl, formatScore(score));
       paintCombo();
-      excEl.textContent = String(counts.excellent);
+      setText(excEl, counts.excellent);
       panel.removeNote(best.key);
       if (!panel.soonest()) activePanels.delete(panel);
       panel.setJudge(label, grade, nowMs, runApproachMs);
@@ -3589,10 +3594,10 @@
       bestCombo = 0;
       counts = { excellent: 0, great: 0, good: 0, miss: 0 };
       scoreTracker = createScoreTracker(chart);
-      scoreEl.textContent = "0";
+      setText(scoreEl, "0");
       paintCombo();
-      excEl.textContent = "0";
-      missEl.textContent = "0";
+      setText(excEl, "0");
+      setText(missEl, "0");
       paintSongProgress(0, true);
       startBtn.disabled = true;
       setupEl.hidden = true;

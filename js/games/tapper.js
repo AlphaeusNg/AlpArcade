@@ -77,7 +77,14 @@
     const resumeBtn = root.querySelector("#tap-resume");
     const bankBtn = root.querySelector("#tap-bank");
 
-    bestEl.textContent = String(
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
+    setText(
+      bestEl,
       window.ArcadeScores?.getState()?.highScores?.tapper?.best || 0
     );
 
@@ -108,15 +115,14 @@
     }
 
     function paintLives() {
-      const next = "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives));
-      if (livesEl.textContent === next) return;
-      livesEl.textContent = next;
+      setText(
+        livesEl,
+        "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives))
+      );
     }
 
     function paintCombo() {
-      const next = String(combo);
-      if (comboEl.textContent === next) return;
-      comboEl.textContent = next;
+      setText(comboEl, combo);
     }
 
     function clearAll() {
@@ -205,7 +211,7 @@
       const b = window.ArcadeScores?.getState()?.highScores?.tapper?.hits
         || window.ArcadeScores?.getState()?.highScores?.tapper?.best
         || hits;
-      bestEl.textContent = String(b);
+      setText(bestEl, b);
     }
 
     function endGame() {
@@ -225,7 +231,7 @@
       startBtn.textContent = "Play again";
       startBtn.disabled = false;
       paintDiffs();
-      hintEl.textContent = `Game over · ${score} pts · ${hits} hits · best combo ×${bestCombo}`;
+      setText(hintEl, `Game over · ${score} pts · ${hits} hits · best combo ×${bestCombo}`);
       window.ArcadeSFX?.die?.() || window.ArcadeSFX?.foul?.();
       commitScore();
       syncPauseUi();
@@ -239,7 +245,7 @@
       misses += 1;
       window.ArcadeSFX?.foul?.();
       if (lives <= 0) endGame();
-      else hintEl.textContent = reason || "Missed!";
+      else setText(hintEl, reason || "Missed!");
     }
 
     function spawnOne() {
@@ -320,10 +326,10 @@
       if (combo > bestCombo) bestCombo = combo;
       const pts = 10 + Math.min(40, (combo - 1) * 4) + diff * 2;
       score += pts;
-      if (scoreEl.textContent !== String(score)) scoreEl.textContent = String(score);
+      setText(scoreEl, score);
       paintCombo();
       window.ArcadeSFX?.match?.() || window.ArcadeSFX?.click?.();
-      hintEl.textContent = combo >= 5 ? `On fire · combo ×${combo}` : "Nice!";
+      setText(hintEl, combo >= 5 ? `On fire · combo ×${combo}` : "Nice!");
     }
 
     function syncPauseUi() {
@@ -339,7 +345,7 @@
       running = false;
       paused = true;
       freezeTimers();
-      hintEl.textContent = "Paused · resume or save your score";
+      setText(hintEl, "Paused · resume or save your score");
       syncPauseUi();
     }
 
@@ -350,7 +356,7 @@
       running = true;
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
-      hintEl.textContent = "Tap the glow!";
+      setText(hintEl, "Tap the glow!");
       unfreezeTimers();
       syncPauseUi();
     }
@@ -366,9 +372,12 @@
       paintDiffs();
       const hadScore = score > 0 || hits > 0;
       commitScore();
-      hintEl.textContent = hadScore
-        ? `Score saved · ${score} pts · ${hits} hits`
-        : "Run ended";
+      setText(
+        hintEl,
+        hadScore
+          ? `Score saved · ${score} pts · ${hits} hits`
+          : "Run ended"
+      );
       syncPauseUi();
     }
 
@@ -386,13 +395,13 @@
       paused = false;
       pausedByVisibility = false;
       running = true;
-      scoreEl.textContent = "0";
+      setText(scoreEl, "0");
       paintCombo();
       paintLives();
       paintDiffs();
       startBtn.textContent = "Running…";
       startBtn.disabled = true;
-      hintEl.textContent = "Tap the glow!";
+      setText(hintEl, "Tap the glow!");
       window.ArcadeSFX?.go?.() || window.ArcadeSFX?.click?.();
       scheduleSpawn();
       // First targets immediately
@@ -430,7 +439,7 @@
       running = false;
       pausedByVisibility = true;
       freezeTimers();
-      hintEl.textContent = "Paused · resume to continue";
+      setText(hintEl, "Paused (tab hidden) · return to resume");
     }
 
     function onLifecycle(reason) {

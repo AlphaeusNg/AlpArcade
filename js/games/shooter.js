@@ -72,6 +72,13 @@
     const livesEl = root.querySelector("#sh-lives");
     const waveEl = root.querySelector("#sh-wave");
     const hintEl = root.querySelector("#sh-hint");
+
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
     const powersEl = root.querySelector("#sh-powers");
     const hitFlashEl = root.querySelector("#sh-hit-flash");
     const lifeBannerEl = root.querySelector("#sh-life-banner");
@@ -194,7 +201,7 @@
 
       if (id === "life") {
         lives = Math.min(6, lives + 1);
-        livesEl.textContent = String(lives);
+        setText(livesEl, lives);
         showPickup("♥ Extra life!", def.color);
         ArcadeSFX?.match?.() || ArcadeSFX?.win?.();
         paintPowers();
@@ -213,7 +220,7 @@
       showPickup(`${def.glyph} ${def.label}!`, def.color);
       ArcadeSFX?.levelUp?.() || ArcadeSFX?.match?.();
       paintPowers();
-      hintEl.textContent = `${def.label} online`;
+      setText(hintEl, `${def.label} online`);
     }
 
     function maybeDropPowerup(x, y) {
@@ -266,10 +273,10 @@
       hitFlashEl.hidden = true;
       lifeBannerEl.hidden = true;
       livesEl.classList.remove("lost");
-      scoreEl.textContent = "0";
-      livesEl.textContent = "3";
-      waveEl.textContent = "1";
-      hintEl.textContent = "Wave 1 — WASD fly · auto-fire · hunt powerups";
+      setText(scoreEl, "0");
+      setText(livesEl, "3");
+      setText(waveEl, "1");
+      setText(hintEl, "Wave 1 — WASD fly · auto-fire · hunt powerups");
       paintPowers();
     }
 
@@ -420,7 +427,7 @@
       const threshold = wave * 100 + (wave - 1) * 40;
       if (score >= threshold) {
         wave += 1;
-        waveEl.textContent = String(wave);
+        setText(waveEl, wave);
         waveAnnounce = 80;
         ArcadeSFX?.levelUp();
         const m = waveMods(wave);
@@ -428,7 +435,7 @@
         if (m.zig) bits.push("zigzag");
         if (m.shooters) bits.push("shooters");
         if (m.swarm) bits.push("swarm");
-        hintEl.textContent = `Wave ${wave}${bits.length ? " · " + bits.join(" · ") : ""} · powerups drop more`;
+        setText(hintEl, `Wave ${wave}${bits.length ? " · " + bits.join(" · ") : ""} · powerups drop more`);
       }
     }
 
@@ -477,7 +484,7 @@
             active[id] = 0;
             if (id === "multi") multiLevel = 0;
             powersDirty = true;
-            hintEl.textContent = `${POWERS[id]?.label || id} expired`;
+            setText(hintEl, `${POWERS[id]?.label || id} expired`);
           }
         }
       }
@@ -603,7 +610,7 @@
             }
             if (e.hp <= 0) {
               score += 10 * wave + (e.kind === "shooter" ? 15 : 0);
-              scoreEl.textContent = String(score);
+              setText(scoreEl, score);
               burst(e.x, e.y, `hsl(${e.hue} 80% 60%)`);
               ArcadeSFX?.explode();
               maybeDropPowerup(e.x, e.y);
@@ -678,7 +685,7 @@
       }
 
       lives -= 1;
-      livesEl.textContent = String(lives);
+      setText(livesEl, lives);
       invuln = 70;
       hitAnim = 45;
       ArcadeSFX?.explode();
@@ -733,7 +740,7 @@
       paused = true;
       cancelAnimationFrame(raf);
       keys = Object.create(null);
-      if (hintEl) hintEl.textContent = "Paused · resume or save your score";
+      setText(hintEl, "Paused · resume or save your score");
       startBtn.disabled = true;
       syncPauseUi();
     }
@@ -746,7 +753,7 @@
       startBtn.disabled = false;
       last = null;
       raf = requestAnimationFrame(frame);
-      if (hintEl) hintEl.textContent = "WASD / arrows · full flight · auto-fire · grab powerups";
+      setText(hintEl, "WASD / arrows · full flight · auto-fire · grab powerups");
       syncPauseUi();
     }
 
@@ -757,7 +764,7 @@
       cancelAnimationFrame(raf);
       pauseOverlay.hidden = true;
       commitScore();
-      if (hintEl) hintEl.textContent = `Score saved · Wave ${wave}`;
+      setText(hintEl, `Score saved · Wave ${wave}`);
       startBtn.disabled = false;
       startBtn.textContent = "Launch";
       syncPauseUi();
@@ -865,7 +872,7 @@
       last = null;
       keys = Object.create(null);
       dragging = false;
-      if (hintEl) hintEl.textContent = "Paused · resume to continue";
+      setText(hintEl, "Paused (tab hidden) · return to resume");
     }
     function onLifecycle(reason) {
       const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";

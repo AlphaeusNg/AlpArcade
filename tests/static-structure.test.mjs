@@ -180,7 +180,7 @@ assert(
     && read("js/games/snake.js").includes("function setText(el, value)")
     && read("js/games/reaction.js").includes("function setText(el, value)")
     && read("js/games/memory.js").includes("function setText(el, value)")
-    && read("js/games/tapper.js").includes("if (comboEl.textContent === next) return")
+    && read("js/games/tapper.js").includes("function setText(el, value)")
     && read("js/games/snake.js").includes("function commitScore()")
     && read("js/games/tapper.js").includes("function commitScore()")
     && read("js/games/breaker.js").includes("function commitScore()")
@@ -200,6 +200,35 @@ assert(
     && memory.includes("if (!el || el.textContent === next) return")
     && !/\b(?:hpEl|scoreEl|levelEl|matchedEl|boardSizeEl|hintEl)\.textContent\s*=/.test(memory),
   "Memory Match HUD text writes must skip identical strings",
+);
+
+const jubeat = read("js/games/jubeat.js");
+assert(
+  jubeat.includes("function setText(el, value)")
+    && jubeat.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|comboEl|excEl|missEl|gridComboValueEl)\.textContent\s*=/.test(jubeat),
+  "Pulse Grid HUD text writes must skip identical strings",
+);
+const breaker = read("js/games/breaker.js");
+assert(
+  breaker.includes("function setText(el, value)")
+    && breaker.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|livesEl|rowEl|hintEl)\.textContent\s*=/.test(breaker),
+  "Circuit Breaker HUD text writes must skip identical strings",
+);
+const shooter = read("js/games/shooter.js");
+assert(
+  shooter.includes("function setText(el, value)")
+    && shooter.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|livesEl|waveEl|hintEl)\.textContent\s*=/.test(shooter),
+  "Space Shooter HUD text writes must skip identical strings",
+);
+const tapper = read("js/games/tapper.js");
+assert(
+  tapper.includes("function setText(el, value)")
+    && tapper.includes("if (!el || el.textContent === next) return")
+    && !/\b(?:scoreEl|livesEl|comboEl|bestEl|hintEl)\.textContent\s*=/.test(tapper),
+  "Target Tap HUD text writes must skip identical strings",
 );
 assert(
   ["shooter", "snake", "breaker", "tapper", "memory"].every((id) => {

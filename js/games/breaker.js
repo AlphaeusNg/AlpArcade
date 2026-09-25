@@ -161,6 +161,12 @@
     const pickupToast = root.querySelector("#br-pickup-toast");
     const levelsEl = root.querySelector("#br-levels");
 
+    function setText(el, value) {
+      const next = String(value);
+      if (!el || el.textContent === next) return;
+      el.textContent = next;
+    }
+
     const W = 480;
     const H = 560;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -295,11 +301,11 @@
       paddle.x = W / 2;
       clampPaddle();
       resetBalls();
-      scoreEl.textContent = "0";
-      livesEl.textContent = "3";
-      rowEl.textContent = String(level);
+      setText(scoreEl, "0");
+      setText(livesEl, "3");
+      setText(rowEl, String(level));
       const L = layoutForLevel(level);
-      hintEl.textContent = `Level ${level} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
+      setText(hintEl, `Level ${level} · ${L.cols}×${L.rows} · catch capsules with the paddle`);
       paintLevels();
       paintPowers();
       draw();
@@ -357,7 +363,7 @@
 
       if (id === "life") {
         lives = Math.min(6, lives + 1);
-        livesEl.textContent = String(lives);
+        setText(livesEl, String(lives));
         showPickup("♥ Extra life!", def.color);
         global.ArcadeSFX?.match?.() || global.ArcadeSFX?.win?.();
         paintPowers();
@@ -369,8 +375,10 @@
         showPickup(`✱ Split · ×${balls.length}`, def.color);
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
         paintPowers();
-        hintEl.textContent =
-          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`;
+        setText(
+          hintEl,
+          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`
+        );
         return;
       }
 
@@ -380,8 +388,10 @@
         showPickup(add > 1 ? `+ ${add} balls · ×${balls.length}` : "+ Extra ball!", def.color);
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
         paintPowers();
-        hintEl.textContent =
-          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`;
+        setText(
+          hintEl,
+          balls.length >= 24 ? `Flood · ${balls.length} balls` : `${balls.length} balls in play`
+        );
         return;
       }
 
@@ -395,10 +405,12 @@
         global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
         clampPaddle();
         paintPowers();
-        hintEl.textContent =
+        setText(
+          hintEl,
           wideStacks >= WIDE_MAX_STACKS
             ? "Paddle spans the board"
-            : `Wide ×${wideStacks}/${WIDE_MAX_STACKS} · more Wide grows the bar`;
+            : `Wide ×${wideStacks}/${WIDE_MAX_STACKS} · more Wide grows the bar`
+        );
         return;
       }
 
@@ -407,7 +419,7 @@
       global.ArcadeSFX?.levelUp?.() || global.ArcadeSFX?.match?.();
       clampPaddle();
       paintPowers();
-      hintEl.textContent = `${def.label} online`;
+      setText(hintEl, `${def.label} online`);
     }
 
     function maybeDrop(x, y) {
@@ -457,7 +469,7 @@
       startBtn.disabled = false;
       startBtn.textContent = "Play again";
       selectedLevel = row;
-      hintEl.textContent = `Circuit fried · ${score} pts · level ${row}`;
+      setText(hintEl, `Circuit fried · ${score} pts · level ${row}`);
       commitScore();
       paintLevels();
       syncPauseUi();
@@ -557,7 +569,7 @@
           if (b.hp <= 0) {
             bricks.splice(i, 1);
             score += 20 + Math.min(40, row);
-            scoreEl.textContent = String(score);
+            setText(scoreEl, String(score));
             maybeDrop(b.x + b.w / 2, b.y + b.h / 2);
             if (!flood || Math.random() < 0.08) {
               global.ArcadeSFX?.hit?.() || global.ArcadeSFX?.click?.();
@@ -576,11 +588,11 @@
       selectedLevel = row;
       if (!keepScore) {
         score = 0;
-        scoreEl.textContent = "0";
+        setText(scoreEl, "0");
         wideStacks = 0;
       }
       lives = keepScore ? lives : 3;
-      livesEl.textContent = String(lives);
+      setText(livesEl, String(lives));
       submitted = false;
       active = {};
       if (keepScore && wideStacks > 0) active.wide = POWERS.wide.duration * 1.35;
@@ -589,9 +601,9 @@
       paddle.x = W / 2;
       clampPaddle();
       resetBalls();
-      rowEl.textContent = String(row);
+      setText(rowEl, String(row));
       const L = layoutForLevel(row);
-      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
+      setText(hintEl, `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`);
       paintLevels();
       paintPowers();
     }
@@ -625,7 +637,7 @@
             active[id] = 0;
             if (id === "wide") wideStacks = 0;
             powersDirty = true;
-            hintEl.textContent = `${POWERS[id]?.label || id} expired`;
+            setText(hintEl, `${POWERS[id]?.label || id} expired`);
             if (id === "wide") clampPaddle();
           }
         }
@@ -670,7 +682,7 @@
 
       if (!balls.length) {
         lives -= 1;
-        livesEl.textContent = String(lives);
+        setText(livesEl, String(lives));
         global.ArcadeSFX?.lose?.();
         if (lives <= 0) {
           endRun();
@@ -714,7 +726,7 @@
       running = false;
       paused = true;
       cancelAnimationFrame(raf);
-      hintEl.textContent = "Paused · resume or save your score";
+      setText(hintEl, "Paused · resume or save your score");
       syncPauseUi();
       draw();
     }
@@ -728,7 +740,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Running…";
       const L = layoutForLevel(row);
-      hintEl.textContent = `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`;
+      setText(hintEl, `Level ${row} · ${L.cols}×${L.rows} · catch capsules with the paddle`);
       raf = requestAnimationFrame(frame);
       syncPauseUi();
     }
@@ -743,9 +755,12 @@
       startBtn.textContent = "Start / Restart";
       const hadScore = score > 0 || row > 1;
       commitScore();
-      hintEl.textContent = hadScore
-        ? `Score saved · ${score} pts · level ${row}`
-        : "Run ended";
+      setText(
+        hintEl,
+        hadScore
+          ? `Score saved · ${score} pts · level ${row}`
+          : "Run ended"
+      );
       paintLevels();
       syncPauseUi();
       draw();
@@ -827,7 +842,7 @@
       stopNudge();
       pausedByVisibility = true;
       last = null;
-      hintEl.textContent = "Paused · resume to continue";
+      setText(hintEl, "Paused (tab hidden) · return to resume");
     }
 
     function onLifecycle(reason) {
