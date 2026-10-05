@@ -1,8 +1,12 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-09-25
+Last updated: 2026-10-05
 
-## Latest cycle: fair timers, cabinet lifecycle, controls, and pins
+## Latest cycle: trap Pulse Grid pause focus
+
+Pulse Grid's pause dialog cycles Tab and Shift+Tab through Resume, Restart song, and Save score & end, skipping disabled buttons. The trap is inside the existing cabinet key listener, so leaving the cabinet removes it. Resume returns focus to Pause. Restart and Save score & end do the same only when Pause can take focus; otherwise focus lands on the grid or the results region. Version `2026.10.05.1`.
+
+## Previous cycle: fair timers, cabinet lifecycle, controls, and pins
 
 Timed cabinets now drop hidden-tab, lock, and long-suspension gaps instead of
 fast-forwarding physics or awarding that time. Each mount tracks timers,
@@ -144,7 +148,7 @@ Space Shooter now caches live power-strip markup and skips identical `innerHTML`
 
 - Branch: `main`; working tree was clean and aligned with `origin/main` at cycle start.
 - Runtime: zero-build static GitHub Pages arcade with eight lazy-loaded game modules.
-- Deployment version: `2026.09.25.1`.
+- Deployment version: `2026.10.05.1`.
 - Daily card: Play, Replay, and Continue are deduplicated by cabinet destination. A 320px recap truncates only its copy while Share/Replay remain intact and the card stays contained.
 - Local verification: locked npm test dependencies, comprehensive `npm test`, 23 real Chromium journeys, and syntax checks across all JavaScript and test modules.
 - Automated verification: least-privilege GitHub Actions runs workflow policy and all unit/contract suites on Node 24, then exercises cabinet navigation, last-run rematch collapse, phone fold, and denied score, achievement, daily-save, local reset, and cloud reset outcome paths in Chromium.

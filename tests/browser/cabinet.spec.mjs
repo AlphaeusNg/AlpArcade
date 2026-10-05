@@ -166,6 +166,44 @@ test("Pulse Grid keeps separate Easy, Medium, and Hard highs for each song", asy
   await expect(bests).not.toContainText("123,456");
 });
 
+test("Pulse Grid pause traps Tab and restores visible focus on every exit", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({ xp: 10000 }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="jubeat"]').click();
+  await page.locator("#jb-start").click();
+  const pause = page.locator("#jb-pause");
+  const resume = page.locator("#jb-resume");
+  const restart = page.locator("#jb-restart-song");
+  const end = page.locator("#jb-exit-song");
+  await expect(pause).toBeEnabled({ timeout: 15_000 });
+  await pause.click();
+  await expect(resume).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(end).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(resume).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(restart).toBeFocused();
+  await resume.click();
+  await expect(resume).toBeDisabled();
+  await page.keyboard.press("Tab");
+  await expect(restart).toBeFocused();
+  await expect(page.locator("#jb-pause-overlay")).toBeHidden();
+  await expect(pause).toBeFocused();
+  await pause.click();
+  await restart.click();
+  await expect(page.locator("#jb-pause-overlay")).toBeHidden();
+  await expect(page.locator("#jb-grid")).toBeFocused();
+  await expect(pause).toBeEnabled({ timeout: 15_000 });
+  await pause.click();
+  await end.click();
+  await expect(page.locator("#jb-results")).toBeVisible();
+  await expect(page.locator("#jb-results")).toBeFocused();
+});
+
 test("lobby recaps and shares the last run after reload", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {

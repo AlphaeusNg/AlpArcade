@@ -1671,6 +1671,7 @@
     let resumeWithAudio = false;
     let resumeCountdownActive = false;
     let resumeCountdownTimers = [];
+    let pauseReturnFocus = null;
     let score = 0;
     let combo = 0;
     let bestCombo = 0;
@@ -1830,6 +1831,43 @@
       resumeBtn.disabled = false;
     }
 
+    function rememberPauseOpener() {
+      pauseReturnFocus = pauseBtn?.isConnected ? pauseBtn : null;
+    }
+
+    function canTakeFocus(el) {
+      if (!el?.isConnected || el.disabled || el.hidden) return false;
+      return !el.closest("[hidden]");
+    }
+
+    function restorePauseOpenerFocus() {
+      const remembered = pauseReturnFocus;
+      pauseReturnFocus = null;
+      const opener = remembered?.isConnected ? remembered : pauseBtn;
+      // A hidden or disabled Pause button cannot hold focus after Save score & end.
+      if (opener?.isConnected && canTakeFocus(opener)) {
+        opener.focus({ preventScroll: true });
+        return;
+      }
+      if (!resultsActionsEl?.hidden && resultsRetryBtn?.isConnected && canTakeFocus(resultsRetryBtn)) {
+        resultsRetryBtn.focus({ preventScroll: true });
+        return;
+      }
+      if (resultsOpen && resultsEl && !resultsEl.hidden) {
+        if (!resultsEl.hasAttribute("tabindex")) resultsEl.tabIndex = -1;
+        resultsEl.focus({ preventScroll: true });
+        return;
+      }
+      if (playfieldEl && !playfieldEl.hidden && grid?.isConnected) {
+        if (!grid.hasAttribute("tabindex")) grid.tabIndex = -1;
+        grid.focus({ preventScroll: true });
+        return;
+      }
+      if (!setupEl?.hidden && startBtn?.isConnected && canTakeFocus(startBtn)) {
+        startBtn.focus({ preventScroll: true });
+      }
+    }
+
     function syncPauseUi({ focusResume = false } = {}) {
       const showControls = running && !submitted;
       const canPause = showControls && clockStarted && pauseAvailable && !paused;
@@ -1843,7 +1881,10 @@
       if (resumeCountdownEl) resumeCountdownEl.hidden = !resumeCountdownActive;
       playfieldEl.classList.toggle("is-paused", paused);
       grid.setAttribute("aria-disabled", paused ? "true" : "false");
-      if (focusResume && paused && !resumeCountdownActive) resumeBtn.focus({ preventScroll: true });
+      if (focusResume && paused && !resumeCountdownActive) {
+        rememberPauseOpener();
+        resumeBtn.focus({ preventScroll: true });
+      }
     }
 
     function resetPauseState() {
@@ -1884,6 +1925,7 @@
       const resumeAt = pausedAtMs;
       const resumePerf = performance.now();
       paused = false;
+      pauseReturnFocus = null;
       t0 = resumePerf - resumeAt;
       syncPauseUi();
       if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${song().title}`;
@@ -1955,6 +1997,7 @@
       stopBgm();
       startBtn.disabled = false;
       start();
+      restorePauseOpenerFocus();
     }
 
     function showSongSelection() {
@@ -1992,6 +2035,7 @@
     function exitSongToSongSelect() {
       if (!paused) return;
       finish();
+      restorePauseOpenerFocus();
     }
 
     function duckLobbyMusic(on) {
@@ -3748,6 +3792,17 @@
 
     function onKey(e) {
       if (resultsOpen) return;
+      if (e.key === "Tab" && paused && !pauseOverlayEl.hidden) {
+        const buttons = [resumeBtn, restartSongBtn, exitSongBtn].filter((button) => button && !button.disabled);
+        e.preventDefault();
+        if (!buttons.length) return;
+        const index = buttons.indexOf(document.activeElement);
+        const next = index < 0
+          ? buttons[0]
+          : buttons[(index + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length];
+        next.focus({ preventScroll: true });
+        return;
+      }
       if (e.key.toLowerCase() === "p" && running && clockStarted && pauseAvailable) {
         e.preventDefault();
         if (paused) resumeSong();

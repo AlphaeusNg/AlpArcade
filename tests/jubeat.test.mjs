@@ -314,6 +314,79 @@ assert(
     gameCss.includes("min-height: 1.75rem"),
   "Pause must reserve its controls, freeze timing, count down on Resume, and save the score on exit"
 );
+const onKeyFunction = source.slice(
+  source.indexOf("function onKey(e) {"),
+  source.indexOf('life.listen(window, "keydown", onKey);')
+);
+const pauseTabBranch = onKeyFunction.slice(
+  onKeyFunction.indexOf('if (e.key === "Tab" && paused && !pauseOverlayEl.hidden)'),
+  onKeyFunction.indexOf('if (e.key.toLowerCase() === "p"')
+);
+assert(
+  pauseTabBranch.startsWith('if (e.key === "Tab" && paused && !pauseOverlayEl.hidden)') &&
+    pauseTabBranch.includes("resumeBtn") &&
+    pauseTabBranch.includes("restartSongBtn") &&
+    pauseTabBranch.includes("exitSongBtn") &&
+    pauseTabBranch.includes("!button.disabled") &&
+    pauseTabBranch.includes("document.activeElement") &&
+    pauseTabBranch.includes("index < 0") &&
+    pauseTabBranch.includes("buttons[0]") &&
+    pauseTabBranch.includes("e.shiftKey") &&
+    pauseTabBranch.includes("e.preventDefault()") &&
+    pauseTabBranch.includes("return;") &&
+    !pauseTabBranch.includes("addEventListener") &&
+    !pauseTabBranch.includes("life.listen"),
+  "Pause Tab must cycle Resume, Restart, and Save score inside the existing onKey handler"
+);
+assert(
+  onKeyFunction.includes('e.key.toLowerCase() === "p"') &&
+    onKeyFunction.includes('"1": 0') &&
+    onKeyFunction.includes("q: 4") &&
+    onKeyFunction.includes("a: 8") &&
+    onKeyFunction.includes("z: 12") &&
+    onKeyFunction.includes("onPanel(map[k])") &&
+    onKeyFunction.indexOf('e.key === "Tab"') < onKeyFunction.indexOf("const map"),
+  "The pause Tab trap must not capture closed-overlay Tab or replace panel keys and P"
+);
+assert(
+  source.split('e.key === "Tab"').length === 2 &&
+    source.split('life.listen(window, "keydown", onKey)').length === 2 &&
+    !/addEventListener\(\s*["']keydown["']/.test(source) &&
+    source.slice(source.lastIndexOf("destroy() {")).includes("life.dispose();"),
+  "The pause Tab trap must be the one lifecycle keydown listener and must leave with the cabinet"
+);
+const resumeFunction = source.slice(
+  source.indexOf("function completeResumeSong()"),
+  source.indexOf("function resumeSong()")
+);
+assert(
+  resumeFunction.includes("paused = false;") &&
+    resumeFunction.includes("pauseReturnFocus = null;") &&
+    resumeFunction.includes("pauseBtn.focus({ preventScroll: true });") &&
+    resumeFunction.indexOf("paused = false;") < resumeFunction.indexOf("pauseBtn.focus({ preventScroll: true });"),
+  "Resume must close the pause trap and restore focus to Pause"
+);
+const restoreFunction = source.slice(
+  source.indexOf("function restorePauseOpenerFocus()"),
+  source.indexOf("function syncPauseUi")
+);
+assert(
+  source.includes("function rememberPauseOpener()") &&
+    source.includes("pauseReturnFocus = pauseBtn?.isConnected ? pauseBtn : null;") &&
+    source.includes("rememberPauseOpener();") &&
+    restoreFunction.includes("remembered?.isConnected") &&
+    restoreFunction.includes("opener?.isConnected") &&
+    restoreFunction.includes("opener.focus({ preventScroll: true });") &&
+    restoreFunction.includes("resultsRetryBtn?.isConnected") &&
+    restoreFunction.includes("startBtn?.isConnected"),
+  "Pause must remember Pause and restore a connected control if that button was removed"
+);
+assert(
+  /\.jb-pause-overlay,\s*\.run-pause-overlay\s*\{[^}]*text-align:\s*center;[^}]*\}/.test(gameCss) &&
+    !/\.jb-pause-overlay,\s*\.run-pause-overlay\s*\{[^}]*transition\s*:/.test(gameCss) &&
+    /\.jb-pause-overlay\[hidden\],\s*\.run-pause-overlay\[hidden\]\s*\{[^}]*display:\s*none;/.test(gameCss),
+  "Pause must keep opening and closing without a decorative overlay transition"
+);
 const songSelectionFunction = source.slice(
   source.indexOf("function showSongSelection()"),
   source.indexOf("function exitSongToSongSelect()")
@@ -335,6 +408,16 @@ assert(
   exitSongFunction.includes("finish();") &&
     !exitSongFunction.includes("showSongSelection()"),
   "Pause exit banks the current chart instead of discarding it"
+);
+const restartFunction = source.slice(
+  source.indexOf("function restartSong()"),
+  source.indexOf("function showSongSelection()")
+);
+assert(
+  restartFunction.includes("restorePauseOpenerFocus();") &&
+    exitSongFunction.includes("restorePauseOpenerFocus();") &&
+    exitSongFunction.indexOf("finish();") < exitSongFunction.indexOf("restorePauseOpenerFocus();"),
+  "Restart and save-score-and-end must restore focus after the pause dialog closes"
 );
 assert(
   source.includes("function primeResultAudio()") &&
