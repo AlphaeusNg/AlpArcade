@@ -270,6 +270,13 @@ assert(
     && read("css/games.css").includes(".br-power-chip"),
   "Circuit Breaker ships large banks and exponential split floods without slow-mo",
 );
+const tictactoe = read("js/games/tictactoe.js");
+const diffsSource = tictactoe.match(/const DIFFS = \[([\s\S]*?)\];/)?.[1] ?? "";
+const diffEntries = [...diffsSource.matchAll(/\{ id: "[^"]+".*\}/g)].map((match) => match[0]);
+assert(
+  diffEntries.length === 3 && diffEntries.every((entry) => /note:\s*"[^"]+"/.test(entry)),
+  "every Tic-Tac-Toe difficulty must define a note for the status line",
+);
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
 

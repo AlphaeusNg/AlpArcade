@@ -13,7 +13,7 @@
   ];
 
   const DIFFS = [
-    { id: "easy", label: "Easy", blunder: 0.55, depth: "Random-ish" },
+    { id: "easy", label: "Easy", blunder: 0.55, note: "Random-ish" },
     { id: "medium", label: "Medium", blunder: 0.22, note: "Blocks & forks" },
     { id: "hard", label: "Hard", blunder: 0.0, note: "Perfect minimax" },
   ];
@@ -134,7 +134,7 @@
     function paintDiffs() {
       diffBar.innerHTML = DIFFS.map(
         (d, i) =>
-          `<button type="button" class="diff-chip${i === diff ? " active" : ""}" data-d="${i}">${d.label}</button>`
+          `<button type="button" class="diff-chip${i === diff ? " active" : ""}" data-d="${i}" aria-pressed="${i === diff ? "true" : "false"}">${d.label}</button>`
       ).join("");
       diffBar.querySelectorAll("[data-d]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -142,7 +142,7 @@
           ArcadeSFX?.click();
           paintDiffs();
           diffLabel.textContent = DIFFS[diff].label;
-          statusEl.textContent = `${DIFFS[diff].note} — your move`;
+          if (!locked) statusEl.textContent = `${DIFFS[diff].note} — your move`;
         });
       });
       diffLabel.textContent = DIFFS[diff].label;
