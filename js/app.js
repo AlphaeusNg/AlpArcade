@@ -500,6 +500,13 @@
     };
     pinned.favorites.forEach((id) => addChip(id, "favorite"));
     pinned.recent.forEach((id) => addChip(id, "recent"));
+    const status = $("#cab-quick-status");
+    if (status) {
+      status.hidden = !pinned.persistDenied;
+      status.textContent = pinned.persistDenied
+        ? "Favorites and recent cabinets stay for this visit. Allow site storage to keep them."
+        : "";
+    }
     if (!host) return;
     if (pinned.persistDenied) host.title = "Pins stay for this visit. Allow site storage to keep them.";
     else host.removeAttribute("title");

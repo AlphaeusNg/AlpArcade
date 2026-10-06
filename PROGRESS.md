@@ -1182,3 +1182,8 @@ Local next: wait for new runtime or player evidence rather than revisiting the
 already-verified Cycle 76 lobby behavior.
 Workspace next: rotate to the highest-impact unblocked item in another clean
 repository.
+
+
+## 2026-10-07 — Explain visit-only favorites
+
+Favorites and recent cabinets show visible, accessible guidance when device storage rejects them; pinned cabinets remain playable for the visit. Browser checks use port 4178 to avoid AIly. Unit gates, 27 existing Chromium journeys and the focused favorites-storage journey passed. Pre-existing Snake/Shooter pause work remains local and is excluded from this release.
