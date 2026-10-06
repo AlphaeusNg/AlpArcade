@@ -361,6 +361,26 @@ test("opens, plays, and leaves a lazy-loaded cabinet", async ({ page }) => {
   await expect(cabinet).toBeFocused();
 });
 
+test("Tic-Tac-Toe difficulty chips announce a real note", async ({ page }) => {
+  await page.goto("/#play/tictactoe", { waitUntil: "domcontentloaded" });
+
+  const cells = page.locator("#ttt-board .ttt-cell");
+  await expect(cells).toHaveCount(9);
+
+  const diffs = page.locator("#ttt-diffs");
+  const chips = diffs.locator(".diff-chip");
+  await expect(chips).toHaveCount(3);
+  await diffs.getByRole("button", { name: "Medium" }).click();
+  await diffs.getByRole("button", { name: "Easy" }).click();
+
+  const status = page.locator("#ttt-status");
+  await expect(status).toHaveText("Random-ish — your move");
+  await expect(status).not.toContainText("undefined");
+  await expect(diffs.getByRole("button", { name: "Easy" })).toHaveAttribute("aria-pressed", "true");
+  await expect(diffs.getByRole("button", { name: "Medium" })).toHaveAttribute("aria-pressed", "false");
+  await expect(diffs.getByRole("button", { name: "Hard" })).toHaveAttribute("aria-pressed", "false");
+});
+
 test("keeps achievement progress visible when device storage rejects it", async ({ page }) => {
   await page.addInitScript(() => {
     const originalSetItem = Storage.prototype.setItem;
