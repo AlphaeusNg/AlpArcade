@@ -872,3 +872,35 @@ test("scoreboard category chips show top 3 per game and filter local runs", asyn
   await expect(page.locator("#highscores-list")).toContainText("Target Tap");
   await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
 });
+
+
+test("device backup validates, confirms and restores favorites and controls", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).not.toHaveText("—");
+  const text = await page.evaluate(() => {
+    ArcadeScores.setPlayerName("Portable Player");
+    ArcadeFavorites.toggle("snake");
+    ArcadeControls.setBinding("snake", "up", "i");
+    const backup = JSON.stringify(ArcadeBackup.exportSnapshot());
+    ArcadeFavorites.toggle("snake");
+    ArcadeControls.reset("snake");
+    return backup;
+  });
+  const field = page.locator("#device-backup-file");
+  const file = { name: "device.json", mimeType: "application/json", buffer: Buffer.from(text) };
+  const cancel = page.waitForEvent("dialog").then((dialog) => dialog.dismiss());
+  await field.setInputFiles(file);
+  await cancel;
+  await expect(page.locator("#device-backup-status")).toHaveText("Restore cancelled. Nothing changed.");
+  expect(await page.evaluate(() => ArcadeFavorites.isFavorite("snake"))).toBe(false);
+  const accept = page.waitForEvent("dialog").then((dialog) => dialog.accept());
+  await field.setInputFiles(file);
+  await accept;
+  await expect(page.locator("#device-backup-status")).toContainText("Restored scores");
+  expect(await page.evaluate(() => ArcadeFavorites.isFavorite("snake"))).toBe(true);
+  expect(await page.evaluate(() => ArcadeControls.keysFor("snake", "up"))).toEqual(["i"]);
+  const before = await page.evaluate(() => ArcadeScores.exportCode());
+  await field.setInputFiles({ ...file, buffer: Buffer.from('{"version":99}') });
+  await expect(page.locator("#device-backup-status")).toContainText("Nothing changed");
+  expect(await page.evaluate(() => ArcadeScores.exportCode())).toBe(before);
+});

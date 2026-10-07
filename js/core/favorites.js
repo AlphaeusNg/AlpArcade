@@ -87,12 +87,25 @@
     };
   }
 
+  function parseSnapshot(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid favorite preferences");
+    for (const [key, max] of [["favorites", ALLOWED.length], ["recent", RECENT_MAX]]) {
+      const list = raw[key];
+      if (!Array.isArray(list) || list.length > max || new Set(list).size !== list.length ||
+          list.some((id) => !ALLOWED.includes(id))) throw new Error("Invalid favorite preferences");
+    }
+    return normalize(raw);
+  }
+
   global.ArcadeFavorites = Object.freeze({
     STORAGE_KEY,
     ALLOWED,
     toggle,
     remember,
     pins,
+    parseSnapshot,
+    snapshot: () => normalize(load()),
+    restore: (raw) => { save(parseSnapshot(raw)); return pins(); },
     isFavorite(id) {
       return load().favorites.includes(id);
     },

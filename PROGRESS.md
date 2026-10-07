@@ -1192,3 +1192,8 @@ Favorites and recent cabinets show visible, accessible guidance when device stor
 ## 2026-10-07 — Reject unrelated imports without erasing progress
 
 Array, unrelated-object and invalid numeric score imports now fail before saving. Valid Unicode exports still round-trip; rejected imports leave existing XP and scores byte-identical. Validation: complete unit gate and 26 Chromium journeys passed in an isolated checkout. Version 2026.10.07.2. Existing local pause/copy edits were excluded.
+
+
+## 2026-10-07 — Back up device scores and preferences
+
+A folded Device backup panel exports and restores a versioned JSON file containing score code, favorites, recent cabinets and controls. All sections validate before any write; invalid files and cancelled confirmation preserve state. Denied storage retains the restored visit and reports it honestly. Cloud scores, achievements and daily progress are excluded. Validation: full unit gate including round-trip/invalid/denied/cloud-isolation checks and 27 Chromium journeys passed. Version 2026.10.07.3.

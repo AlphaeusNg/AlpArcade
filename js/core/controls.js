@@ -324,8 +324,35 @@
     };
   }
 
+  function parseSnapshot(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid control preferences");
+    for (const [id, definition] of Object.entries(GAMES)) {
+      const game = raw[id];
+      if (!game || !Array.isArray(game.actions) || game.actions.length !== definition.actions.length ||
+          new Set(game.actions.map((action) => action?.id)).size !== game.actions.length ||
+          !PLACES.includes(game.touch?.place) || typeof game.touch?.scale !== "number" ||
+          !Number.isFinite(game.touch.scale) || game.touch.scale < SCALE_MIN || game.touch.scale > SCALE_MAX) {
+        throw new Error("Invalid control preferences");
+      }
+      const used = new Set();
+      for (const action of definition.actions) {
+        const keys = game.actions.find((item) => item?.id === action.id)?.keys;
+        if (!Array.isArray(keys) || !keys.length || keys.length > 2) throw new Error("Invalid control preferences");
+        for (const key of keys) {
+          if (typeof key !== "string" || !normalizeKey(key) || RESERVED.has(key.toLowerCase()) || used.has(key.toLowerCase())) {
+            throw new Error("Invalid or conflicting control keys");
+          }
+          used.add(key.toLowerCase());
+        }
+      }
+    }
+    return normalize(raw);
+  }
+
   global.ArcadeControls = Object.freeze({
     STORAGE_KEY,
+    parseSnapshot,
+    restore: (raw) => { save(parseSnapshot(raw)); return { persistDenied }; },
     isActionGame,
     keysFor,
     matches,

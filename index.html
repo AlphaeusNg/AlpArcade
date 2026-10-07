@@ -289,6 +289,16 @@
         <p class="scores-note" id="scores-note">
           Local scores stay on this device. Global board needs Google — only after a run if you want to post.
         </p>
+        <details class="device-backup">
+          <summary>Device backup</summary>
+          <p class="scores-note">Back up scores, favorites, recent cabinets and control preferences. Restore replaces those local choices. Achievements, daily progress and cloud scores are not included.</p>
+          <div class="score-tools">
+            <button type="button" class="btn small ghost" id="btn-device-backup">Download backup</button>
+            <button type="button" class="btn small ghost" id="btn-device-restore">Restore backup</button>
+            <input type="file" id="device-backup-file" accept="application/json,.json" hidden />
+          </div>
+          <p class="scores-note" id="device-backup-status" role="status"></p>
+        </details>
         <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
           <span class="cloud-dot" id="cloud-dot" aria-hidden="true"></span>
           <div class="cloud-message">
@@ -448,6 +458,7 @@
   <script src="js/core/game-screen.js" defer></script>
   <script src="js/core/audio.js" defer></script>
   <script src="js/core/scores.js" defer></script>
+  <script src="js/core/device-backup.js" defer></script>
   <script src="js/features/achievements.js" defer></script>
   <script src="js/features/daily.js" defer></script>
   <script src="js/services/error-reporter.js" defer></script>

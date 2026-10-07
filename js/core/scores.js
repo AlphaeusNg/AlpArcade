@@ -866,7 +866,7 @@
     return toBase64(JSON.stringify(load()));
   }
 
-  function importCode(code) {
+  function parseCode(code) {
     try {
       const raw = String(code).trim();
       let json;
@@ -897,11 +897,15 @@
         history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY) : [],
         hallOfFame: Array.isArray(data.hallOfFame) ? data.hallOfFame.slice(0, MAX_HALL) : [],
       };
-      save(normalizeState(merged));
-      return load();
+      return normalizeState(merged);
     } catch {
       throw new Error("Invalid score code");
     }
+  }
+
+  function importCode(code) {
+    save(parseCode(code));
+    return load();
   }
 
   function getJubeatBests(songId) {
@@ -934,5 +938,7 @@
     resetAll,
     exportCode,
     importCode,
+    parseCode,
+    persistenceStatus: () => ({ persistDenied: !!sessionState }),
   };
 })(window);

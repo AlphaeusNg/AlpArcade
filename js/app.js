@@ -1781,6 +1781,42 @@
     }
   });
 
+  $("#btn-device-backup")?.addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(window.ArcadeBackup.exportSnapshot(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "alparcade-device-backup.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("#device-backup-status").textContent = "Downloaded scores, favorites and control preferences.";
+  });
+
+  $("#btn-device-restore")?.addEventListener("click", () => $("#device-backup-file")?.click());
+  $("#device-backup-file")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const status = $("#device-backup-status");
+    try {
+      if (file.size > window.ArcadeBackup.MAX_BYTES) throw new Error("Backup must be under 1 MB");
+      const text = await file.text();
+      const parsed = window.ArcadeBackup.parseSnapshot(text);
+      if (!confirm(`Replace local scores for ${parsed.scores.playerName}, ${parsed.favorites.favorites.length} favorites and control preferences? Cloud scores, achievements and daily progress stay as they are.`)) {
+        status.textContent = "Restore cancelled. Nothing changed.";
+        return;
+      }
+      const result = window.ArcadeBackup.restore(text);
+      refreshHud();
+      paintQuickRow();
+      status.textContent = result.persistDenied
+        ? "Restored for this visit. Browser storage is unavailable; keep your backup for next time."
+        : "Restored scores, favorites and control preferences on this device.";
+    } catch (error) {
+      status.textContent = `Could not restore: ${error?.message || "invalid backup"}. Nothing changed.`;
+    }
+  });
+
   $("#btn-reset")?.addEventListener("click", async () => {
     const signedIn = !!window.ArcadeCloud?.getState?.()?.signedIn;
     const localMsg =
