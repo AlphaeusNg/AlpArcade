@@ -1197,3 +1197,7 @@ Array, unrelated-object and invalid numeric score imports now fail before saving
 ## 2026-10-07 — Back up device scores and preferences
 
 A folded Device backup panel exports and restores a versioned JSON file containing score code, favorites, recent cabinets and controls. All sections validate before any write; invalid files and cancelled confirmation preserve state. Denied storage retains the restored visit and reports it honestly. Cloud scores, achievements and daily progress are excluded. Validation: full unit gate including round-trip/invalid/denied/cloud-isolation checks and 27 Chromium journeys passed. Version 2026.10.07.3.
+
+## 2026-10-07 — Refresh the daily challenge at Singapore rollover
+
+The daily card checks its date each minute and on focus/visible resume. Crossing Singapore midnight refreshes the challenge without a reload or restarting the mounted cabinet. Unit gate and 28 Chromium journeys passed, including a controlled midnight crossing. Local pause edits remain separate.

@@ -904,3 +904,12 @@ test("device backup validates, confirms and restores favorites and controls", as
   await expect(page.locator("#device-backup-status")).toContainText("Nothing changed");
   expect(await page.evaluate(() => ArcadeScores.exportCode())).toBe(before);
 });
+
+test('daily challenge refreshes across Singapore midnight without a reload', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-07T15:59:30Z') });
+  await page.goto('/');
+  await expect(page.locator('#daily-card .daily-badge')).toHaveText('2026-10-07');
+  await page.clock.runFor(60001);
+  await expect(page.locator('#daily-card .daily-badge')).toHaveText('2026-10-08');
+  await expect(page.locator('#btn-daily-play')).toBeVisible();
+});

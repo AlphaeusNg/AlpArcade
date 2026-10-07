@@ -2163,6 +2163,18 @@
   refreshHud();
   paintAchievements();
   paintDaily();
+  let displayedDailyDay = window.ArcadeDaily?.challengeFor?.().day;
+  function refreshDailyDate() {
+    const day = window.ArcadeDaily?.challengeFor?.().day;
+    if (day === displayedDailyDay) return;
+    displayedDailyDay = day;
+    paintDaily();
+  }
+  window.setInterval(refreshDailyDate, 60000);
+  window.addEventListener("focus", refreshDailyDate);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshDailyDate();
+  });
   routeFromHash();
 
   // Cloud init — read-only leaderboards without forcing Google sign-in
