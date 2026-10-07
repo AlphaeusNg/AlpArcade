@@ -1187,3 +1187,8 @@ repository.
 ## 2026-10-07 — Explain visit-only favorites
 
 Favorites and recent cabinets show visible, accessible guidance when device storage rejects them; pinned cabinets remain playable for the visit. Browser checks use port 4178 to avoid AIly. Unit gates, 27 existing Chromium journeys and the focused favorites-storage journey passed. Pre-existing Snake/Shooter pause work remains local and is excluded from this release.
+
+
+## 2026-10-07 — Reject unrelated imports without erasing progress
+
+Array, unrelated-object and invalid numeric score imports now fail before saving. Valid Unicode exports still round-trip; rejected imports leave existing XP and scores byte-identical. Validation: complete unit gate and 26 Chromium journeys passed in an isolated checkout. Version 2026.10.07.2. Existing local pause/copy edits were excluded.

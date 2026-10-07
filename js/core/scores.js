@@ -877,7 +877,13 @@
         json = decodeURIComponent(escape(atob(raw)));
       }
       const data = JSON.parse(json);
-      if (!data || typeof data !== "object") throw new Error("bad");
+      if (!data || typeof data !== "object" || Array.isArray(data) ||
+          typeof data.playerName !== "string" ||
+          !Number.isFinite(Number(data.xp)) || Number(data.xp) < 0 ||
+          !Number.isFinite(Number(data.gamesPlayed)) || Number(data.gamesPlayed) < 0 ||
+          !data.highScores || typeof data.highScores !== "object" || Array.isArray(data.highScores)) {
+        throw new Error("bad");
+      }
       // Only accept known top-level keys from a merged default state.
       const base = defaultState();
       const merged = {

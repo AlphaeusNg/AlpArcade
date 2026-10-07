@@ -240,6 +240,12 @@ const imported = scores.importCode(code);
 assert.equal(imported.playerName, unicodeName, "Unicode player names should round-trip through export codes");
 assert.equal(imported.xp, exportedXp, "export/import should preserve XP");
 assert.throws(() => scores.importCode("not-a-score-code"), /Invalid score code/);
+for (const invalid of [[], {}, { unrelated: true }, { playerName: "bad", xp: -1, gamesPlayed: 0, highScores: {} }]) {
+  const before = scores.exportCode();
+  const invalidCode = Buffer.from(JSON.stringify(invalid), "utf8").toString("base64");
+  assert.throws(() => scores.importCode(invalidCode), /Invalid score code/);
+  assert.equal(scores.exportCode(), before, "rejected imports must leave existing progress intact");
+}
 
 stored.set(storageKey, JSON.stringify({
   playerName: "  Saved Player  ",
