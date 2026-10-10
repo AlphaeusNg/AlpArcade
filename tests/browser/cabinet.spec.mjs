@@ -913,3 +913,29 @@ test('daily challenge refreshes across Singapore midnight without a reload', asy
   await expect(page.locator('#daily-card .daily-badge')).toHaveText('2026-10-08');
   await expect(page.locator('#btn-daily-play')).toBeVisible();
 });
+
+test("latest selected device backup wins over an older delayed read", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#site-version")).not.toHaveText("—");
+  const backup = await page.evaluate(() => {
+    const snapshot = ArcadeBackup.exportSnapshot();
+    const read = File.prototype.text;
+    File.prototype.text = function () {
+      if (this.name === "slow.json") return new Promise((resolve) => {
+        window.finishSlowBackup = () => read.call(this).then(resolve);
+      });
+      return read.call(this);
+    };
+    return JSON.stringify(snapshot);
+  });
+  let confirmations = 0;
+  page.on("dialog", async (dialog) => { confirmations += 1; await dialog.accept(); });
+  const field = page.locator("#device-backup-file");
+  await field.setInputFiles({ name: "slow.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+  await expect.poll(() => page.evaluate(() => typeof window.finishSlowBackup)).toBe("function");
+  await field.setInputFiles({ name: "latest.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+  await expect(page.locator("#device-backup-status")).toContainText("Restored scores");
+  await page.evaluate(() => window.finishSlowBackup());
+  await page.waitForTimeout(100);
+  expect(confirmations).toBe(1);
+});

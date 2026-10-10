@@ -1792,8 +1792,10 @@
     $("#device-backup-status").textContent = "Downloaded scores, favorites and control preferences.";
   });
 
+  let deviceRestoreGeneration = 0;
   $("#btn-device-restore")?.addEventListener("click", () => $("#device-backup-file")?.click());
   $("#device-backup-file")?.addEventListener("change", async (event) => {
+    const generation = ++deviceRestoreGeneration;
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -1801,6 +1803,7 @@
     try {
       if (file.size > window.ArcadeBackup.MAX_BYTES) throw new Error("Backup must be under 1 MB");
       const text = await file.text();
+      if (generation !== deviceRestoreGeneration) return;
       const parsed = window.ArcadeBackup.parseSnapshot(text);
       if (!confirm(`Replace local scores for ${parsed.scores.playerName}, ${parsed.favorites.favorites.length} favorites and control preferences? Cloud scores, achievements and daily progress stay as they are.`)) {
         status.textContent = "Restore cancelled. Nothing changed.";
@@ -1813,6 +1816,7 @@
         ? "Restored for this visit. Browser storage is unavailable; keep your backup for next time."
         : "Restored scores, favorites and control preferences on this device.";
     } catch (error) {
+      if (generation !== deviceRestoreGeneration) return;
       status.textContent = `Could not restore: ${error?.message || "invalid backup"}. Nothing changed.`;
     }
   });
@@ -1834,6 +1838,7 @@
     if (!confirm(localMsg + cloudMsg + "\n\nThis cannot be undone.")) return;
     if (signedIn && !confirm("Confirm: wipe LOCAL + Firebase account data from scratch?")) return;
 
+    deviceRestoreGeneration += 1;
     try {
       showToast(signedIn ? "Wiping local + cloud…" : "Wiping local scores…");
       let resetMessage = signedIn ? "Clean slate — local + cloud wiped" : "Local scores wiped";

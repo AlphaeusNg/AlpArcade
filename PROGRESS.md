@@ -1201,3 +1201,9 @@ A folded Device backup panel exports and restores a versioned JSON file containi
 ## 2026-10-07 — Refresh the daily challenge at Singapore rollover
 
 The daily card checks its date each minute and on focus/visible resume. Crossing Singapore midnight refreshes the challenge without a reload or restarting the mounted cabinet. Unit gate and 28 Chromium journeys passed, including a controlled midnight crossing. Local pause edits remain separate.
+
+## 2026-10-11 — Keep the latest device-backup selection authoritative
+
+Superseded asynchronous file reads and failures cannot restore data or overwrite status after a later selection. A confirmed factory reset also invalidates pending restores.
+
+Validation: Unit/static gates and 29 Chromium journeys, including an intentionally delayed earlier backup read.
