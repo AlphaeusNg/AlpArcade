@@ -1403,14 +1403,15 @@
     const replayLabel = replayId
       ? ArcadeScores.GAMES[replayId]?.label || lastRun.label || replayId
       : "";
-    const showReplay = replayId && replayId !== playGame;
+    const destinations = window.ArcadeFavorites.uniqueDestinations([playGame, replayId, continueId]);
+    const showReplay = destinations.indexOf(replayId) > 0;
     const replayBtn = showReplay
       ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay ${escapeHtml(replayLabel)}</button>`
       : "";
     const lastRunLine = lastRun
       ? `<p class="daily-last-run" id="daily-last-run"><span class="daily-last-run-copy">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""}</span><button type="button" class="btn small ghost" id="btn-daily-share">Share</button>${replayBtn}</p>`
       : "";
-    const showContinue = continueId && continueId !== replayId && continueId !== playGame;
+    const showContinue = destinations.indexOf(continueId) > 0 && continueId !== replayId;
     const continueLabel = showContinue
       ? ArcadeScores.GAMES[continueId]?.label || continueId
       : "";

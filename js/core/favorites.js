@@ -82,7 +82,7 @@
     const state = load();
     return {
       favorites: state.favorites.slice(),
-      recent: state.recent.filter((id) => !state.favorites.includes(id)),
+      recent: cleanList([...state.favorites, ...state.recent]).filter((id) => !state.favorites.includes(id)),
       persistDenied,
     };
   }
@@ -100,6 +100,7 @@
   global.ArcadeFavorites = Object.freeze({
     STORAGE_KEY,
     ALLOWED,
+    uniqueDestinations: (ids) => cleanList(ids),
     toggle,
     remember,
     pins,

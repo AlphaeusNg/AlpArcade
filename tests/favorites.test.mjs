@@ -28,6 +28,7 @@ const favorites = boot({
 
 assert.equal(JSON.stringify(favorites.pins()), JSON.stringify({ favorites: [], recent: [], persistDenied: false }));
 assert.equal(favorites.toggle("not-a-game"), false);
+assert.equal(favorites.uniqueDestinations(["snake", "snake", "tapper", "bad", "tapper"]).join(","), "snake,tapper", "daily and quick actions share ordered destination deduplication");
 assert.equal(favorites.toggle("snake"), true);
 assert.equal(favorites.toggle("breaker"), true);
 assert.equal(favorites.toggle("snake"), false);

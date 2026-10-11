@@ -256,6 +256,7 @@ test("daily play owns a duplicate rematch and the 320px recap stays contained", 
   expect(dailyGame).toBeTruthy();
 
   await page.evaluate((gameId) => {
+    ArcadeFavorites.toggle(gameId);
     localStorage.setItem(
       "alparcade-last-run-v1",
       JSON.stringify({
@@ -269,6 +270,7 @@ test("daily play owns a duplicate rematch and the 320px recap stays contained", 
   }, dailyGame);
   await page.reload({ waitUntil: "domcontentloaded" });
 
+  await expect(page.locator(`#cab-quick [data-launch="${dailyGame}"]`)).toHaveCount(1);
   await expect(page.locator("#btn-daily-play")).toBeVisible();
   await expect(page.locator("#btn-daily-replay")).toHaveCount(0);
   await expect(page.locator("#btn-daily-continue")).toHaveCount(0);

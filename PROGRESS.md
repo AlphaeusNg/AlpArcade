@@ -1207,3 +1207,9 @@ The daily card checks its date each minute and on focus/visible resume. Crossing
 Superseded asynchronous file reads and failures cannot restore data or overwrite status after a later selection. A confirmed factory reset also invalidates pending restores.
 
 Validation: Unit/static gates and 29 Chromium journeys, including an intentionally delayed earlier backup read.
+
+## 2026-10-11 — Share cabinet destination deduplication
+
+Daily Play/Replay/Continue now use the same ordered valid-cabinet deduplication as favorites/recent destinations. The 320px duplicate-rematch journey includes a pinned favorite and still shows one quick destination and one daily primary action.
+
+Validation: Unit/static gate and 29 Chromium journeys. ARCADE-08 destination/collapse work is complete.

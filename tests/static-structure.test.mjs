@@ -78,7 +78,8 @@ assert(
     && app.includes('id="btn-daily-continue"')
     && app.includes("alparcade-last-cabinet-v1")
     && app.includes("persistLastCabinet")
-    && app.includes("continueId && continueId !== replayId && continueId !== playGame")
+    && app.includes("uniqueDestinations([playGame, replayId, continueId])")
+    && app.includes("destinations.indexOf(continueId) > 0 && continueId !== replayId")
     && /Continue \$\{escapeHtml\(continueLabel\)\}/.test(app),
   "daily card keeps Continue only when its cabinet differs from Play and Replay",
 );
