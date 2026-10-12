@@ -1715,6 +1715,7 @@
 
   // Escape: close modals first; otherwise return to lobby from a game.
   window.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key !== "Escape") return;
     const help = $("#help-modal");
     if (help && !help.hidden) {
@@ -1747,8 +1748,9 @@
 
   // ? opens help when not typing
   window.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key !== "?" && !(e.shiftKey && e.key === "/")) return;
-    if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+    if (document.activeElement?.matches("input, textarea, select") || document.activeElement?.isContentEditable) return;
     e.preventDefault();
     openHelp();
   });

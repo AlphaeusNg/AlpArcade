@@ -1213,3 +1213,9 @@ Validation: Unit/static gates and 29 Chromium journeys, including an intentional
 Daily Play/Replay/Continue now use the same ordered valid-cabinet deduplication as favorites/recent destinations. The 320px duplicate-rematch journey includes a pinned favorite and still shows one quick destination and one daily primary action.
 
 Validation: Unit/static gate and 29 Chromium journeys. ARCADE-08 destination/collapse work is complete.
+
+## 2026-10-13 — Preserve composition and browser shortcut chords
+
+Help and Escape handling ignore consumed events, composition and modifier chords. Help also stays out of select controls and editable content. Normal help and modal dismissal still work.
+
+Validation: Unit/static gates and 30 Chromium journeys passed.

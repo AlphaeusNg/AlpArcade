@@ -941,3 +941,19 @@ test("latest selected device backup wins over an older delayed read", async ({ p
   await page.waitForTimeout(100);
   expect(confirmations).toBe(1);
 });
+
+
+test("help shortcuts preserve composition and modified browser chords", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("#daily-card .daily-badge")).toBeVisible();
+  for (const extra of [{isComposing:true}, {ctrlKey:true}, {metaKey:true}, {altKey:true}]) {
+    await page.evaluate(extra => document.body.dispatchEvent(new KeyboardEvent("keydown", {key:"?",bubbles:true,cancelable:true,...extra})), extra);
+    await expect(page.locator("#help-modal")).toBeHidden();
+  }
+  await page.keyboard.press("?");
+  await expect(page.locator("#help-modal")).toBeVisible();
+  await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape",isComposing:true,bubbles:true,cancelable:true})));
+  await expect(page.locator("#help-modal")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#help-modal")).toBeHidden();
+});
