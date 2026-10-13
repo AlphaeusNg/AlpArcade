@@ -113,9 +113,24 @@
           <div class="cab-quick-line" id="cab-quick-line" hidden></div>
           <p class="cab-quick-empty" id="cab-quick-status" role="status" hidden></p>
         </div>
+        <details class="cab-discovery" id="cab-discovery">
+          <summary id="cab-discovery-summary">Find a game</summary>
+          <fieldset>
+            <legend>Filter cabinets</legend>
+            <div class="cab-discovery-fields">
+              <label for="cab-search">Game name<input id="cab-search" type="search" autocomplete="off" maxlength="80" placeholder="e.g. Snake"></label>
+              <div class="cab-filter-field"><label for="cab-style">Style</label><select id="cab-style"><option value="all">All styles</option><option value="action">Action</option><option value="puzzle">Puzzle</option><option value="timing">Timing</option></select></div>
+              <label class="cab-discovery-check" for="cab-remappable"><input id="cab-remappable" type="checkbox">Remappable keys</label>
+              <label class="cab-discovery-check" for="cab-playable"><input id="cab-playable" type="checkbox">Playable now</label>
+              <button id="cab-filter-clear" class="btn ghost" type="button">Clear filters</button>
+            </div>
+            <p id="cab-filter-status" role="status" aria-atomic="true">8 of 8 cabinets</p>
+          </fieldset>
+        </details>
+        <p id="cab-filter-empty" class="cab-quick-empty" hidden>No matching cabinets. Change or clear the filters in Find a game.</p>
         <div class="cabinet-grid">
           <!-- Free (top) -->
-          <button type="button" class="cabinet" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
+          <button type="button" class="cabinet" data-style="puzzle" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
             <span class="cab-icon" aria-hidden="true">⭕</span>
             <span class="cab-body">
               <strong>Tic-Tac-Toe</strong>
@@ -123,7 +138,7 @@
             </span>
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="snake" aria-label="Play Snake">
+          <button type="button" class="cabinet" data-style="action" data-game="snake" aria-label="Play Snake">
             <span class="cab-icon" aria-hidden="true">🐍</span>
             <span class="cab-body">
               <strong>Snake</strong>
@@ -131,7 +146,7 @@
             </span>
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="breaker" aria-label="Play Circuit Breaker">
+          <button type="button" class="cabinet" data-style="action" data-game="breaker" aria-label="Play Circuit Breaker">
             <span class="cab-icon" aria-hidden="true">🧱</span>
             <span class="cab-body">
               <strong>Circuit Breaker</strong>
@@ -139,7 +154,7 @@
             </span>
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="tapper" aria-label="Play Target Tap">
+          <button type="button" class="cabinet" data-style="action" data-game="tapper" aria-label="Play Target Tap">
             <span class="cab-icon" aria-hidden="true">🎯</span>
             <span class="cab-body">
               <strong>Target Tap</strong>
@@ -148,7 +163,7 @@
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
           <!-- Lv 5 -->
-          <button type="button" class="cabinet" data-game="reaction" aria-label="Play Reaction Lab" data-unlock="level-5">
+          <button type="button" class="cabinet" data-style="timing" data-game="reaction" aria-label="Play Reaction Lab" data-unlock="level-5">
             <span class="cab-icon" aria-hidden="true">⚡</span>
             <span class="cab-body">
               <strong>Reaction Lab</strong>
@@ -156,7 +171,7 @@
             </span>
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
-          <button type="button" class="cabinet" data-game="shooter" aria-label="Play Space Shooter" data-unlock="level-5">
+          <button type="button" class="cabinet" data-style="action" data-game="shooter" aria-label="Play Space Shooter" data-unlock="level-5">
             <span class="cab-icon" aria-hidden="true">🚀</span>
             <span class="cab-body">
               <strong>Space Shooter</strong>
@@ -165,7 +180,7 @@
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
           <!-- Lv 10 -->
-          <button type="button" class="cabinet" data-game="memory" aria-label="Play Memory Match" data-unlock="level-10">
+          <button type="button" class="cabinet" data-style="puzzle" data-game="memory" aria-label="Play Memory Match" data-unlock="level-10">
             <span class="cab-icon" aria-hidden="true">🧠</span>
             <span class="cab-body">
               <strong>Memory Match</strong>
@@ -174,7 +189,7 @@
             <span class="cab-go" aria-hidden="true">→</span>
           </button>
           <!-- Lv 15 -->
-          <button type="button" class="cabinet" data-game="jubeat" aria-label="Play Pulse Grid" data-unlock="level-15">
+          <button type="button" class="cabinet" data-style="timing" data-game="jubeat" aria-label="Play Pulse Grid" data-unlock="level-15">
             <span class="cab-icon" aria-hidden="true">🎹</span>
             <span class="cab-body">
               <strong>Pulse Grid</strong>
@@ -464,6 +479,7 @@
   <script src="js/services/error-reporter.js" defer></script>
   <script src="js/services/cloud-scores.js" defer></script>
   <script src="js/features/music.js" defer></script>
+  <script src="js/core/cabinet-discovery.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

@@ -106,6 +106,7 @@
   padding: 1.1rem 1.25rem 1rem;
   margin-bottom: 2rem;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
 }
 
@@ -1335,3 +1336,53 @@
   color: var(--muted);
   max-width: 32rem;
 }
+
+/* Folded discovery keeps the default phone lobby compact. */
+.cab-discovery {
+  margin-bottom: 0.55rem;
+  font-size: 0.8rem;
+}
+.cab-discovery summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0.4rem 0;
+}
+.cab-discovery fieldset {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  min-width: 0;
+}
+.cab-discovery-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: end;
+}
+.cab-discovery-fields > label,
+.cab-discovery-fields > .cab-filter-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 120px;
+}
+.cab-discovery input[type="search"],
+.cab-discovery select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem;
+  font: inherit;
+}
+.cab-discovery-fields > .cab-discovery-check {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+.cab-discovery-check input { margin: 0; }
+#cab-filter-status { margin: 0.5rem 0 0; color: var(--muted); }
+.cabinet-grid > [hidden] { display: none; }

@@ -23,6 +23,8 @@ Cabinets on the lobby (free first, then Lv 5 / 10 / 15 unlocks):
 | Memory Match | Hearts and boards |
 | Pulse Grid | 4x4 rhythm |
 
+Find a game in the lobby by name, play style, remappable keys or current availability. Combine filters and clear them to see every cabinet; favorites and recent games remain available separately.
+
 Daily challenge is one seeded target per **Singapore (SGT)** day. Badges, a local player tag, and personal bests stay on this device. Optional Google sign-in posts one best per game to the cloud board.
 
 ## Try it

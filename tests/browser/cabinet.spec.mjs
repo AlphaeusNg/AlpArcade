@@ -988,3 +988,90 @@ test("control key capture preserves composition and browser shortcut chords", as
   await expect(page.locator(".ctrl-prefs-status")).toHaveText("Change cancelled.");
   expect(await page.evaluate(() => ArcadeControls.keysFor("snake", "up"))).toEqual(["i"]);
 });
+
+const visibleCatalog = (page) => page.locator('.cabinet-grid .cabinet-slot:not([hidden]) .cabinet');
+
+test("cabinet discovery intersects filters without loading or changing cabinets", async ({ page }) => {
+  const bundles = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/js/games/")) bundles.push(request.url());
+  });
+  await page.goto("/");
+  await expect(visibleCatalog(page)).toHaveCount(8);
+  await page.locator("#cab-discovery summary").click();
+  await page.getByLabel("Style", { exact: true }).selectOption("timing");
+  await expect(visibleCatalog(page)).toHaveCount(2);
+  await expect(page.locator('[data-game="jubeat"]')).toHaveAttribute("aria-disabled", "true");
+  await page.getByLabel("Playable now", { exact: true }).check();
+  await expect(visibleCatalog(page)).toHaveCount(0);
+  await expect(page.locator("#cab-filter-empty")).toBeVisible();
+  await expect(page.locator("#cab-filter-status")).toHaveText("0 of 8 cabinets");
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(page.getByLabel("Game name", { exact: true })).toBeFocused();
+  await page.getByLabel("Remappable keys", { exact: true }).check();
+  await expect(visibleCatalog(page)).toHaveCount(3);
+  await page.getByLabel("Playable now", { exact: true }).check();
+  await expect(visibleCatalog(page)).toHaveCount(2);
+  await page.getByLabel("Game name", { exact: true }).fill("  SNAKE  ");
+  await expect(visibleCatalog(page)).toHaveCount(1);
+  expect(bundles).toEqual([]);
+  await expect(page.getByRole("button", { name: "Favorite Space Shooter", exact: true })).toBeHidden();
+  await page.locator('.cabinet-grid [data-game="snake"]').click();
+  await expect(page.locator("#play-view")).toBeVisible();
+  await page.locator("#btn-back").click();
+  await expect(page.locator('.cabinet-grid [data-game="snake"]')).toBeFocused();
+  await expect(visibleCatalog(page)).toHaveCount(1);
+  await expect(page.locator("#cab-search")).toHaveValue("  SNAKE  ");
+});
+
+test("playable discovery updates immediately after imported XP and factory reset", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#cab-discovery summary").click();
+  await page.getByLabel("Playable now", { exact: true }).check();
+  await expect(visibleCatalog(page)).toHaveCount(4);
+  const code = await page.evaluate(() => {
+    const state = ArcadeScores.getState();
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify({ ...state, xp: 10000 }))));
+    ArcadeFavorites.toggle("jubeat");
+    return code;
+  });
+  const importDialog = page.waitForEvent("dialog").then((dialog) => dialog.accept(code));
+  await page.locator("#btn-import").click();
+  await importDialog;
+  await expect(visibleCatalog(page)).toHaveCount(8);
+  await page.getByLabel("Style", { exact: true }).selectOption("puzzle");
+  await expect(visibleCatalog(page)).toHaveCount(2);
+  await expect(page.locator('#cab-quick-line [data-launch="jubeat"]')).toBeVisible();
+  const resetDialog = page.waitForEvent("dialog").then((dialog) => dialog.accept());
+  await page.locator("#btn-reset").click();
+  await resetDialog;
+  await expect(visibleCatalog(page)).toHaveCount(1);
+  await expect(page.locator("#cab-filter-status")).toHaveText("1 of 8 cabinets");
+  await expect(page.locator("#daily-card")).toBeVisible();
+});
+
+test("phone discovery stays compact, uses keyboard controls and works without storage", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = function () { throw new DOMException("storage denied", "QuotaExceededError"); };
+  });
+  await page.goto("/");
+  await expect(page.locator("#cab-discovery")).not.toHaveAttribute("open", "");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  const first = await page.locator('.cabinet-grid [data-game="tictactoe"]').boundingBox();
+  expect(first.y + first.height).toBeLessThan(844);
+  await page.locator("#cab-discovery summary").focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Game name", { exact: true })).toBeFocused();
+  await page.keyboard.type("memory");
+  await expect(visibleCatalog(page)).toHaveCount(1);
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Style", { exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(visibleCatalog(page)).toHaveCount(8);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  expect(await page.locator("#cab-discovery").evaluate((panel) =>
+    [...panel.querySelectorAll("*")].every((el) => el.getBoundingClientRect().right <= 320),
+  )).toBe(true);
+});

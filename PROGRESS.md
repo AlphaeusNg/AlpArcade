@@ -1225,3 +1225,11 @@ Validation: Unit/static gates and 30 Chromium journeys passed.
 The pending control-key capture now leaves consumed events, IME composition (including legacy key code 229), and Ctrl/Meta/Alt chords alone. These events keep the existing bindings and pending capture; an ordinary key still binds and Escape still cancels.
 
 Validation: The focused Chromium regression fails against the original handler and passes with the fix. Complete unit/static gates and all 31 Chromium journeys passed. Version 2026.10.13.2. The primary checkout's eight pre-existing dirty paths were excluded through an isolated clone.
+
+## 2026-10-14 — Find cabinets by style, controls and availability
+
+Researched and documented the next feature options in `docs/FEATURE_ROADMAP.md`, then built a folded Find a game panel. Players combine name search, Action/Puzzle/Timing, existing remappable-key support and Playable now. Results announce their count, explain empty matches and clear without changing favorites, scores or locks. Filters stay for the visit when returning from a cabinet, and availability updates through the existing HUD/unlock refresh. Filtering does not load game bundles; favorites/recent and daily destinations remain separate.
+
+Mobile verification exposed an existing intrinsic-width overflow in the profile grid. A targeted `minmax(0, 1fr)` column lets the name form shrink; the document now fits 320px folded and expanded.
+
+Validation: complete unit/static gates and all 34 Chromium journeys passed, including three new discovery journeys covering intersections, no extra lazy loads, hidden favorite controls, launch/back focus, import/reset unlock refresh, separate quick destinations, keyboard controls, denied storage and 320px sizing. Version 2026.10.14.1. Work used an isolated clone; the primary checkout's eight dirty paths remain untouched.

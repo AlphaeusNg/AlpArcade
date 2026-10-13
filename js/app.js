@@ -440,6 +440,7 @@
         : `Best ${bestLabel}`;
     });
     paintQuickRow();
+    window.ArcadeDiscovery?.refresh();
   }
 
   let favoriteButtonsReady = false;
