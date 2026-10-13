@@ -274,7 +274,8 @@
     }
 
     function onKey(event) {
-      if (!capture) return;
+      if (!capture || event.defaultPrevented || event.isComposing || event.keyCode === 229 ||
+          event.ctrlKey || event.metaKey || event.altKey) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();

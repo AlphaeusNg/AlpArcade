@@ -1219,3 +1219,9 @@ Validation: Unit/static gate and 29 Chromium journeys. ARCADE-08 destination/col
 Help and Escape handling ignore consumed events, composition and modifier chords. Help also stays out of select controls and editable content. Normal help and modal dismissal still work.
 
 Validation: Unit/static gates and 30 Chromium journeys passed.
+
+## 2026-10-13 — Preserve composition and browser chords during control remapping
+
+The pending control-key capture now leaves consumed events, IME composition (including legacy key code 229), and Ctrl/Meta/Alt chords alone. These events keep the existing bindings and pending capture; an ordinary key still binds and Escape still cancels.
+
+Validation: The focused Chromium regression fails against the original handler and passes with the fix. Complete unit/static gates and all 31 Chromium journeys passed. Version 2026.10.13.2. The primary checkout's eight pre-existing dirty paths were excluded through an isolated clone.

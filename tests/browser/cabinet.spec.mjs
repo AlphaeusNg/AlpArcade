@@ -957,3 +957,34 @@ test("help shortcuts preserve composition and modified browser chords", async ({
   await page.keyboard.press("Escape");
   await expect(page.locator("#help-modal")).toBeHidden();
 });
+
+
+test("control key capture preserves composition and browser shortcut chords", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-game="snake"]').click();
+  await page.locator(".ctrl-prefs-toggle").click();
+  const up = page.locator(".ctrl-bind").first();
+  await up.getByRole("button", { name: "Change", exact: true }).click();
+  const original = await page.evaluate(() => ArcadeControls.keysFor("snake", "up"));
+  for (const extra of [
+    { isComposing: true }, { keyCode: 229 }, { ctrlKey: true },
+    { metaKey: true }, { altKey: true }, { consumed: true },
+  ]) {
+    const outcome = await page.evaluate((extra) => {
+      const event = new KeyboardEvent("keydown", { key: "i", bubbles: true, cancelable: true, ...extra });
+      if (extra.consumed) event.preventDefault();
+      window.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, keys: ArcadeControls.keysFor("snake", "up") };
+    }, extra);
+    expect(outcome.prevented).toBe(!!extra.consumed);
+    expect(outcome.keys).toEqual(original);
+    await expect(up.getByRole("button", { name: "Press key", exact: true })).toBeVisible();
+  }
+  await page.keyboard.press("i");
+  await expect(up.locator("kbd")).toHaveText("i");
+  await expect(page.locator(".ctrl-prefs-status")).toHaveText("Up updated.");
+  await up.getByRole("button", { name: "Change", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".ctrl-prefs-status")).toHaveText("Change cancelled.");
+  expect(await page.evaluate(() => ArcadeControls.keysFor("snake", "up"))).toEqual(["i"]);
+});
