@@ -714,6 +714,46 @@ assert(
   "ALBIDA must preserve its measured downbeat while playing the intro before it"
 );
 assert(
+  game.AUDIO_CLOCK_MATCH_MS === 250 &&
+    game.audioClockSampleMatches(0, 0) &&
+    game.audioClockSampleMatches(200, 0) &&
+    !game.audioClockSampleMatches(390, 0) &&
+    !game.audioClockSampleMatches(580, 0) &&
+    !game.audioClockSampleMatches(900, 40) &&
+    !game.audioClockSampleMatches(Number.NaN, 0),
+  "The lead-in audio clock must wait until the seek leaves the primed downbeat"
+);
+assert(
+  !game.chartGapShouldPause({ stalled: true }, -880, -1400, { hidden: false, pauseAvailable: false }) &&
+    !game.chartGapShouldPause({ stalled: true }, -200, 0, { hidden: false, pauseAvailable: true }) &&
+    !game.chartGapShouldPause({ stalled: true }, 1800, 0, { hidden: false, pauseAvailable: false }) &&
+    !game.chartGapShouldPause({ stalled: false }, 32, 16, { hidden: false, pauseAvailable: true }),
+  "A fullscreen lead-in seek or backward clock handoff must not pause the round"
+);
+assert(
+  game.chartGapShouldPause({ stalled: true }, 1800, 0, { hidden: true, pauseAvailable: false }) &&
+    game.chartGapShouldPause({ stalled: true }, 4000, 0, { hidden: false, pauseAvailable: true }),
+  "Hiding the page, or a forward stall after the song starts, still pauses"
+);
+const suspensionHandler = source.slice(
+  source.indexOf("bindSuspension(life, document"),
+  source.indexOf('practiceCellEl.addEventListener("click"')
+);
+assert(
+  suspensionHandler.includes('reason === "hidden"') &&
+    suspensionHandler.includes("if (!suspending || !running || paused || submitted) return;") &&
+    suspensionHandler.indexOf("discardChartJump") > suspensionHandler.indexOf("if (!suspending") &&
+    source.includes("lastChartSample = sampled"),
+  "Fullscreen show and resume events must not pause a running chart"
+);
+assert(
+  gameScreenSource.includes("const layoutTop = fullscreen ? 0") &&
+    gameScreenSource.includes('"--game-view-scroll-offset", "0px"') &&
+    /#play-view\.is-app-fullscreen \.play-layout \{[^}]*height:\s*100%;/s.test(playCss) &&
+    /#play-view\.is-app-fullscreen \.game-mount \{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s.test(playCss),
+  "Locked game view must fill the viewport when the cabinet was not aligned to the top"
+);
+assert(
   game.SONGS.some((song) =>
     difficultyIds.some((difficultyId) => {
       const chart = game.chartFor(song, difficultyId);

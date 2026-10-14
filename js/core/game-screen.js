@@ -41,9 +41,13 @@
       }
       root.classList.remove("is-document-flow");
       layout.classList.remove("is-document-flow");
+      const fullscreen = isFullscreen(root.closest?.("#play-view"));
       const viewportHeight = Math.round(global.visualViewport?.height || global.innerHeight);
-      const layoutTop = Math.max(0, layout.getBoundingClientRect().top);
-      const availableHeight = Math.max(320, viewportHeight - layoutTop - 12);
+      // In the locked game view the play surface is the viewport. A leftover
+      // layout top, from a cabinet that was not scrolled flush to the top,
+      // would shrink that surface and leave the grid short of the screen.
+      const layoutTop = fullscreen ? 0 : Math.max(0, layout.getBoundingClientRect().top);
+      const availableHeight = Math.max(320, viewportHeight - layoutTop - (fullscreen ? 0 : 12));
       const gameHeight = Math.max(
         320,
         Math.min(Math.ceil(Math.max(root.getBoundingClientRect().height, root.scrollHeight)), availableHeight)
@@ -133,7 +137,14 @@
     activePlayView = root;
     document.documentElement.classList.add("is-game-view-locked");
     document.body.classList.add("is-game-view-locked");
-    document.body.style.setProperty("--game-view-scroll-offset", `${-lockedScrollY}px`);
+    // Keep the fixed play view on the visual viewport. Offsetting the body by
+    // the pre-lock scroll shifts that view when the cabinet was not at the top.
+    document.body.style.setProperty("--game-view-scroll-offset", "0px");
+    try {
+      global.scrollTo?.(0, 0);
+    } catch {
+      /* The locked view still covers the viewport if scrolling is blocked. */
+    }
     pushFullscreenHistory();
     announceScreenChange();
     return Promise.resolve();

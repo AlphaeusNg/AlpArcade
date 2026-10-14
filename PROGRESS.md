@@ -1,8 +1,12 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-10-05
+Last updated: 2026-10-14
 
-## Latest cycle: trap Pulse Grid pause focus
+## Latest cycle: keep Pulse Grid running in the locked view
+
+Locking the game view no longer pauses Pulse Grid when the round starts. A lead-in audio seek, or a show/resume event while the page never hid, was treated as a stalled clock and opened the pause dialog. The locked view also fills the viewport when the cabinet was scrolled below the top. Easy and Medium stay on the verified Extreme beat grid for all five songs. Version `2026.10.14.3`.
+
+## Previous cycle: trap Pulse Grid pause focus
 
 Pulse Grid's pause dialog cycles Tab and Shift+Tab through Resume, Restart song, and Save score & end, skipping disabled buttons. The trap is inside the existing cabinet key listener, so leaving the cabinet removes it. Resume returns focus to Pause. Restart and Save score & end do the same only when Pause can take focus; otherwise focus lands on the grid or the results region. Version `2026.10.05.1`.
 

@@ -1220,6 +1220,35 @@
     return Math.max(CUSTOM_RUNTIME_LEAD_MIN_MS, Math.min(CUSTOM_RUNTIME_LEAD_MAX_MS, estimated));
   }
 
+  const AUDIO_CLOCK_MATCH_MS = 250;
+
+  /**
+   * The lead-in seek is ready when the media playhead is already near the
+   * position the chart clock expects. A preview or primed-downbeat position
+   * still sitting hundreds of milliseconds away must not become the beat clock.
+   */
+  function audioClockSampleMatches(mediaMs, expectedMediaMs, toleranceMs = AUDIO_CLOCK_MATCH_MS) {
+    const media = Number(mediaMs);
+    const expected = Number(expectedMediaMs);
+    if (!Number.isFinite(media) || !Number.isFinite(expected)) return false;
+    return Math.abs(media - expected) <= toleranceMs;
+  }
+
+  /**
+   * Pause only for a real hidden-tab or forward suspension. A backward jump is
+   * the audio seek landing after the lead-in clock, and the lead-in itself is
+   * not a player pause when the page is still visible.
+   */
+  function chartGapShouldPause(gap, now, last, { hidden = false, pauseAvailable = true } = {}) {
+    if (!gap?.stalled) return false;
+    if (hidden) return true;
+    if (!pauseAvailable) return false;
+    const current = Number(now);
+    const previous = Number(last);
+    if (Number.isFinite(current) && Number.isFinite(previous) && current < previous) return false;
+    return true;
+  }
+
   function runtimeChartFor(song, difficultyId = "extreme", timingOffsetMs = 0) {
     const source = chartFor(song, difficultyId);
     if (!song.custom) {
@@ -1710,6 +1739,9 @@
     let comboPulseAnimation = null;
     let lastBlipAt = -Infinity;
     let lastChartSample = null;
+    let audioClockPending = false;
+    let audioSeekTargetMs = 0;
+    let audioSeekIssuedAt = 0;
     let practiceLastPaintMs = -Infinity;
     let practiceRaf = 0;
     let practiceCycleStart = performance.now();
@@ -1898,6 +1930,7 @@
 
     function pauseSong() {
       if (!running || submitted || paused || !clockStarted || !pauseAvailable) return;
+      audioClockPending = false;
       pausedAtMs = nowMs();
       resumeWithAudio =
         !!audioEl &&
@@ -2707,6 +2740,7 @@
 
     function stopBgm() {
       useAudioClock = false;
+      audioClockPending = false;
       try {
         audioEl?.pause();
         if (audioEl) {
@@ -3413,6 +3447,7 @@
     }
 
     function discardChartJump(frozenMs) {
+      audioClockPending = false;
       const ms = Number.isFinite(frozenMs) ? frozenMs : 0;
       const perf = performance.now();
       t0 = perf - ms;
@@ -3446,10 +3481,16 @@
 
     function frame() {
       if (!running || submitted || paused) return;
+      if (audioClockPending) anchorChartToAudio();
       const t = nowMs();
       if (lastChartSample != null) {
         const gap = global.ArcadeCabinetSession.frameGap(t, lastChartSample);
-        if (gap.stalled) {
+        if (
+          chartGapShouldPause(gap, t, lastChartSample, {
+            hidden: document.hidden,
+            pauseAvailable,
+          })
+        ) {
           discardChartJump(lastChartSample);
           return;
         }
@@ -3491,10 +3532,23 @@
     }
 
     function anchorChartToAudio() {
+      if (!audioEl || audioEl.seeking || audioEl.paused) return false;
+      const mediaMs = audioEl.currentTime * 1000;
+      if (audioClockPending) {
+        const expectedMedia = audioSeekTargetMs + Math.max(0, performance.now() - audioSeekIssuedAt);
+        if (!audioClockSampleMatches(mediaMs, expectedMedia)) return false;
+      }
+      const sampled = sampleAudioMs();
+      if (sampled == null) return false;
       const perf = performance.now();
       useAudioClock = true;
-      clockAnchorAudioMs = sampleAudioMs() || 0;
+      clockAnchorAudioMs = sampled;
       clockAnchorPerf = perf;
+      // The media clock can sit behind the lead-in clock until the seek lands.
+      // Snap the stall anchor so that handoff is not treated as a frozen tab.
+      lastChartSample = sampled;
+      audioClockPending = false;
+      return true;
     }
 
     function beginChartClock(fromAudio, leadInMs = 0) {
@@ -3566,13 +3620,20 @@
           try {
             // Start before the first downbeat when the asset contains an intro.
             // The negative media clock keeps beat zero and the first marker exact.
+            audioSeekTargetMs = audioStartMs;
+            audioSeekIssuedAt = performance.now();
+            audioClockPending = true;
             audioEl.currentTime = audioStartMs / 1000;
             audioEl.volume = 1;
             audioEl.loop = false;
             const playback = audioEl.play();
             if (musicNoteEl) musicNoteEl.textContent = `Now playing · ${s.title}`;
-            if (playback?.then) playback.then(anchorChartToAudio).catch(() => {});
-            else anchorChartToAudio();
+            if (playback?.then) {
+              playback.then(() => {
+                if (!running || destroyed || submitted || paused) return;
+                anchorChartToAudio();
+              }).catch(() => {});
+            } else anchorChartToAudio();
           } catch {
             /* The performance clock keeps every chart playable without audio. */
           }
@@ -3843,11 +3904,10 @@
     life.listen(document, "arcadegamescreenchange", onJubeatFullscreenChange);
     global.ArcadeCabinetSession.bindSuspension(life, document, (reason) => {
       const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";
-      if (suspending) {
-        if (running && !paused && !submitted) discardChartJump(lastChartSample);
-        return;
-      }
-      if (!document.hidden && running && !paused && !submitted) discardChartJump(lastChartSample);
+      if (!suspending || !running || paused || submitted) return;
+      // A fullscreen reflow can emit pageshow or resume while the page never
+      // hid. Only a real hide pauses. The next frame still catches a long gap.
+      discardChartJump(lastChartSample);
     });
     practiceCellEl.addEventListener("click", (event) => {
       if (event.detail === 0) practiceTap();
@@ -3918,6 +3978,9 @@
     SONGS,
     chartFor,
     runtimeChartFor,
+    AUDIO_CLOCK_MATCH_MS,
+    audioClockSampleMatches,
+    chartGapShouldPause,
     withoutPanelOverlaps,
     hasPanelOverlaps,
     panelPlacementOverlaps,
