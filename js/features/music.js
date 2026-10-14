@@ -237,7 +237,7 @@
     const e = empty();
     if (e) {
       e.hidden = false;
-      e.textContent = "Music stopped · pick a station";
+      e.textContent = "Music stopped. Pick a station.";
     }
     setActiveButtons("");
     updateLabels();

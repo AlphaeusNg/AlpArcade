@@ -1,8 +1,14 @@
 # AlpArcade continuous improvement log
 
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
-## Latest cycle: keep Pulse Grid running in the locked view
+## Latest cycle: Space Shooter and Snake name a hidden-page pause
+
+Hiding the page mid-run still cancels Space Shooter's animation frame and Snake's step timer. Both paint "Paused · return to resume" on the board, the same words Circuit Breaker uses. Each hint keeps the tab-hidden sentence, the pause dialog stays closed, and the score does not advance while hidden. Lobby, music, and score lines are shorter. Version `2026.10.15.1`.
+
+Validation: unit and static gates passed. Chromium confirmed both cabinets paint the pause cue, leave the pause dialog closed, and freeze the score while the page is hidden.
+
+## Previous cycle: keep Pulse Grid running in the locked view
 
 Locking the game view no longer pauses Pulse Grid when the round starts. A lead-in audio seek, or a show/resume event while the page never hid, was treated as a stalled clock and opened the pause dialog. The locked view also fills the viewport when the cabinet was scrolled below the top. Easy and Medium stay on the verified Extreme beat grid for all five songs. Version `2026.10.14.3`.
 

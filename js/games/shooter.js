@@ -873,6 +873,14 @@
       keys = Object.create(null);
       dragging = false;
       setText(hintEl, "Paused (tab hidden) · return to resume");
+      // Same words Snake paints. The hint alone sits under the canvas.
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(226,232,240,0.9)";
+      ctx.font = "16px Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Paused · return to resume", W / 2, H / 2);
+      ctx.textBaseline = "alphabetic";
     }
     function onLifecycle(reason) {
       const suspending = reason === "hidden" || reason === "pagehide" || reason === "freeze";

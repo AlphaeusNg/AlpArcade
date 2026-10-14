@@ -714,6 +714,76 @@ test("endless cabinets pause and can save the current score before death", async
   await expect(page.locator("#snake-hint")).toContainText(/saved/i);
 });
 
+test("snake paints a text pause cue when the page hides and freezes the score", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="snake"]').click();
+  await expect(page.locator("#snake-canvas")).toBeVisible();
+  await page.locator("#snake-start").click();
+  await expect(page.locator("#snake-pause")).toBeVisible();
+
+  const frozen = await page.evaluate(() => {
+    const canvas = document.querySelector("#snake-canvas");
+    const ctx = canvas.getContext("2d");
+    const seen = [];
+    const original = ctx.fillText.bind(ctx);
+    ctx.fillText = (text, ...rest) => {
+      seen.push(String(text));
+      return original(text, ...rest);
+    };
+    document.dispatchEvent(new Event("pagehide"));
+    return {
+      seen,
+      eaten: document.querySelector("#snake-score").textContent,
+    };
+  });
+
+  expect(frozen.seen).toContain("Paused · return to resume");
+  await expect(page.locator("#snake-hint")).toHaveText("Paused (tab hidden) · return to resume");
+  await expect(page.locator("#snake-pause-overlay")).toBeHidden();
+  await page.waitForTimeout(450);
+  await expect(page.locator("#snake-score")).toHaveText(frozen.eaten);
+});
+
+test("shooter paints a text pause cue when the page hides and freezes the score", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("alphaeus-arcade-v1", JSON.stringify({
+      playerName: "Hidden Pilot",
+      xp: 10000,
+      gamesPlayed: 8,
+      highScores: {},
+      history: [],
+      hallOfFame: [],
+    }));
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('[data-game="shooter"]').click();
+  await expect(page.locator("#sh-canvas")).toBeVisible();
+  await page.locator("#sh-canvas").click({ position: { x: 210, y: 420 } });
+  await expect(page.locator("#sh-pause")).toBeVisible();
+
+  const frozen = await page.evaluate(() => {
+    const canvas = document.querySelector("#sh-canvas");
+    const ctx = canvas.getContext("2d");
+    const seen = [];
+    const original = ctx.fillText.bind(ctx);
+    ctx.fillText = (text, ...rest) => {
+      seen.push(String(text));
+      return original(text, ...rest);
+    };
+    document.dispatchEvent(new Event("pagehide"));
+    return {
+      seen,
+      score: document.querySelector("#sh-score").textContent,
+    };
+  });
+
+  expect(frozen.seen).toContain("Paused · return to resume");
+  await expect(page.locator("#sh-hint")).toHaveText("Paused (tab hidden) · return to resume");
+  await expect(page.locator("#sh-pause-overlay")).toBeHidden();
+  await page.waitForTimeout(450);
+  await expect(page.locator("#sh-score")).toHaveText(frozen.score);
+});
+
 test("keeps Circuit Breaker's unchanged live power status stable between frames", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.locator('[data-game="breaker"]').click();

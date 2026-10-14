@@ -690,7 +690,7 @@
       source,
     });
     cloudErrorLog.reportStatus = report?.status === "sent"
-      ? "Anonymous diagnostic sent · no player or account details included"
+      ? "Diagnostic sent. It omits player and account details."
       : report?.status === "duplicate"
         ? "Diagnostic already sent for this error during this visit"
         : "Diagnostic queued · it will send automatically when reporting is available";
@@ -1064,7 +1064,7 @@
     if (hint) {
       hint.textContent = s.signedIn
         ? "Your account syncs scores and achievements automatically."
-        : "Optional. Keep playing with zero account. Global board needs a quick Google sign-in.";
+        : "Sign in with Google to post this score. No account is required to play.";
     }
 
     showModalLayer(modal, goBtn, returnFocus);
@@ -1094,7 +1094,7 @@
         input.focus();
         input.select();
       }
-      setModalStatus("Almost there — choose a username for the board.");
+      setModalStatus("Choose a username for the board.");
       return { ready: false, needUsername: true };
     }
     return { ready: true };
@@ -1570,7 +1570,7 @@
       activeGame = mountedGame;
       activeGameId = id;
       const ctrl = $("#play-controls");
-      if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Have fun";
+      if (ctrl) ctrl.textContent = GAME_CONTROLS[id] || "Esc leaves the game.";
       renderPlayLeaderboard();
       lockActiveCabinetScreen();
 
@@ -1774,7 +1774,7 @@
   });
 
   $("#btn-import")?.addEventListener("click", () => {
-    const code = prompt("Paste score code:");
+    const code = prompt("Paste a score code. This replaces local scores, XP, and history on this device.");
     if (!code) return;
     try {
       ArcadeScores.importCode(code);

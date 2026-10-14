@@ -183,6 +183,10 @@ assert(
     && read("js/games/memory.js").includes("function setText(el, value)")
     && read("js/games/tapper.js").includes("function setText(el, value)")
     && read("js/games/snake.js").includes("function commitScore()")
+    && read("js/games/snake.js").includes('ctx.fillText("Paused · return to resume", CSS_SIZE / 2, CSS_SIZE / 2)')
+    && read("js/games/snake.js").includes('setText(hintEl, "Paused (tab hidden) · return to resume");\n      draw();')
+    && read("js/games/shooter.js").includes('ctx.fillText("Paused · return to resume", W / 2, H / 2)')
+    && read("js/games/shooter.js").includes('setText(hintEl, "Paused (tab hidden) · return to resume");\n      // Same words Snake paints. The hint alone sits under the canvas.')
     && read("js/games/tapper.js").includes("function commitScore()")
     && read("js/games/breaker.js").includes("function commitScore()")
     && read("js/games/memory.js").includes("abandoned: true"),

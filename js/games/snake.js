@@ -442,6 +442,16 @@
         ctx.lineWidth = 3;
         ctx.strokeRect(1.5, 1.5, CSS_SIZE - 3, CSS_SIZE - 3);
       }
+
+      // Same words Circuit Breaker paints. The hint alone sits under the board.
+      if (pausedByVisibility && !running && !paused) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(226,232,240,0.9)";
+        ctx.font = "16px Outfit, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Paused · return to resume", CSS_SIZE / 2, CSS_SIZE / 2);
+      }
     }
 
     function advanceLevel() {
@@ -702,6 +712,7 @@
       lastStepAt = null;
       pausedByVisibility = true;
       setText(hintEl, "Paused (tab hidden) · return to resume");
+      draw();
     }
 
     function onLifecycle(reason) {
