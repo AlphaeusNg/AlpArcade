@@ -1233,3 +1233,9 @@ Researched and documented the next feature options in `docs/FEATURE_ROADMAP.md`,
 Mobile verification exposed an existing intrinsic-width overflow in the profile grid. A targeted `minmax(0, 1fr)` column lets the name form shrink; the document now fits 320px folded and expanded.
 
 Validation: complete unit/static gates and all 34 Chromium journeys passed, including three new discovery journeys covering intersections, no extra lazy loads, hidden favorite controls, launch/back focus, import/reset unlock refresh, separate quick destinations, keyboard controls, denied storage and 320px sizing. Version 2026.10.14.1. Work used an isolated clone; the primary checkout's eight dirty paths remain untouched.
+
+## 2026-10-14 — Keep arcade controls inside phone and enlarged layouts
+
+Narrow headers, lobby rows and game boards stay within the page when labels grow. The Snake board follows its column width. Pulse Grid marker buttons remain six across at ordinary widths and wrap below 600px. Chart-editor step labels size to their text. Findings are in `docs/UI_SIZING_AUDIT.md`.
+
+Validation: unit/static gates, 12 sizing journeys and 33 cabinet journeys passed. Version 2026.10.14.2. The primary checkout's pre-existing dirty paths stayed out of this clone.

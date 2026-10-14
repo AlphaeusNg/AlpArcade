@@ -1,6 +1,7 @@
 /* Play view */
 .play-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -13,7 +14,8 @@
 }
 
 .play-title-block {
-  flex: 1;
+  flex: 1 1 9rem;
+  overflow-wrap: anywhere;
   text-align: center;
   min-width: 0;
 }
@@ -28,6 +30,7 @@
 }
 
 .game-mount {
+  min-width: 0;
   padding: 1.1rem;
   min-height: 420px;
 }
@@ -144,6 +147,7 @@ body.is-game-view-locked > main {
 
 .game-hud {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 1.5rem;
   margin-bottom: 0.9rem;
@@ -165,7 +169,10 @@ body.is-game-view-locked > main {
 
 .game-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
   margin-top: 1rem;
 }
+
+#btn-back { white-space: nowrap; }

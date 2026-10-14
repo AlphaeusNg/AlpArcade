@@ -76,7 +76,7 @@
     canvas.width = Math.round(CSS_SIZE * dpr);
     canvas.height = Math.round(CSS_SIZE * dpr);
     canvas.style.width = CSS_SIZE + "px";
-    canvas.style.height = CSS_SIZE + "px";
+    canvas.style.height = "auto";
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cell = CSS_SIZE / COLS;

@@ -801,7 +801,7 @@
 
 .jb-timing-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
   gap: 0.28rem;
 }
 
@@ -1062,9 +1062,11 @@
 
 .jb-editor-timeline button {
   position: relative;
-  flex: 0 0 2.65rem;
-  width: 2.65rem;
-  height: 2rem;
+  flex: 0 0 auto;
+  min-width: 2.65rem;
+  width: auto;
+  min-height: 2rem;
+  padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.24);
@@ -1164,6 +1166,7 @@
 
 .jb-editor-save-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.45rem;
 }
@@ -1279,7 +1282,8 @@
   inset: 0;
   z-index: 20;
   display: grid;
-  align-content: center;
+  align-content: safe center;
+  overflow: auto;
   justify-items: center;
   gap: 0.65rem;
   border: 1px solid rgba(56, 189, 248, 0.28);
@@ -3149,7 +3153,7 @@
   }
 
   .jb-marker-mode {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
   }
 
   .jb-practice-row {
@@ -3598,3 +3602,5 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+.jb-timing-calibration input[type="range"] { min-height: 24px; }

@@ -206,6 +206,7 @@
 }
 
 .ctrl-size input {
+  min-height: 24px;
   width: min(8rem, 42vw);
 }
 

@@ -92,6 +92,7 @@ main,
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
@@ -156,12 +157,20 @@ main,
 
 .top-nav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  max-width: 100%;
   align-items: center;
   gap: 0.55rem 0.75rem;
   font-size: 0.82rem;
   color: var(--muted);
   min-width: 0;
+}
+
+.top-nav a,
+.top-nav .nav-text-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 .top-nav a {
