@@ -410,7 +410,7 @@ summary.icon-control.icon-control::before {
 .lobby-fold-row .lobby-fold::details-content { display: contents; }
 
 .icon-control.danger { color: var(--coral); }
-.play-bar, .music-dock-actions { gap: var(--icon-btn-gap); }
+.play-bar { gap: var(--icon-btn-gap); }
 #daily-card .daily-last-run {
   gap: var(--icon-btn-gap);
   padding: calc((var(--icon-btn-target) - var(--icon-btn-size)) / 2);
@@ -432,7 +432,19 @@ summary.icon-control.icon-control::before {
 }
 @media (max-width: 720px) {
   /* The header Music control opens the same dock without covering cabinets. */
-  .music-dock-tab.icon-control { display: none; }
+  .music-dock-tab {
+    display: none;
+    writing-mode: horizontal-tb;
+    width: var(--icon-btn-size);
+    height: var(--icon-btn-size);
+    padding: 0;
+    border: 0;
+    border-radius: var(--icon-btn-radius);
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .music-dock-tab-text { display: none; }
 }
 
 .icon-control.icon-control:hover,

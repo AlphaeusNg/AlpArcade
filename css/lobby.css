@@ -1557,4 +1557,3 @@ summary.icon-control.icon-control::before { display: none; }
   visibility: hidden;
 }
 .icon-control[hidden] { display: none; }
-.music-dock-tab.icon-control { position: fixed; writing-mode: horizontal-tb; }

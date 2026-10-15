@@ -180,6 +180,8 @@ test("390px lobby keeps music clear of cabinets and separates the fold row", asy
   await page.goto("/");
   await expect(page.locator(".cab-fav").first()).toBeVisible();
   const tab = page.locator("#music-dock-tab");
+  await expect(tab).toBeHidden();
+  expect(await tab.evaluate((el) => getComputedStyle(el).writingMode)).toBe("horizontal-tb");
   for (const card of await page.locator(".cabinet").all()) {
     await card.scrollIntoViewIfNeeded();
     const music = await tab.boundingBox();
@@ -197,6 +199,27 @@ test("390px lobby keeps music clear of cabinets and separates the fold row", asy
   expect(heading.y - row.y - row.height).toBeGreaterThanOrEqual(16);
   await expect(page.locator("#nav-music")).toBeVisible();
   await page.locator("#nav-music").click();
+  await expect(page.locator("#music-dock-panel")).toBeVisible();
+  await page.locator("#music-dock-close").click();
+  await expect(page.locator("#music-dock-panel")).toBeHidden();
+});
+
+test("1366px music dock retains main's vertical desktop tab", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/");
+  const tab = page.locator("#music-dock-tab");
+  await expect(tab).toBeVisible();
+  await expect(page.locator("#music-dock-tab-text")).toBeVisible();
+  await expect(page.locator("#music-dock-tab-text")).toHaveText(/Music|Lofi Beats/i);
+  await expect(page.locator(".music-dock-tab-icon")).toHaveText("♪");
+  expect(await tab.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { position: css.position, left: css.left, top: css.top,
+      writingMode: css.writingMode, borderRadius: css.borderRadius };
+  })).toEqual({ position: "fixed", left: "0px", top: "450px",
+    writingMode: "vertical-rl", borderRadius: "0px 12px 12px 0px" });
+  await expect(page.locator("#nav-music")).toBeVisible();
+  await tab.click();
   await expect(page.locator("#music-dock-panel")).toBeVisible();
   await page.locator("#music-dock-close").click();
   await expect(page.locator("#music-dock-panel")).toBeHidden();

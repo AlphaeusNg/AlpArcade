@@ -333,6 +333,13 @@ for (const match of indexHtml.matchAll(/<(?:button|a|summary)\b[^>]*class="[^"]*
 }
 assert(read("css/lobby.css").includes(".icon-control:focus-visible::after"), "keyboard focus reveals icon tooltips");
 
+// Main's desktop music dock deliberately retains its note glyph and station label.
+// It is not an icon-control; all compact icon-control glyph checks still apply.
+assert(/class="music-dock-tab-icon" aria-hidden="true">♪<\/span>/.test(indexHtml),
+  "desktop music dock retains main's note glyph");
+assert(/id="music-dock-tab-text">Music<\/span>/.test(indexHtml),
+  "desktop music dock retains its station text label");
+
 for (const match of indexHtml.matchAll(/<(button|a|summary)\b[^>]*class="[^"]*\bicon-control\b[^>]*>([\s\S]*?)<\/\1>/g)) {
   const content = match[2];
   assert(content.includes('<svg '), "every icon control contains inline SVG");
