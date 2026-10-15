@@ -1403,6 +1403,9 @@ for (const width of [1366, 390]) {
     await button.click();
     await button.click();
     await expect(menu).toBeHidden();
+    await button.press("ArrowUp");
+    await expect(portfolio).toBeFocused();
+    await page.keyboard.press("Escape");
     await button.press("ArrowDown");
     await expect(help).toBeFocused();
     await page.keyboard.press("ArrowDown");

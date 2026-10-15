@@ -11,16 +11,16 @@
     button.setAttribute("aria-expanded", "false");
     if (restoreFocus) button.focus();
   }
-  function open() {
+  function open(last = false) {
     menu.hidden = false;
     button.setAttribute("aria-expanded", "true");
-    items[0]?.focus();
+    (last ? items[items.length - 1] : items[0])?.focus();
   }
   button.addEventListener("click", () => menu.hidden ? open() : close());
   button.addEventListener("keydown", (event) => {
-    if (!["Enter", " ", "ArrowDown"].includes(event.key)) return;
+    if (!["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) return;
     event.preventDefault();
-    open();
+    open(event.key === "ArrowUp");
   });
   menu.addEventListener("keydown", (event) => {
     const index = items.indexOf(document.activeElement);

@@ -1249,3 +1249,10 @@ Validation: complete unit/static gates and all 34 Chromium journeys passed, incl
 Narrow headers, lobby rows and game boards stay within the page when labels grow. The Snake board follows its column width. Pulse Grid marker buttons remain six across at ordinary widths and wrap below 600px. Chart-editor step labels size to their text. Findings are in `docs/UI_SIZING_AUDIT.md`.
 
 Validation: unit/static gates, 12 sizing journeys and 33 cabinet journeys passed. Version 2026.10.14.2. The primary checkout's pre-existing dirty paths stayed out of this clone.
+
+
+## 2026-10-16 — Open overflow actions backwards from the keyboard
+
+ArrowUp on the new header More trigger now opens the menu at its last action. ArrowDown, Enter and Space still open at Help; Escape and Tab retain their existing focus behavior. Extended the existing desktop/phone keyboard journeys. Deployment stamp: 2026.10.16.1.
+
+Validation: full npm gate and all 61 Chromium journeys passed, including the extended menu checks at desktop and phone widths.
