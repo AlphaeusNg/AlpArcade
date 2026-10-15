@@ -1,5 +1,16 @@
 (() => {
   "use strict";
+  // Feather-style outline icons shared by generated controls and state changes.
+  function controlIcon(name) {
+    const paths = {
+      "volume": `<path d="m11 5-6 4H2v6h3l6 4ZM15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/>`,
+      "volume-off": `<path d="m11 5-6 4H2v6h3l6 4ZM17 9l5 6m0-6-5 6"/>`,
+      "arrow-up-right": `<path d="M7 17 17 7M7 7h10v10"/>`,
+      "minus": `<path d="M5 12h14"/>`,
+      "plus": `<path d="M5 12h14M12 5v14"/>`,
+    };
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  }
 
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -755,7 +766,7 @@
       errorToggle.hidden = !cloudErrorLog.message;
       errorToggle.setAttribute("aria-label", expandedError ? "Minimize" : "Show error");
       errorToggle.dataset.tip = errorToggle.getAttribute("aria-label");
-      errorToggle.firstElementChild.textContent = expandedError ? "−" : "+";
+      errorToggle.innerHTML = controlIcon(expandedError ? "minus" : "plus");
       errorToggle.setAttribute("aria-expanded", expandedError ? "true" : "false");
     }
     if (banner) {
@@ -1412,7 +1423,7 @@
       ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay ${escapeHtml(replayLabel)}</button>`
       : "";
     const lastRunLine = lastRun
-      ? `<p class="daily-last-run" id="daily-last-run"><span class="daily-last-run-copy">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""}</span><button type="button" class="btn small ghost icon-control" id="btn-daily-share" aria-label="Share" data-tip="Share"><span aria-hidden="true">↗</span></button>${replayBtn}</p>`
+      ? `<p class="daily-last-run" id="daily-last-run"><span class="daily-last-run-copy">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""}</span><button type="button" class="btn small ghost icon-control" id="btn-daily-share" aria-label="Share" data-tip="Share">${controlIcon("arrow-up-right")}</button>${replayBtn}</p>`
       : "";
     const showContinue = destinations.indexOf(continueId) > 0 && continueId !== replayId;
     const continueLabel = showContinue
@@ -2178,7 +2189,7 @@
   function syncMuteButtons() {
     const muted = window.ArcadeSFX?.isMuted?.() ?? false;
     $$(".mute-btn").forEach((btn) => {
-      btn.textContent = muted ? "🔇" : "🔊";
+      btn.innerHTML = controlIcon(muted ? "volume-off" : "volume");
       btn.setAttribute("aria-pressed", muted ? "true" : "false");
       btn.title = muted ? UNMUTE_SFX_TITLE : MUTE_SFX_TITLE;
       btn.setAttribute("aria-label", muted ? "Unmute game SFX" : "Mute game SFX");

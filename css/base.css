@@ -1,4 +1,10 @@
 :root {
+  --icon-btn-size: 40px;
+  --icon-btn-radius: 12px;
+  --icon-size: 24px;
+  --icon-stroke: 2;
+  --icon-tap-min: 48px;
+  --icon-gap: 8px;
   --bg: #05080f;
   --panel: rgba(10, 16, 28, 0.88);
   --border: rgba(94, 234, 212, 0.16);

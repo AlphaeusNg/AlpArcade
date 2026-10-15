@@ -28,7 +28,9 @@
     const message = `${count} of ${cards.length} cabinets`;
     if (status.textContent !== message) status.textContent = message;
     const active = query || style.value !== "all" || remappable.checked || playable.checked;
-    summary.textContent = active ? `Find a game · ${message}` : "Find a game";
+    const label = active ? `Find a game · ${message}` : "Find a game";
+    summary.setAttribute("aria-label", label);
+    summary.dataset.tip = label;
     doc.getElementById("cab-filter-empty").hidden = count !== 0;
   }
 

@@ -332,3 +332,16 @@ for (const match of indexHtml.matchAll(/<(?:button|a|summary)\b[^>]*class="[^"]*
   assert(/aria-label="[^"]+"/.test(match[0]) && /data-tip="[^"]+"/.test(match[0]), "icon controls need accessible names and CSS tooltip labels");
 }
 assert(read("css/lobby.css").includes(".icon-control:focus-visible::after"), "keyboard focus reveals icon tooltips");
+
+for (const match of indexHtml.matchAll(/<(button|a|summary)\b[^>]*class="[^"]*\bicon-control\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+  const content = match[2];
+  assert(content.includes('<svg '), "every icon control contains inline SVG");
+  assert(!/<img\b/i.test(content), "icon controls never use image assets");
+  const text = content.replace(/<svg\b[\s\S]*?<\/svg>/g, "").replace(/<[^>]*>/g, "");
+  assert(!/[^\x00-\x7f]/.test(text), "icon controls contain no Unicode icon glyph text");
+  assert(!/[?+]/.test(text), "icon controls contain no ASCII icon glyph text");
+}
+for (const [name, value] of Object.entries({ "icon-btn-size": "40px", "icon-btn-radius": "12px", "icon-size": "24px", "icon-stroke": "2", "icon-tap-min": "48px", "icon-gap": "8px" })) {
+  const rootBlock = read("css/base.css").match(/:root\s*\{([^}]+)\}/)[1];
+  assert(rootBlock.includes(`--${name}: ${value};`), `root defines --${name}`);
+}

@@ -1302,3 +1302,35 @@ test("touch secondary tooltips show after tap and long press without blocking to
   await expect(summary).toHaveAttribute("aria-expanded", "true");
   await context.close();
 });
+
+for (const width of [1366, 390]) {
+  test(`icon groups share a row and fold panels open below at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    for (const control of await page.locator(".icon-control").all()) {
+      await expect(control.locator("svg")).toHaveCount(1);
+      expect(await control.evaluate((el) => [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim())).toBe("");
+    }
+    const folds = ["#cab-discovery", "#lobby-about", "#achievements-details", "#scores-tools", "#scores-details"];
+    const summaries = page.locator(folds.map((id) => `${id} > summary`).join(","));
+    const row = await summaries.evaluateAll((elements) => elements.map((el) => el.offsetTop));
+    expect(new Set(row).size).toBe(1);
+    for (const id of folds) {
+      await openFold(page, id);
+      const panel = await page.locator(`${id} > .fold-panel`).boundingBox();
+      const boxes = await summaries.evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().bottom));
+      expect(panel.y).toBeGreaterThanOrEqual(Math.max(...boxes));
+    }
+    await openFold(page, ".device-backup");
+    for (const selector of [".top-nav", ".fun-fact-actions", ".auth-row", ".score-tools", ".cloud-actions", ".name-row"]) {
+      const groups = page.locator(selector);
+      for (const group of await groups.all()) {
+        const tops = await group.locator(":scope > .icon-control:visible").evaluateAll((elements) => elements.map((el) => el.offsetTop));
+        expect(new Set(tops).size, selector).toBeLessThanOrEqual(1);
+      }
+    }
+    await page.locator("#btn-mute").click();
+    await expect(page.locator("#btn-mute svg")).toHaveCount(1);
+    await expect(page.locator("#btn-mute")).toHaveAttribute("aria-label", "Unmute game SFX");
+  });
+}
