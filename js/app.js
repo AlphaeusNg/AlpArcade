@@ -2308,6 +2308,11 @@
     });
   });
   function showTouchTip(control) {
+    if (control.hasAttribute("aria-haspopup") && control.getAttribute("aria-expanded") === "true") {
+      clearTimeout(tipTimers.get(control));
+      control.classList.remove("is-tip-visible");
+      return;
+    }
     positionControlTip(control);
     clearTimeout(tipTimers.get(control));
     control.classList.add("is-tip-visible");

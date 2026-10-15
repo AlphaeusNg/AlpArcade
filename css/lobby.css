@@ -1551,5 +1551,10 @@ summary.icon-control.icon-control::before { display: none; }
   .icon-control:focus-visible::after,
   .icon-control.is-tip-visible::after { display: block; opacity: 1; visibility: visible; }
 }
+.icon-control[aria-haspopup][aria-expanded="true"]::after {
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+}
 .icon-control[hidden] { display: none; }
 .music-dock-tab.icon-control { position: fixed; writing-mode: horizontal-tb; }

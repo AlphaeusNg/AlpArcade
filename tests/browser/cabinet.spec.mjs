@@ -1267,6 +1267,39 @@ test("secondary icons expose names and reveal tooltips on hover and keyboard foc
   await expect(summary).toHaveAttribute("aria-expanded", "false");
 });
 
+test("More tooltip stays hidden while its menu is expanded and returns after Escape", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const button = page.locator("#btn-more");
+  const tooltip = () => button.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { opacity: style.opacity, visibility: style.visibility };
+  });
+
+  await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await button.hover();
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await page.mouse.move(0, 0);
+  await page.keyboard.press("ArrowLeft");
+  await button.focus();
+  expect(await button.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await button.evaluate((el) => el.classList.add("is-tip-visible"));
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await button.evaluate((el) => el.classList.remove("is-tip-visible"));
+
+  await page.keyboard.press("Escape");
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await button.hover();
+  expect(await tooltip()).toEqual({ opacity: "1", visibility: "visible" });
+  await page.mouse.move(0, 0);
+  await page.keyboard.press("Tab");
+  await button.focus();
+  await expect(button).toBeFocused();
+  expect(await button.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  expect(await tooltip()).toEqual({ opacity: "1", visibility: "visible" });
+});
+
 test("secondary tooltips stay within a narrow viewport when shown", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -1301,6 +1334,15 @@ test("touch secondary tooltips show after tap and long press without blocking to
   await summary.dispatchEvent("pointercancel", { pointerType: "touch" });
   await expect(summary).not.toHaveClass(/is-tip-visible/, { timeout: 2500 });
   await expect(summary).toHaveAttribute("aria-expanded", "true");
+  const more = page.locator("#btn-more");
+  await more.tap();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(more).not.toHaveClass(/is-tip-visible/);
+  await more.dispatchEvent("pointerdown", { pointerType: "touch" });
+  await page.waitForTimeout(600);
+  await expect(more).not.toHaveClass(/is-tip-visible/);
+  await more.dispatchEvent("pointercancel", { pointerType: "touch" });
+  expect(await more.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("hidden");
   await context.close();
 });
 
