@@ -37,10 +37,7 @@
 
   <!-- Left music dock — uses empty side space; tab opens/closes the panel -->
   <aside class="music-dock" id="bg-music" aria-label="Background music">
-    <button type="button" class="music-dock-tab" id="music-dock-tab" aria-expanded="false" aria-controls="music-dock-panel" title="Open or close music">
-      <span class="music-dock-tab-icon" aria-hidden="true">♪</span>
-      <span class="music-dock-tab-text" id="music-dock-tab-text">Music</span>
-    </button>
+    <button type="button" class="icon-control music-dock-tab" id="music-dock-tab" aria-expanded="false" aria-controls="music-dock-panel" aria-label="Music" data-tip="Music"><span class="music-dock-tab-icon" aria-hidden="true">♪</span></button>
     <div class="music-dock-panel" id="music-dock-panel" role="dialog" aria-label="Music stations" aria-modal="false">
       <div class="music-dock-head">
         <div class="music-dock-head-copy">
@@ -48,7 +45,7 @@
           <h2 class="section-title bg-music-title">Music</h2>
         </div>
         <div class="music-dock-actions">
-          <button type="button" class="music-dock-close" id="music-dock-close" title="Close station list" aria-label="Close station list">×</button>
+          <button type="button" class="icon-control music-dock-close" id="music-dock-close" aria-label="Close station list" data-tip="Close station list"><span aria-hidden="true">×</span></button>
         </div>
       </div>
       <p class="bg-music-hint mono">Pick a station. Click outside to close. Audio keeps playing.</p>
@@ -91,12 +88,12 @@
       </span>
     </a>
     <nav class="top-nav" aria-label="Primary">
-      <a href="#scores-panel">Scores</a>
-      <a href="#achievements-panel">Badges</a>
-      <button type="button" class="nav-text-btn nav-music" id="nav-music" title="Open or close music">Music</button>
-      <button type="button" class="nav-text-btn" id="btn-help">Help</button>
-      <button type="button" class="mute-btn" id="btn-mute" aria-pressed="false" title="Mute game SFX (music is in the ♪ dock)" aria-label="Mute game SFX (music is in the ♪ dock)">🔊</button>
-      <a class="nav-extra" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
+      <a href="#scores-panel" class="icon-control" aria-label="Scores" data-tip="Scores"><span aria-hidden="true">▤</span></a>
+      <a href="#achievements-panel" class="icon-control" aria-label="Badges" data-tip="Badges"><span aria-hidden="true">☆</span></a>
+      <button type="button" class="icon-control nav-text-btn nav-music" id="nav-music" aria-expanded="false" aria-controls="music-dock-panel" aria-label="Music" data-tip="Music"><span aria-hidden="true">♪</span></button>
+      <button type="button" class="icon-control nav-text-btn" id="btn-help" aria-label="Help" data-tip="Help"><span aria-hidden="true">?</span></button>
+      <button type="button" class="icon-control mute-btn" id="btn-mute" aria-pressed="false" aria-label="Mute game SFX" data-tip="Mute game SFX"><span aria-hidden="true">🔊</span></button>
+      <a class="icon-control nav-extra" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener" aria-label="Portfolio" data-tip="Portfolio"><span aria-hidden="true">↗</span></a>
     </nav>
   </header>
 
@@ -114,7 +111,7 @@
           <p class="cab-quick-empty" id="cab-quick-status" role="status" hidden></p>
         </div>
         <details class="cab-discovery" id="cab-discovery">
-          <summary id="cab-discovery-summary">Find a game</summary>
+          <summary id="cab-discovery-summary" class="icon-control" aria-label="Find a game" data-tip="Find a game" aria-expanded="false"><span aria-hidden="true">⌕</span></summary>
           <fieldset>
             <legend>Filter cabinets</legend>
             <div class="cab-discovery-fields">
@@ -122,7 +119,7 @@
               <div class="cab-filter-field"><label for="cab-style">Style</label><select id="cab-style"><option value="all">All styles</option><option value="action">Action</option><option value="puzzle">Puzzle</option><option value="timing">Timing</option></select></div>
               <label class="cab-discovery-check" for="cab-remappable"><input id="cab-remappable" type="checkbox">Remappable keys</label>
               <label class="cab-discovery-check" for="cab-playable"><input id="cab-playable" type="checkbox">Playable now</label>
-              <button id="cab-filter-clear" class="btn ghost" type="button">Clear filters</button>
+              <button id="cab-filter-clear" class="icon-control btn ghost" type="button" aria-label="Clear filters" data-tip="Clear filters"><span aria-hidden="true">×</span></button>
             </div>
             <p id="cab-filter-status" role="status" aria-atomic="true">8 of 8 cabinets</p>
           </fieldset>
@@ -204,7 +201,7 @@
       </section>
 
       <details id="lobby-about" class="glass lobby-fold lobby-about">
-        <summary>About & fun facts</summary>
+        <summary class="icon-control" aria-label="About & fun facts" data-tip="About & fun facts" aria-expanded="false"><span aria-hidden="true">ⓘ</span></summary>
         <div class="lobby-top">
         <section class="intro glass intro-hero" id="intro">
           <div class="intro-hero-row">
@@ -241,9 +238,9 @@
             <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
           </button>
           <div class="fun-fact-actions">
-            <button type="button" class="btn small ghost" id="fun-fact-prev">← Prev</button>
-            <button type="button" class="btn small primary" id="fun-fact-next">Next</button>
-            <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
+            <button type="button" class="icon-control btn small ghost" id="fun-fact-prev" aria-label="Previous" data-tip="Previous"><span aria-hidden="true">←</span></button>
+            <button type="button" class="icon-control btn small primary" id="fun-fact-next" aria-label="Next" data-tip="Next"><span aria-hidden="true">→</span></button>
+            <button type="button" class="icon-control btn small ghost" id="fun-fact-shuffle" aria-label="Shuffle" data-tip="Shuffle"><span aria-hidden="true">⤨</span></button>
           </div>
           <p class="fun-facts-hint mono" id="fun-facts-hint">Collect them all — a secret unlocks around fact #5 spam…</p>
         </section>
@@ -255,7 +252,7 @@
           <label for="name-input">Local tag</label>
           <div class="name-row">
             <input id="name-input" type="text" maxlength="16" placeholder="Your name" autocomplete="nickname" />
-            <button type="submit" class="btn small">Save</button>
+            <button type="submit" class="icon-control btn small" aria-label="Save" data-tip="Save"><span aria-hidden="true">✓</span></button>
           </div>
         </form>
         <div class="player-stats">
@@ -281,17 +278,14 @@
         </div>
         <div class="auth-row" id="auth-row">
           <span class="auth-label mono" id="auth-label">Play free · Google only to post scores</span>
-          <button type="button" class="btn small ghost" id="btn-google-signin">Sign in with Google</button>
-          <button type="button" class="btn small ghost" id="btn-google-signout" hidden>Sign out</button>
+          <button type="button" class="icon-control btn small ghost" id="btn-google-signin" aria-label="Sign in with Google" data-tip="Sign in with Google"><span aria-hidden="true">⇥</span></button>
+          <button type="button" class="icon-control btn small ghost" id="btn-google-signout" hidden aria-label="Sign out" data-tip="Sign out"><span aria-hidden="true">⇤</span></button>
         </div>
       </section>
 
       <section class="achievements glass" id="achievements-panel" aria-labelledby="achievements-title">
         <details id="achievements-details" class="lobby-fold">
-          <summary>
-            <h2 class="section-title" id="achievements-title">Badges</h2>
-            <span class="achievements-count mono" id="achievements-count">0 / 0</span>
-          </summary>
+          <summary class="icon-control" aria-label="Badges" data-tip="Badges" aria-expanded="false"><span aria-hidden="true">☆</span><span class="sr-only" id="achievements-title">Badges</span><span class="achievements-count mono" id="achievements-count">0 / 0</span></summary>
           <ul class="achievements-list list-scroll list-scroll-ach" id="achievements-list"></ul>
         </details>
       </section>
@@ -301,22 +295,22 @@
           <h2 class="section-title">Scoreboard</h2>
         </div>
         <details id="scores-tools" class="lobby-fold">
-          <summary>More: backup & data tools</summary>
+          <summary class="icon-control" aria-label="More: backup & data tools" data-tip="More: backup & data tools" aria-expanded="false"><span aria-hidden="true">⋯</span></summary>
           <div class="score-tools">
-            <button type="button" class="btn small ghost" id="btn-export">Export</button>
-            <button type="button" class="btn small ghost" id="btn-import">Import</button>
-            <button type="button" class="btn small primary" id="btn-share-cloud" title="Post your personal bests (Google sign-in)">Post bests</button>
-            <button type="button" class="btn small danger" id="btn-reset">Reset</button>
+            <button type="button" class="icon-control btn small ghost" id="btn-export" aria-label="Export" data-tip="Export"><span aria-hidden="true">↑</span></button>
+            <button type="button" class="icon-control btn small ghost" id="btn-import" aria-label="Import" data-tip="Import"><span aria-hidden="true">↓</span></button>
+            <button type="button" class="icon-control btn small primary" id="btn-share-cloud" aria-label="Post bests" data-tip="Post bests"><span aria-hidden="true">☁</span></button>
+            <button type="button" class="icon-control btn small danger" id="btn-reset" aria-label="Reset" data-tip="Reset"><span aria-hidden="true">↺</span></button>
           </div>
           <p class="scores-note" id="scores-note">
             Local scores stay on this device. Sign in with Google to post a score.
           </p>
           <details class="device-backup">
-            <summary>Device backup</summary>
+            <summary class="icon-control" aria-label="Device backup" data-tip="Device backup" aria-expanded="false"><span aria-hidden="true">▣</span></summary>
             <p class="scores-note">Back up scores, favorites, recent cabinets and control preferences. Restore replaces those local choices. Achievements, daily progress and cloud scores are not included.</p>
             <div class="score-tools">
-              <button type="button" class="btn small ghost" id="btn-device-backup">Download backup</button>
-              <button type="button" class="btn small ghost" id="btn-device-restore">Restore backup</button>
+              <button type="button" class="icon-control btn small ghost" id="btn-device-backup" aria-label="Download backup" data-tip="Download backup"><span aria-hidden="true">⇩</span></button>
+              <button type="button" class="icon-control btn small ghost" id="btn-device-restore" aria-label="Restore backup" data-tip="Restore backup"><span aria-hidden="true">⇧</span></button>
               <input type="file" id="device-backup-file" accept="application/json,.json" hidden />
             </div>
             <p class="scores-note" id="device-backup-status" role="status"></p>
@@ -329,20 +323,20 @@
             <small class="cloud-report-status mono" id="cloud-report-status" hidden></small>
           </div>
           <div class="cloud-actions">
-            <button type="button" class="btn small ghost" id="btn-cloud-copy" hidden>Copy error</button>
-            <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry</button>
+            <button type="button" class="icon-control btn small ghost" id="btn-cloud-copy" hidden aria-label="Copy error" data-tip="Copy error"><span aria-hidden="true">▢</span></button>
+            <button type="button" class="icon-control btn small ghost" id="btn-cloud-retry" hidden aria-label="Retry" data-tip="Retry"><span aria-hidden="true">↻</span></button>
             <button
               type="button"
-              class="btn small ghost"
+              class="icon-control btn small ghost"
               id="btn-cloud-error-toggle"
               aria-expanded="true"
               hidden
-            >Minimize</button>
+             aria-label="Minimize" data-tip="Minimize"><span aria-hidden="true">−</span></button>
           </div>
           </div>
         </details>
         <details id="scores-details" class="lobby-fold">
-          <summary>Scores & leaderboards</summary>
+          <summary class="icon-control" aria-label="Scores & leaderboards" data-tip="Scores & leaderboards" aria-expanded="false"><span aria-hidden="true">▤</span></summary>
         <div class="lb-filters" id="lb-filters" role="group" aria-label="Leaderboard game filter">
           <button type="button" class="lb-chip is-active" data-lb-game="all" aria-pressed="true">All games</button>
           <button type="button" class="lb-chip" data-lb-game="tictactoe" aria-pressed="false">Tic-Tac-Toe</button>
@@ -380,14 +374,14 @@
 
     <div id="play-view" hidden>
       <div class="play-bar">
-        <button type="button" class="btn ghost" id="btn-back">← Lobby</button>
+        <button type="button" class="icon-control btn ghost" id="btn-back" aria-label="Lobby" data-tip="Lobby"><span aria-hidden="true">←</span></button>
         <div class="play-title-block">
           <h2 id="play-title">Game</h2>
           <p class="play-controls mono" id="play-controls">Esc leaves the game.</p>
         </div>
-        <button type="button" class="btn small ghost" id="btn-share-run" hidden title="Share last run">Share</button>
-        <button type="button" class="fullscreen-btn" id="btn-fullscreen" title="Lock game view to prevent accidental scrolling" aria-label="Lock game view" aria-pressed="false">⛶</button>
-        <button type="button" class="mute-btn" id="btn-mute-play" title="Mute game SFX (music is in the ♪ dock)" aria-label="Mute game SFX (music is in the ♪ dock)">🔊</button>
+        <button type="button" class="icon-control btn small ghost" id="btn-share-run" hidden aria-label="Share" data-tip="Share"><span aria-hidden="true">↗</span></button>
+        <button type="button" class="icon-control fullscreen-btn" id="btn-fullscreen" aria-pressed="false" aria-label="Lock game view" data-tip="Lock game view"><span aria-hidden="true">⛶</span></button>
+        <button type="button" class="icon-control mute-btn" id="btn-mute-play" aria-label="Mute game SFX" data-tip="Mute game SFX"><span aria-hidden="true">🔊</span></button>
       </div>
       <div class="play-layout">
         <div id="game-mount" class="game-mount glass"></div>
@@ -444,7 +438,7 @@
       <strong id="achievement-toast-title">Achievement</strong>
       <span id="achievement-toast-detail"></span>
     </span>
-    <button type="button" id="achievement-toast-close" class="achievement-toast-close" aria-label="Dismiss achievement notification" title="Dismiss">×</button>
+    <button type="button" id="achievement-toast-close" class="icon-control achievement-toast-close" aria-label="Dismiss achievement notification" data-tip="Dismiss achievement notification"><span aria-hidden="true">×</span></button>
   </section>
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 

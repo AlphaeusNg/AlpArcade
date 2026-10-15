@@ -78,6 +78,21 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(cabinet).toBeVisible();
   await expect(cabinet).toHaveClass(/is-locked/);
   await expect(cabinet.locator(".cab-lock")).toHaveText(/Lv 15 · \d+ XP to go/);
+  const tooltip = cabinet.locator('[role="tooltip"]');
+  await expect(tooltip).toBeHidden();
+  for (const tip of await page.locator(".is-locked .cab-lock").all()) await expect(tip).toBeHidden();
+  await expect(cabinet).toHaveAccessibleDescription(/XP to go/);
+  await expect(cabinet).toHaveAttribute("aria-describedby", await tooltip.getAttribute("id"));
+  await expect(cabinet).not.toHaveAttribute("title");
+  await cabinet.hover();
+  await expect(tooltip).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeHidden();
+  await page.keyboard.press("Tab");
+  await cabinet.focus();
+  await expect(tooltip).toBeVisible();
+  await cabinet.blur();
+  await expect(tooltip).toBeHidden();
   await expect(cabinet.locator(".cab-desc")).toContainText("Lv 15");
   await expect(cabinet.locator(".cab-best")).toHaveText("No runs yet");
   await expect(cabinet.locator(".cab-best")).not.toContainText("Reach Lv");
@@ -85,6 +100,37 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(page.locator("#lobby")).toBeVisible();
   await expect(page.locator("#play-view")).toBeHidden();
   await expect(page.locator("#toast")).toContainText("Reach Lv 15");
+});
+
+test("touch toggles locked requirements and preserves free cabinet navigation", async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.route(/^https:\/\//, route => route.fulfill({ status: 200, body: "" }));
+  try {
+    await page.goto("/");
+    const card = page.locator('[data-game="shooter"]');
+    const tip = card.locator('[role="tooltip"]');
+    await expect(tip).toBeHidden();
+    await expect(card.locator(".cab-desc")).toContainText("Lv 5");
+    await expect(card).toHaveAccessibleDescription(/XP to go/);
+    await card.tap({ force: true });
+    await expect(tip).toBeVisible();
+    await expect(page.locator(".lock-announcement")).toContainText("XP to go");
+    await card.tap({ force: true });
+    await expect(tip).toBeHidden();
+    await card.tap({ force: true });
+    await expect(tip).toBeVisible();
+    await page.locator("#daily-card .eyebrow").tap();
+    await expect(tip).toBeHidden();
+    await page.locator('[data-game="tictactoe"]').tap();
+    await expect(page.locator("#play-view")).toBeVisible();
+    await page.goto("/#play/tictactoe");
+    await expect(page.locator("#play-view")).toBeVisible();
+    await page.goto("/#play/shooter");
+    await expect(page.locator("#lobby")).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });
 
 test("Help isolates the arcade, traps focus, and returns it to the launcher", async ({ page }) => {
@@ -1191,4 +1237,68 @@ test("Lobby declutter: secondary sections open within one click", async ({ page 
   await page.locator('.top-nav a[href="#achievements-panel"]').click();
   await expect(page.locator("#achievements-details")).toHaveAttribute("open", "");
   await expect(page.locator("#achievements-list")).toBeVisible();
+});
+
+test("secondary icons expose names and reveal tooltips on hover and keyboard focus", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-tools");
+  const controls = page.locator(".icon-control[data-tip]");
+  for (const control of await controls.all()) {
+    await expect(control).toHaveAttribute("aria-label", /.+/);
+    expect(await control.getAttribute("data-tip")).toBe(await control.getAttribute("aria-label"));
+  }
+  const tooltip = (control) => control.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { opacity: style.opacity, visibility: style.visibility, content: style.content };
+  });
+  for (const control of [page.getByRole("link", { name: "Scores", exact: true }), page.getByRole("button", { name: "Export", exact: true }), page.locator("#scores-tools > summary")]) {
+    await control.hover();
+    expect(await tooltip(control)).toMatchObject({ opacity: "1", visibility: "visible" });
+    await page.mouse.move(0, 0);
+    await page.keyboard.press("Tab");
+    await control.focus();
+    await expect(control).toBeFocused();
+    expect(await control.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+    expect(await tooltip(control)).toMatchObject({ opacity: "1", visibility: "visible" });
+  }
+  const summary = page.locator("#scores-tools > summary");
+  await summary.press("Enter");
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+});
+
+test("secondary tooltips stay within a narrow viewport when shown", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-tools");
+  for (const selector of ["#btn-help", "#scores-tools > summary", "#btn-export", "#music-dock-tab"]) {
+    const control = page.locator(selector);
+    await control.scrollIntoViewIfNeeded();
+    await control.hover();
+    expect(await control.evaluate((el) => getComputedStyle(el, "::after").display)).toBe("block");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    await page.mouse.move(319, 0);
+    await page.keyboard.press("Tab");
+    await control.focus();
+    expect(await control.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("visible");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  }
+});
+
+test("touch secondary tooltips show after tap and long press without blocking toggles", async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.route("https://**/*", (route) => route.abort());
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const summary = page.locator("#scores-tools > summary");
+  await summary.tap();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await expect(summary).toHaveClass(/is-tip-visible/);
+  expect(await summary.evaluate((el) => getComputedStyle(el, "::after").opacity)).toBe("1");
+  await expect(summary).not.toHaveClass(/is-tip-visible/, { timeout: 2500 });
+  await summary.dispatchEvent("pointerdown", { pointerType: "touch" });
+  await expect(summary).toHaveClass(/is-tip-visible/);
+  await summary.dispatchEvent("pointercancel", { pointerType: "touch" });
+  await expect(summary).not.toHaveClass(/is-tip-visible/, { timeout: 2500 });
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await context.close();
 });

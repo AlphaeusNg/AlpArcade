@@ -294,7 +294,7 @@
 
 /* Still clickable so we can toast the requirement — visual lock only */
 
-/* Lock chip sits on its own row so it never covers the title. */
+/* The requirement stays available as the card's accessible description. */
 .cabinet.is-locked {
   grid-template-columns: auto minmax(0, 1fr);
 }
@@ -305,27 +305,40 @@
 }
 
 .cabinet .cab-lock {
-  position: static;
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: start;
-  align-self: start;
-  width: fit-content;
-  min-width: 0;
-  max-width: 100%;
-  margin-top: 0.28rem;
-  padding: 0.14rem 0.38rem;
-  border-radius: 999px;
-  border: 1px solid rgba(251, 191, 36, 0.42);
-  background: rgba(8, 14, 26, 0.9);
+  position: absolute;
+  z-index: 2;
+  inset: auto 0.5rem 0.25rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--gold);
+  background: var(--panel);
   color: var(--gold);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: 0.65rem;
   line-height: 1.25;
-  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cabinet:not(.touch-lock-tip):hover .cab-lock {
+    visibility: visible;
+  }
+}
+
+.cabinet:not(.touch-lock-tip):focus-visible .cab-lock,
+.cabinet:not(.touch-lock-tip):focus-within .cab-lock,
+.cabinet.touch-lock-tip:has(:focus-visible) .cab-lock,
+.cabinet.touch-lock-tip:focus-visible .cab-lock,
+.cabinet.show-lock-tip .cab-lock {
+  visibility: visible;
+}
+
+.lock-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
 }
 
 .cabinet {
@@ -1483,3 +1496,60 @@
 #scores-details .lb-filters {
   margin-top: 0.7rem;
 }
+
+/* Secondary actions: one icon, with the same accessible and visual label. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.icon-control.icon-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+  overflow: visible;
+  list-style: none;
+  font-size: 1.1rem;
+}
+summary.icon-control::-webkit-details-marker { display: none; }
+summary.icon-control.icon-control::before { display: none; }
+.icon-control::after {
+  content: attr(data-tip);
+  display: none;
+  position: absolute;
+  top: var(--tip-y, calc(100% + 5px));
+  left: var(--tip-x, 0px);
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 16px));
+  z-index: 100;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--teal);
+  border-radius: 6px;
+  background: #101c25;
+  color: #fff;
+  font: 0.75rem/1.3 sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+.icon-control:hover::after,
+.icon-control:focus-visible::after,
+.icon-control.is-tip-visible::after { display: block; opacity: 1; visibility: visible; }
+.icon-control:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+@media (hover: none) {
+  .icon-control:hover::after { display: none; opacity: 0; visibility: hidden; }
+  .icon-control:focus-visible::after,
+  .icon-control.is-tip-visible::after { display: block; opacity: 1; visibility: visible; }
+}
+.icon-control[hidden] { display: none; }
+.music-dock-tab.icon-control { position: fixed; writing-mode: horizontal-tb; }

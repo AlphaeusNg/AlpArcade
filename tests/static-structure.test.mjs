@@ -64,14 +64,25 @@ assert(
     && app.includes("lockEl.textContent = cabinetLockChip(id)")
     && app.includes("unlockRequirement")
     && !app.includes("bestEl.textContent = req?.message"),
-  "locked cabinets must show a compact Lv chip instead of replacing .cab-best",
+  "locked cabinets must preserve best scores and render requirement text",
 );
 assert(
   read("js/core/scores.js").includes("function xpToReachLevel")
     && read("js/features/achievements.js").includes("xpToReachLevel")
     && read("js/features/achievements.js").includes("XP to go")
-    && read("css/lobby.css").includes("text-overflow: ellipsis"),
-  "remaining XP uses the shared level curve on the lock chip and the chip stays contained",
+    && app.includes('lockEl.setAttribute("role", "tooltip")')
+    && app.includes('card.setAttribute("aria-describedby", `cab-lock-${id}`)')
+    && read("css/lobby.css").includes("visibility: hidden"),
+  "remaining XP uses the shared curve in a hidden accessible tooltip",
+);
+assert(
+  read("css/lobby.css").includes(":focus-visible .cab-lock")
+    && read("css/lobby.css").includes(":focus-within .cab-lock")
+    && read("css/lobby.css").includes(":hover .cab-lock")
+    && app.includes('lockAnnouncement.setAttribute("aria-live", "polite")')
+    && app.includes('event.pointerType === "touch"')
+    && app.includes('card.classList.toggle("show-lock-tip")'),
+  "lock tooltips support hover, keyboard focus, and announced touch toggles",
 );
 assert(
   app.includes('id="btn-daily-play"')
@@ -107,7 +118,7 @@ assert(
 );
 assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")
-    && indexHtml.includes('title="Mute game SFX (music is in the ♪ dock)"'),
+    && indexHtml.includes('data-tip="Mute game SFX"'),
   "mute tooltip must distinguish game SFX from the music dock",
 );
 assert(
@@ -292,7 +303,7 @@ function summaryMarkup(id) {
 }
 const summaryText = (id) => summaryMarkup(id).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 assert(
-  summaryText("lobby-about") === "About & fun facts"
+  summaryMarkup("lobby-about").includes('aria-label="About & fun facts"')
     && /<details id="lobby-about" class="[^"]*\bglass\b/.test(indexHtml),
   "intro and fun facts fold into details#lobby-about",
 );
@@ -304,8 +315,8 @@ assert(
   "badges fold into details#achievements-details and keep the live count",
 );
 assert(
-  summaryText("scores-details") === "Scores & leaderboards"
-    && summaryText("scores-tools") === "More: backup & data tools"
+  summaryMarkup("scores-details").includes('aria-label="Scores & leaderboards"')
+    && summaryMarkup("scores-tools").includes('aria-label="More: backup & data tools"')
     && indexHtml.includes('id="scores-panel"')
     && indexHtml.includes('id="btn-export"')
     && indexHtml.includes('id="highscores-list"'),
@@ -317,3 +328,7 @@ assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must r
 console.log(
   `Static structure passed: ${htmlFiles.length} HTML entrypoints, ${filesBelow("css", ".css").length} CSS modules, ${filesBelow("js", ".js").length} JavaScript modules.`
 );
+for (const match of indexHtml.matchAll(/<(?:button|a|summary)\b[^>]*class="[^"]*\bicon-control\b[^>]*>/g)) {
+  assert(/aria-label="[^"]+"/.test(match[0]) && /data-tip="[^"]+"/.test(match[0]), "icon controls need accessible names and CSS tooltip labels");
+}
+assert(read("css/lobby.css").includes(".icon-control:focus-visible::after"), "keyboard focus reveals icon tooltips");

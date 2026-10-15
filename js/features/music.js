@@ -139,6 +139,8 @@
       : "Music";
     const tabText = $("#music-dock-tab-text");
     if (tabText) tabText.textContent = short;
+    const navMusic = $("#nav-music");
+    if (navMusic) navMusic.setAttribute("aria-expanded", dockOpen ? "true" : "false");
     const t = tab();
     if (t) {
       t.setAttribute("aria-expanded", dockOpen ? "true" : "false");

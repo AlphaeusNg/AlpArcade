@@ -127,13 +127,6 @@
     margin-top: 0.1rem;
   }
 
-  /* Full-width chip under the title so "Lv N · XP to go" cannot cover the name. */
-  .cabinet .cab-lock {
-    grid-column: 1 / -1;
-    white-space: normal;
-    margin-top: 0.22rem;
-  }
-
   .section-title {
     font-size: 1.05rem;
     margin-bottom: 0.55rem;
@@ -331,5 +324,15 @@
 
   .topbar {
     transition: none;
+  }
+}
+
+/* Keep five secondary icons beside the brand on narrow phones. */
+@media (max-width: 720px) {
+  .top-nav { gap: 0.15rem; }
+  .top-nav .icon-control.icon-control {
+    min-width: 30px;
+    min-height: 36px;
+    padding: 0.3rem;
   }
 }

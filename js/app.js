@@ -401,16 +401,15 @@
       const g = ArcadeScores.GAMES[id];
       if (!g) return;
       const locked = cabinetIsLocked(id);
-      const req = window.ArcadeAchievements?.unlockRequirement?.(id);
-      const lockHint = req?.message || cabinetLockMessage(id) || "Cabinet locked";
       card.classList.toggle("is-locked", !!locked);
       card.setAttribute("aria-disabled", locked ? "true" : "false");
-      card.setAttribute("aria-label", locked ? `${g.label} locked, ${cabinetLockChip(id)}` : `Play ${g.label}`);
+      card.setAttribute("aria-label", locked ? `${g.label} locked` : `Play ${g.label}`);
       if (locked) {
         card.setAttribute("tabindex", "0");
-        card.title = lockHint;
+        card.setAttribute("aria-describedby", `cab-lock-${id}`);
       } else {
-        card.removeAttribute("title");
+        card.removeAttribute("aria-describedby");
+        card.classList.remove("show-lock-tip");
       }
       const goEl = card.querySelector(".cab-go");
       if (goEl) goEl.hidden = !!locked;
@@ -419,11 +418,11 @@
         if (!lockEl) {
           lockEl = document.createElement("span");
           lockEl.className = "cab-lock mono";
-          lockEl.setAttribute("aria-hidden", "true");
+          lockEl.id = `cab-lock-${id}`;
+          lockEl.setAttribute("role", "tooltip");
           card.appendChild(lockEl);
         }
         lockEl.textContent = cabinetLockChip(id);
-        lockEl.title = lockHint;
       } else if (lockEl) {
         lockEl.remove();
       }
@@ -754,7 +753,9 @@
     if (copyBtn) copyBtn.hidden = !expandedError;
     if (errorToggle) {
       errorToggle.hidden = !cloudErrorLog.message;
-      errorToggle.textContent = expandedError ? "Minimize" : "Show error";
+      errorToggle.setAttribute("aria-label", expandedError ? "Minimize" : "Show error");
+      errorToggle.dataset.tip = errorToggle.getAttribute("aria-label");
+      errorToggle.firstElementChild.textContent = expandedError ? "−" : "+";
       errorToggle.setAttribute("aria-expanded", expandedError ? "true" : "false");
     }
     if (banner) {
@@ -790,7 +791,8 @@
     if (shareBtn) {
       shareBtn.hidden = !s.configured;
       shareBtn.disabled = status === "connecting";
-      shareBtn.textContent = s.signedIn ? "Post bests" : "Post bests (Google)";
+      shareBtn.setAttribute("aria-label", "Post bests");
+      shareBtn.dataset.tip = "Post bests";
     }
     if (retryBtn) {
       retryBtn.hidden = !(s.configured && (status === "error" || status === "off"));
@@ -1410,7 +1412,7 @@
       ? `<button type="button" class="btn small ghost" id="btn-daily-replay" data-replay-game="${escapeHtml(replayId)}">Replay ${escapeHtml(replayLabel)}</button>`
       : "";
     const lastRunLine = lastRun
-      ? `<p class="daily-last-run" id="daily-last-run"><span class="daily-last-run-copy">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""}</span><button type="button" class="btn small ghost" id="btn-daily-share">Share</button>${replayBtn}</p>`
+      ? `<p class="daily-last-run" id="daily-last-run"><span class="daily-last-run-copy">Last run · ${escapeHtml(lastRun.label)} · ${escapeHtml(lastFormatted)}${lastRun.isHighScore ? " · best" : ""}</span><button type="button" class="btn small ghost icon-control" id="btn-daily-share" aria-label="Share" data-tip="Share"><span aria-hidden="true">↗</span></button>${replayBtn}</p>`
       : "";
     const showContinue = destinations.indexOf(continueId) > 0 && continueId !== replayId;
     const continueLabel = showContinue
@@ -1478,6 +1480,7 @@
     if (!GAME_SCRIPTS[id]) return;
     // Always re-check level (never trust UI-only locks)
     if (cabinetIsLocked(id)) {
+      await backToLobby();
       showToast(cabinetLockMessage(id) || "Cabinet locked");
       paintCabinetBests();
       return;
@@ -1650,6 +1653,27 @@
     }
   }
 
+  // Touch tooltips use explicit state so a synthetic sticky hover cannot keep them open.
+  const lockAnnouncement = document.createElement("div");
+  lockAnnouncement.className = "lock-announcement";
+  lockAnnouncement.setAttribute("aria-live", "polite");
+  document.body.appendChild(lockAnnouncement);
+  let touchLockCard = null;
+  document.addEventListener("keydown", () => {
+    document.querySelectorAll(".touch-lock-tip").forEach((card) => card.classList.remove("touch-lock-tip"));
+    touchLockCard = null;
+  });
+  document.addEventListener("pointerdown", (event) => {
+    touchLockCard = event.pointerType === "touch" || event.pointerType === "pen"
+      || window.matchMedia("(pointer: coarse)").matches
+      ? event.target.closest(".cabinet.is-locked") : null;
+    if (touchLockCard) touchLockCard.classList.add("touch-lock-tip");
+    document.querySelectorAll(".show-lock-tip").forEach((card) => {
+      if (card !== touchLockCard) card.classList.remove("show-lock-tip");
+    });
+    lockAnnouncement.textContent = "";
+  });
+
   // ----- Bind UI -----
   $$("[data-game]").forEach((card) => {
     const id = card.dataset.game;
@@ -1670,7 +1694,13 @@
       if (cabinetIsLocked(id)) {
         e.preventDefault();
         e.stopPropagation();
-        showToast(cabinetLockMessage(id) || "Cabinet locked");
+        if (touchLockCard === card) {
+          const showing = card.classList.toggle("show-lock-tip");
+          lockAnnouncement.textContent = showing ? card.querySelector(".cab-lock")?.textContent || "" : "";
+          touchLockCard = null;
+        } else {
+          showToast(cabinetLockMessage(id) || "Cabinet locked");
+        }
         return;
       }
       openGame(id);
@@ -1702,6 +1732,7 @@
       fullscreenButton.hidden = !window.ArcadeGameScreen?.isFullscreenSupported?.(playView);
       fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
       fullscreenButton.setAttribute("aria-label", active ? "Unlock game view" : "Lock game view");
+      fullscreenButton.dataset.tip = fullscreenButton.getAttribute("aria-label");
       fullscreenButton.title = active
         ? "Unlock game view"
         : "Lock game view to prevent accidental scrolling";
@@ -2150,7 +2181,8 @@
       btn.textContent = muted ? "🔇" : "🔊";
       btn.setAttribute("aria-pressed", muted ? "true" : "false");
       btn.title = muted ? UNMUTE_SFX_TITLE : MUTE_SFX_TITLE;
-      btn.setAttribute("aria-label", muted ? UNMUTE_SFX_TITLE : MUTE_SFX_TITLE);
+      btn.setAttribute("aria-label", muted ? "Unmute game SFX" : "Mute game SFX");
+      btn.dataset.tip = btn.getAttribute("aria-label");
     });
   }
   $$(".mute-btn, #btn-mute, #btn-mute-play").forEach((btn) => {
@@ -2228,6 +2260,53 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) refreshDailyDate();
   });
+
+  // Native disclosures retain keyboard activation and expose their current state.
+  document.querySelectorAll("details > summary.icon-control").forEach((summary) => {
+    const details = summary.parentElement;
+    const sync = () => summary.setAttribute("aria-expanded", String(details.open));
+    details.addEventListener("toggle", sync);
+    sync();
+  });
+
+  // Delegation also covers controls generated by the daily recap.
+  const tipTimers = new WeakMap();
+  let pressTimer;
+  function positionControlTip(control) {
+    const rect = control.getBoundingClientRect();
+    // Leave room for the widest tooltip, relative to its control so scrolling
+    // and ancestors that establish containing blocks cannot displace it.
+    const maxWidth = Math.min(16 * parseFloat(getComputedStyle(document.documentElement).fontSize), window.innerWidth - 16);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - maxWidth - 8));
+    control.style.setProperty("--tip-x", `${left - rect.left}px`);
+    control.style.setProperty("--tip-y", rect.bottom > window.innerHeight - 70 ? "-65px" : "calc(100% + 5px)");
+  }
+  ["pointerover", "focusin"].forEach((type) => {
+    document.addEventListener(type, (event) => {
+      const control = event.target.closest?.(".icon-control[data-tip]");
+      if (control) positionControlTip(control);
+    });
+  });
+  function showTouchTip(control) {
+    positionControlTip(control);
+    clearTimeout(tipTimers.get(control));
+    control.classList.add("is-tip-visible");
+    tipTimers.set(control, setTimeout(() => control.classList.remove("is-tip-visible"), 1500));
+  }
+  document.addEventListener("pointerdown", (event) => {
+    clearTimeout(pressTimer);
+    const control = event.target.closest?.(".icon-control[data-tip]");
+    if (!control || !window.matchMedia("(hover: none)").matches) return;
+    pressTimer = setTimeout(() => showTouchTip(control), 500);
+  });
+  ["pointerup", "pointercancel", "pointermove"].forEach((type) => {
+    document.addEventListener(type, () => clearTimeout(pressTimer));
+  });
+  document.addEventListener("click", (event) => {
+    const control = event.target.closest?.(".icon-control[data-tip]");
+    if (control && window.matchMedia("(hover: none)").matches) showTouchTip(control);
+  });
+
   routeFromHash();
 
   // Cloud init — read-only leaderboards without forcing Google sign-in
