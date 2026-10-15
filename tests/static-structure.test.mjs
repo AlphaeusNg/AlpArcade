@@ -341,7 +341,7 @@ for (const match of indexHtml.matchAll(/<(button|a|summary)\b[^>]*class="[^"]*\b
   assert(!/[^\x00-\x7f]/.test(text), "icon controls contain no Unicode icon glyph text");
   assert(!/[?+]/.test(text), "icon controls contain no ASCII icon glyph text");
 }
-for (const [name, value] of Object.entries({ "icon-btn-size": "40px", "icon-btn-radius": "12px", "icon-size": "24px", "icon-stroke": "2", "icon-tap-min": "48px", "icon-gap": "8px" })) {
+for (const [name, value] of Object.entries({ "icon-btn-size": "32px", "icon-btn-radius": "8px", "icon-size": "18px", "icon-stroke": "1.75", "icon-btn-target": "44px", "icon-btn-gap": "4px" })) {
   const rootBlock = read("css/base.css").match(/:root\s*\{([^}]+)\}/)[1];
   assert(rootBlock.includes(`--${name}: ${value};`), `root defines --${name}`);
 }
@@ -349,4 +349,11 @@ for (const [name, value] of Object.entries({ "icon-btn-size": "40px", "icon-btn-
 for (const file of ["index.html", "js/app.js"]) {
   const chrome = read(file).replace(/<span\b[^>]*class="cab-icon"[^>]*>[\s\S]*?<\/span>/g, "");
   assert(!/[★☆→🏅]/u.test(chrome), `${file} uses SVG instead of chrome icon glyphs`);
+}
+
+assert(/id="btn-more"[^>]*aria-label="More options"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"[^>]*aria-controls="more-menu-list"><svg\b/.test(indexHtml), "More uses an accessible inline SVG menu trigger");
+assert(indexHtml.includes('src="js/more-menu.js"'), "header menu script is loaded");
+assert(indexHtml.includes('role="group" aria-label="Help &amp; info"') && indexHtml.includes('role="group" aria-label="Links"'), "More actions have named groups");
+for (const file of ["index.html", "js/more-menu.js"]) {
+  assert(!/[⋯☰]/u.test(read(file)), `${file} uses SVG menu icons`);
 }

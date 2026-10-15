@@ -139,6 +139,7 @@ test("Help isolates the arcade, traps focus, and returns it to the launcher", as
   const launcher = page.locator("#btn-help");
   const modal = page.locator("#help-modal");
   const closeButton = modal.locator("[data-close-help]").last();
+  await page.locator("#btn-more").click();
   await launcher.click();
 
   await expect(modal).toBeVisible();
@@ -153,7 +154,7 @@ test("Help isolates the arcade, traps focus, and returns it to the launcher", as
 
   await closeButton.click();
   await expect(modal).toBeHidden();
-  await expect(launcher).toBeFocused();
+  await expect(page.locator("#btn-more")).toBeFocused();
   await expect(page.locator("main")).toHaveJSProperty("inert", false);
   await expect(page.locator(".topbar")).toHaveJSProperty("inert", false);
 });
@@ -1270,7 +1271,7 @@ test("secondary tooltips stay within a narrow viewport when shown", async ({ pag
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await openFold(page, "#scores-tools");
-  for (const selector of ["#btn-help", "#scores-tools > summary", "#btn-export", "#nav-music"]) {
+  for (const selector of ["#btn-more", "#scores-tools > summary", "#btn-export", "#nav-music"]) {
     const control = page.locator(selector);
     await control.scrollIntoViewIfNeeded();
     await control.hover();
@@ -1332,5 +1333,53 @@ for (const width of [1366, 390]) {
     await page.locator("#btn-mute").click();
     await expect(page.locator("#btn-mute svg")).toHaveCount(1);
     await expect(page.locator("#btn-mute")).toHaveAttribute("aria-label", "Unmute game SFX");
+  });
+}
+
+for (const width of [1366, 390]) {
+  test(`More menu and single-row essentials at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const button = page.locator("#btn-more");
+    const menu = page.getByRole("menu", { name: "More options" });
+    const help = page.getByRole("menuitem", { name: "Help", exact: true });
+    const portfolio = page.getByRole("menuitem", { name: "Portfolio", exact: true });
+    const tops = await page.locator('.top-nav > .icon-control, #btn-more').evaluateAll((els) => els.map((el) => el.offsetTop));
+    expect(tops).toHaveLength(5);
+    expect(new Set(tops).size).toBe(1);
+    const visualTops = await page.locator('.top-nav > .icon-control, #btn-more').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    expect(new Set(visualTops).size).toBe(1);
+    await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(help).toBeFocused();
+    await expect(portfolio).toBeVisible();
+    await expect(portfolio).toHaveAttribute("data-portfolio", "");
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(button).toBeFocused();
+    await button.click();
+    await button.click();
+    await expect(menu).toBeHidden();
+    await button.press("ArrowDown");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(portfolio).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(portfolio).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(menu).toBeHidden();
+    await button.press("Space");
+    await expect(help).toBeFocused();
+    await page.locator(".brand").click();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.press("Enter");
+    await help.click();
+    await expect(page.locator("#help-modal")).toBeVisible();
+    await expect(menu).toBeHidden();
   });
 }

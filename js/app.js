@@ -1777,7 +1777,7 @@
 
   function openHelp() {
     const m = $("#help-modal");
-    showModalLayer(m, m?.querySelector("button[data-close-help]"));
+    showModalLayer(m, m?.querySelector("button[data-close-help]"), $("#btn-more"));
   }
   function closeHelp() {
     const m = $("#help-modal");

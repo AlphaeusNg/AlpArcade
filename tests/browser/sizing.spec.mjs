@@ -79,6 +79,7 @@ test("enlarged help scrolls to its close action and native import/reset stay bro
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
   await enlargeText(page);
+  await page.locator("#btn-more").click();
   await page.locator("#btn-help").evaluate((el) => el.click());
   const card = page.locator("#help-modal .cloud-modal-card");
   const box = await card.boundingBox();

@@ -327,7 +327,7 @@
   }
 }
 
-/* Shared outline controls: the hit area extends four pixels beyond the face. */
+/* Ghost controls keep a compact face and a larger invisible touch target. */
 .icon-control.icon-control {
   width: var(--icon-btn-size);
   height: var(--icon-btn-size);
@@ -336,10 +336,11 @@
   flex: 0 0 var(--icon-btn-size);
   padding: 0;
   margin: 0;
-  border: 1px solid var(--border-hot);
+  border: 0;
   border-radius: var(--icon-btn-radius);
-  background: var(--panel);
-  color: var(--teal);
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
 }
 .icon-control.icon-control::before,
 summary.icon-control.icon-control::before {
@@ -348,8 +349,8 @@ summary.icon-control.icon-control::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: var(--icon-tap-min);
-  height: var(--icon-tap-min);
+  width: var(--icon-btn-target);
+  height: var(--icon-btn-target);
   transform: translate(-50%, -50%);
   translate: none;
   border: 0;
@@ -358,6 +359,7 @@ summary.icon-control.icon-control::before {
 .icon-control svg {
   width: var(--icon-size);
   height: var(--icon-size);
+  stroke: currentColor;
   stroke-width: var(--icon-stroke);
   flex: none;
   pointer-events: none;
@@ -374,7 +376,7 @@ summary.icon-control.icon-control::before {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--icon-gap);
+  gap: var(--icon-btn-gap);
 }
 .top-nav { flex-wrap: nowrap; }
 .auth-label { flex: 1 1 100%; }
@@ -383,7 +385,7 @@ summary.icon-control.icon-control::before {
 .lobby-fold-row {
   display: grid;
   grid-template-columns: repeat(5, var(--icon-btn-size)) minmax(0, 1fr);
-  gap: var(--icon-gap);
+  gap: var(--icon-btn-gap);
   margin-top: 1rem;
   margin-bottom: var(--fold-row-gap);
 }
@@ -400,7 +402,7 @@ summary.icon-control.icon-control::before {
 .lobby-fold-row .fold-panel { grid-column: 1 / -1; min-width: 0; padding: 0.8rem; }
 .lobby-fold:not([open]) > .fold-panel { display: none; }
 @media (max-width: 720px) {
-  .topbar { gap: var(--icon-gap); }
+  .topbar { gap: var(--icon-btn-gap); }
   .brand { min-width: 0; flex-shrink: 1; }
   .brand strong { font-size: 0.75rem; }
 }
@@ -408,10 +410,10 @@ summary.icon-control.icon-control::before {
 .lobby-fold-row .lobby-fold::details-content { display: contents; }
 
 .icon-control.danger { color: var(--coral); }
-.play-bar, .music-dock-actions { gap: var(--icon-gap); }
+.play-bar, .music-dock-actions { gap: var(--icon-btn-gap); }
 #daily-card .daily-last-run {
-  gap: var(--icon-gap);
-  padding: calc(var(--icon-gap) / 2);
+  gap: var(--icon-btn-gap);
+  padding: calc((var(--icon-btn-target) - var(--icon-btn-size)) / 2);
 }
 #daily-card .icon-control.icon-control { padding: 0; }
 .lobby-fold-row .fold-panel {
@@ -432,3 +434,26 @@ summary.icon-control.icon-control::before {
   /* The header Music control opens the same dock without covering cabinets. */
   .music-dock-tab.icon-control { display: none; }
 }
+
+.icon-control.icon-control:hover,
+.icon-control.icon-control:focus-visible { background: rgba(147, 164, 195, 0.12); color: var(--text); }
+.icon-control.icon-control.primary { border: 1px solid var(--border-hot); color: var(--teal); }
+.topbar { flex-wrap: nowrap; }
+.top-nav { position: relative; }
+.more-menu { display: contents; }
+#more-menu-list {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 70;
+  width: 210px; padding: 8px; border: 1px solid var(--border);
+  border-radius: var(--icon-btn-radius); background: #0a101c; box-shadow: var(--shadow);
+}
+#more-menu-list[hidden] { display: none; }
+.menu-group-label { margin: 4px 8px; color: var(--muted); font-size: 0.72rem; }
+#more-menu-list .menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+  padding: 8px; border: 0; border-radius: var(--icon-btn-radius); background: transparent;
+  color: var(--text); font: inherit; text-decoration: none; cursor: pointer;
+}
+#more-menu-list .menu-item:hover,
+#more-menu-list .menu-item:focus-visible { background: rgba(147, 164, 195, 0.12); }
+.menu-item:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.menu-item svg { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--icon-stroke); flex: none; }
