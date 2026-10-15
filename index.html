@@ -91,12 +91,23 @@
       </span>
     </a>
     <nav class="top-nav" aria-label="Primary">
-      <a href="#scores-panel">Scores</a>
-      <a href="#achievements-panel">Badges</a>
-      <button type="button" class="nav-text-btn nav-music" id="nav-music" title="Open or close music">Music</button>
-      <button type="button" class="nav-text-btn" id="btn-help">Help</button>
-      <button type="button" class="mute-btn" id="btn-mute" aria-pressed="false" title="Mute game SFX (music is in the ♪ dock)" aria-label="Mute game SFX (music is in the ♪ dock)">🔊</button>
-      <a class="nav-extra" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener">Portfolio ↗</a>
+      <a href="#scores-panel" class="icon-control" aria-label="Scores" data-tip="Scores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg></a>
+      <a href="#achievements-panel" class="icon-control" aria-label="Badges" data-tip="Badges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></a>
+      <button type="button" class="icon-control nav-text-btn nav-music" id="nav-music" aria-expanded="false" aria-controls="music-dock-panel" aria-label="Music" data-tip="Music"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+      <button type="button" class="icon-control mute-btn" id="btn-mute" aria-pressed="false" aria-label="Mute game SFX" data-tip="Mute game SFX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m11 5-6 4H2v6h3l6 4ZM15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></svg></button>
+      <div class="more-menu" id="more-menu">
+        <button type="button" class="icon-control" id="btn-more" aria-label="More options" data-tip="More options" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu-list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+        <div id="more-menu-list" role="menu" aria-label="More options" hidden>
+          <div role="group" aria-label="Help &amp; info">
+            <p class="menu-group-label">Help &amp; info</p>
+      <button type="button" class="menu-item" role="menuitem" tabindex="-1" id="btn-help" aria-label="Help" data-tip="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg><span>Help</span></button>
+          </div>
+          <div role="group" aria-label="Links">
+            <p class="menu-group-label">Links</p>
+      <a class="menu-item" role="menuitem" tabindex="-1" href="https://alphaeusng.github.io/" data-portfolio target="_blank" rel="noopener" aria-label="Portfolio" data-tip="Portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg><span>Portfolio</span></a>
+          </div>
+        </div>
+      </div>
     </nav>
   </header>
 
@@ -106,15 +117,9 @@
         <!-- filled by app.js -->
       </section>
 
-      <section class="cabinets" id="cabinets">
-        <h2 class="section-title">Cabinets</h2>
-        <div class="cab-quick" id="cab-quick" aria-label="Favorites and recent cabinets">
-          <p class="cab-quick-empty" id="cab-quick-empty">Star a cabinet to pin it.</p>
-          <div class="cab-quick-line" id="cab-quick-line" hidden></div>
-          <p class="cab-quick-empty" id="cab-quick-status" role="status" hidden></p>
-        </div>
-        <details class="cab-discovery" id="cab-discovery">
-          <summary id="cab-discovery-summary">Find a game</summary>
+      <div class="lobby-fold-row">
+        <details class="cab-discovery lobby-fold" id="cab-discovery">
+          <summary id="cab-discovery-summary" class="icon-control" aria-label="Find a game" data-tip="Find a game" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></svg></summary><div class="fold-panel">
           <fieldset>
             <legend>Filter cabinets</legend>
             <div class="cab-discovery-fields">
@@ -122,88 +127,14 @@
               <div class="cab-filter-field"><label for="cab-style">Style</label><select id="cab-style"><option value="all">All styles</option><option value="action">Action</option><option value="puzzle">Puzzle</option><option value="timing">Timing</option></select></div>
               <label class="cab-discovery-check" for="cab-remappable"><input id="cab-remappable" type="checkbox">Remappable keys</label>
               <label class="cab-discovery-check" for="cab-playable"><input id="cab-playable" type="checkbox">Playable now</label>
-              <button id="cab-filter-clear" class="btn ghost" type="button">Clear filters</button>
+              <button id="cab-filter-clear" class="icon-control btn ghost" type="button" aria-label="Clear filters" data-tip="Clear filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
             </div>
             <p id="cab-filter-status" role="status" aria-atomic="true">8 of 8 cabinets</p>
           </fieldset>
-        </details>
-        <p id="cab-filter-empty" class="cab-quick-empty" hidden>No matching cabinets. Change or clear the filters in Find a game.</p>
-        <div class="cabinet-grid">
-          <!-- Free (top) -->
-          <button type="button" class="cabinet" data-style="puzzle" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
-            <span class="cab-icon" aria-hidden="true">⭕</span>
-            <span class="cab-body">
-              <strong>Tic-Tac-Toe</strong>
-              <small class="cab-desc">Free · beat the AI</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="cabinet" data-style="action" data-game="snake" aria-label="Play Snake">
-            <span class="cab-icon" aria-hidden="true">🐍</span>
-            <span class="cab-body">
-              <strong>Snake</strong>
-              <small class="cab-desc">Free · levels · hazards</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="cabinet" data-style="action" data-game="breaker" aria-label="Play Circuit Breaker">
-            <span class="cab-icon" aria-hidden="true">🧱</span>
-            <span class="cab-body">
-              <strong>Circuit Breaker</strong>
-              <small class="cab-desc">Free · bricks · power-ups</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="cabinet" data-style="action" data-game="tapper" aria-label="Play Target Tap">
-            <span class="cab-icon" aria-hidden="true">🎯</span>
-            <span class="cab-body">
-              <strong>Target Tap</strong>
-              <small class="cab-desc">Free · hit the glow · combos</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <!-- Lv 5 -->
-          <button type="button" class="cabinet" data-style="timing" data-game="reaction" aria-label="Play Reaction Lab" data-unlock="level-5">
-            <span class="cab-icon" aria-hidden="true">⚡</span>
-            <span class="cab-body">
-              <strong>Reaction Lab</strong>
-              <small class="cab-desc">Lv 5 · ms timing · decoys</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="cabinet" data-style="action" data-game="shooter" aria-label="Play Space Shooter" data-unlock="level-5">
-            <span class="cab-icon" aria-hidden="true">🚀</span>
-            <span class="cab-body">
-              <strong>Space Shooter</strong>
-              <small class="cab-desc">Lv 5 · waves · powerups</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <!-- Lv 10 -->
-          <button type="button" class="cabinet" data-style="puzzle" data-game="memory" aria-label="Play Memory Match" data-unlock="level-10">
-            <span class="cab-icon" aria-hidden="true">🧠</span>
-            <span class="cab-body">
-              <strong>Memory Match</strong>
-              <small class="cab-desc">Lv 10 · hearts · boards</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-          <!-- Lv 15 -->
-          <button type="button" class="cabinet" data-style="timing" data-game="jubeat" aria-label="Play Pulse Grid" data-unlock="level-15">
-            <span class="cab-icon" aria-hidden="true">🎹</span>
-            <span class="cab-body">
-              <strong>Pulse Grid</strong>
-              <small class="cab-desc">Lv 15 · 4×4 rhythm</small>
-            </span>
-            <span class="cab-go" aria-hidden="true">→</span>
-          </button>
-        </div>
-        <p class="cabinets-unlock-hint mono" id="cabinets-unlock-hint">
-          Play free cabinets to unlock Lv&nbsp;5, Lv&nbsp;10, and Lv&nbsp;15.
-        </p>
-      </section>
-
-      <div class="lobby-top">
+        </div></details>
+      <details id="lobby-about" class="glass lobby-fold lobby-about">
+        <summary class="icon-control" aria-label="About & fun facts" data-tip="About & fun facts" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg></summary><div class="fold-panel">
+        <div class="lobby-top">
         <section class="intro glass intro-hero" id="intro">
           <div class="intro-hero-row">
             <pre class="aa-logo mono" aria-hidden="true">
@@ -235,86 +166,52 @@
             <p class="fun-facts-counter mono" id="fun-facts-counter" aria-live="polite">1 / 11</p>
           </div>
           <button type="button" class="fun-fact-card" id="fun-fact-card" aria-label="Next fun fact">
-            <span class="fun-fact-label mono">Tap for another →</span>
+            <span class="fun-fact-label mono">Tap for another</span>
             <span class="fun-fact-text" id="fun-fact-text">⚡ I once ate ~1kg of salmon at one go.</span>
           </button>
           <div class="fun-fact-actions">
-            <button type="button" class="btn small ghost" id="fun-fact-prev">← Prev</button>
-            <button type="button" class="btn small primary" id="fun-fact-next">Next</button>
-            <button type="button" class="btn small ghost" id="fun-fact-shuffle">Shuffle</button>
+            <button type="button" class="icon-control btn small ghost" id="fun-fact-prev" aria-label="Previous" data-tip="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5m7-7-7 7 7 7"/></svg></button>
+            <button type="button" class="icon-control btn small primary" id="fun-fact-next" aria-label="Next" data-tip="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></button>
+            <button type="button" class="icon-control btn small ghost" id="fun-fact-shuffle" aria-label="Shuffle" data-tip="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m18 3 3 3-3 3M3 18 15 6h6M3 6h4l10 12h4m-3-3 3 3-3 3"/></svg></button>
           </div>
           <p class="fun-facts-hint mono" id="fun-facts-hint">Collect them all — a secret unlocks around fact #5 spam…</p>
         </section>
-      </div>
-
-      <section class="player-bar glass" id="player-bar">
-        <form id="name-form" class="name-form">
-          <label for="name-input">Local tag</label>
-          <div class="name-row">
-            <input id="name-input" type="text" maxlength="16" placeholder="Your name" autocomplete="nickname" />
-            <button type="submit" class="btn small">Save</button>
-          </div>
-        </form>
-        <div class="player-stats">
-          <div>
-            <span class="hud-label">Player</span>
-            <strong id="player-name-display">Player</strong>
-          </div>
-          <div>
-            <span class="hud-label">Level</span>
-            <strong id="level-display">Lv 1</strong>
-          </div>
-          <div>
-            <span class="hud-label">XP</span>
-            <strong id="xp-display">0 XP</strong>
-          </div>
-          <div>
-            <span class="hud-label">Runs</span>
-            <strong id="games-played">0</strong>
-          </div>
         </div>
-        <div class="xp-track" title="Progress to next level">
-          <div class="xp-fill" id="xp-bar"></div>
-        </div>
-        <div class="auth-row" id="auth-row">
-          <span class="auth-label mono" id="auth-label">Play free · Google only to post scores</span>
-          <button type="button" class="btn small ghost" id="btn-google-signin">Sign in with Google</button>
-          <button type="button" class="btn small ghost" id="btn-google-signout" hidden>Sign out</button>
-        </div>
-      </section>
+      </div></details>
 
       <section class="achievements glass" id="achievements-panel" aria-labelledby="achievements-title">
-        <div class="scores-head">
-          <h2 class="section-title" id="achievements-title">Achievements</h2>
-          <span class="achievements-count mono" id="achievements-count">0 / 0</span>
-        </div>
-        <ul class="achievements-list list-scroll list-scroll-ach" id="achievements-list"></ul>
+        <details id="achievements-details" class="lobby-fold">
+          <summary class="icon-control" aria-label="Badges" data-tip="Badges" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg><span class="sr-only" id="achievements-title">Badges</span><span class="achievements-count mono sr-only" id="achievements-count">0 / 0</span></summary><div class="fold-panel">
+          <ul class="achievements-list list-scroll list-scroll-ach" id="achievements-list"></ul>
+        </div></details>
       </section>
 
       <section class="scores glass" id="scores-panel">
         <div class="scores-head">
           <h2 class="section-title">Scoreboard</h2>
-          <div class="score-tools">
-            <button type="button" class="btn small ghost" id="btn-export">Export</button>
-            <button type="button" class="btn small ghost" id="btn-import">Import</button>
-            <button type="button" class="btn small primary" id="btn-share-cloud" title="Post your personal bests (Google sign-in)">Post bests</button>
-            <button type="button" class="btn small danger" id="btn-reset">Reset</button>
-          </div>
         </div>
-        <p class="scores-note" id="scores-note">
-          Local scores stay on this device. Sign in with Google to post a score.
-        </p>
-        <details class="device-backup">
-          <summary>Device backup</summary>
-          <p class="scores-note">Back up scores, favorites, recent cabinets and control preferences. Restore replaces those local choices. Achievements, daily progress and cloud scores are not included.</p>
+        <details id="scores-tools" class="lobby-fold">
+          <summary class="icon-control" aria-label="More: backup & data tools" data-tip="More: backup & data tools" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary><div class="fold-panel">
           <div class="score-tools">
-            <button type="button" class="btn small ghost" id="btn-device-backup">Download backup</button>
-            <button type="button" class="btn small ghost" id="btn-device-restore">Restore backup</button>
-            <input type="file" id="device-backup-file" accept="application/json,.json" hidden />
+            <button type="button" class="icon-control btn small ghost" id="btn-export" aria-label="Export" data-tip="Export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21V3m-7 7 7-7 7 7"/></svg></button>
+            <button type="button" class="icon-control btn small ghost" id="btn-import" aria-label="Import" data-tip="Import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v18m-7-7 7 7 7-7"/></svg></button>
+            <button type="button" class="icon-control btn small primary" id="btn-share-cloud" aria-label="Post bests" data-tip="Post bests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 18a5 5 0 1 1 .8-9.9A7 7 0 0 1 21 11a3.5 3.5 0 0 1-1 7M12 21V11m-4 4 4-4 4 4"/></svg></button>
+            <button type="button" class="icon-control btn small danger" id="btn-reset" aria-label="Reset" data-tip="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
           </div>
-          <p class="scores-note" id="device-backup-status" role="status"></p>
-        </details>
-        <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
+          <p class="scores-note" id="scores-note">
+            Local scores stay on this device. Sign in with Google to post a score.
+          </p>
+          <details class="device-backup">
+            <summary class="icon-control" aria-label="Device backup" data-tip="Device backup" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg></summary>
+            <p class="scores-note">Back up scores, favorites, recent cabinets and control preferences. Restore replaces those local choices. Achievements, daily progress and cloud scores are not included.</p>
+            <div class="score-tools">
+              <button type="button" class="icon-control btn small ghost" id="btn-device-backup" aria-label="Download backup" data-tip="Download backup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></button>
+              <button type="button" class="icon-control btn small ghost" id="btn-device-restore" aria-label="Restore backup" data-tip="Restore backup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 15V3m-5 5 5-5 5 5M4 16v5h16v-5"/></svg></button>
+              <input type="file" id="device-backup-file" accept="application/json,.json" hidden />
+            </div>
+            <p class="scores-note" id="device-backup-status" role="status"></p>
+          </details>
+          <div class="cloud-banner" id="cloud-banner" role="status" aria-live="polite">
           <span class="cloud-dot" id="cloud-dot" aria-hidden="true"></span>
           <div class="cloud-message">
             <span class="cloud-status" id="cloud-status">Checking cloud…</span>
@@ -322,17 +219,20 @@
             <small class="cloud-report-status mono" id="cloud-report-status" hidden></small>
           </div>
           <div class="cloud-actions">
-            <button type="button" class="btn small ghost" id="btn-cloud-copy" hidden>Copy error</button>
-            <button type="button" class="btn small ghost" id="btn-cloud-retry" hidden>Retry</button>
+            <button type="button" class="icon-control btn small ghost" id="btn-cloud-copy" hidden aria-label="Copy error" data-tip="Copy error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg></button>
+            <button type="button" class="icon-control btn small ghost" id="btn-cloud-retry" hidden aria-label="Retry" data-tip="Retry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 10a9 9 0 1 0-2 8m2-14v6h-6"/></svg></button>
             <button
               type="button"
-              class="btn small ghost"
+              class="icon-control btn small ghost"
               id="btn-cloud-error-toggle"
               aria-expanded="true"
               hidden
-            >Minimize</button>
+             aria-label="Minimize" data-tip="Minimize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/></svg></button>
           </div>
-        </div>
+          </div>
+        </div></details>
+        <details id="scores-details" class="lobby-fold">
+          <summary class="icon-control" aria-label="Scores & leaderboards" data-tip="Scores & leaderboards" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg></summary><div class="fold-panel">
         <div class="lb-filters" id="lb-filters" role="group" aria-label="Leaderboard game filter">
           <button type="button" class="lb-chip is-active" data-lb-game="all" aria-pressed="true">All games</button>
           <button type="button" class="lb-chip" data-lb-game="tictactoe" aria-pressed="false">Tic-Tac-Toe</button>
@@ -364,19 +264,143 @@
             <ul class="history-list list-scroll list-scroll-history" id="history-list"></ul>
           </div>
         </div>
+        </div></details>
       </section>
+      </div>
+
+      <section class="cabinets" id="cabinets">
+        <h2 class="section-title">Cabinets</h2>
+        <div class="cab-quick" id="cab-quick" aria-label="Favorites and recent cabinets">
+          <p class="cab-quick-empty" id="cab-quick-empty">Star a cabinet to pin it.</p>
+          <div class="cab-quick-line" id="cab-quick-line" hidden></div>
+          <p class="cab-quick-empty" id="cab-quick-status" role="status" hidden></p>
+        </div>
+
+        <p id="cab-filter-empty" class="cab-quick-empty" hidden>No matching cabinets. Change or clear the filters in Find a game.</p>
+        <div class="cabinet-grid">
+          <!-- Free (top) -->
+          <button type="button" class="cabinet" data-style="puzzle" data-game="tictactoe" aria-label="Play Tic-Tac-Toe">
+            <span class="cab-icon" aria-hidden="true">⭕</span>
+            <span class="cab-body">
+              <strong>Tic-Tac-Toe</strong>
+              <small class="cab-desc">Free · beat the AI</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <button type="button" class="cabinet" data-style="action" data-game="snake" aria-label="Play Snake">
+            <span class="cab-icon" aria-hidden="true">🐍</span>
+            <span class="cab-body">
+              <strong>Snake</strong>
+              <small class="cab-desc">Free · levels · hazards</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <button type="button" class="cabinet" data-style="action" data-game="breaker" aria-label="Play Circuit Breaker">
+            <span class="cab-icon" aria-hidden="true">🧱</span>
+            <span class="cab-body">
+              <strong>Circuit Breaker</strong>
+              <small class="cab-desc">Free · bricks · power-ups</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <button type="button" class="cabinet" data-style="action" data-game="tapper" aria-label="Play Target Tap">
+            <span class="cab-icon" aria-hidden="true">🎯</span>
+            <span class="cab-body">
+              <strong>Target Tap</strong>
+              <small class="cab-desc">Free · hit the glow · combos</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <!-- Lv 5 -->
+          <button type="button" class="cabinet" data-style="timing" data-game="reaction" aria-label="Play Reaction Lab" data-unlock="level-5">
+            <span class="cab-icon" aria-hidden="true">⚡</span>
+            <span class="cab-body">
+              <strong>Reaction Lab</strong>
+              <small class="cab-desc">Lv 5 · ms timing · decoys</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <button type="button" class="cabinet" data-style="action" data-game="shooter" aria-label="Play Space Shooter" data-unlock="level-5">
+            <span class="cab-icon" aria-hidden="true">🚀</span>
+            <span class="cab-body">
+              <strong>Space Shooter</strong>
+              <small class="cab-desc">Lv 5 · waves · powerups</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <!-- Lv 10 -->
+          <button type="button" class="cabinet" data-style="puzzle" data-game="memory" aria-label="Play Memory Match" data-unlock="level-10">
+            <span class="cab-icon" aria-hidden="true">🧠</span>
+            <span class="cab-body">
+              <strong>Memory Match</strong>
+              <small class="cab-desc">Lv 10 · hearts · boards</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+          <!-- Lv 15 -->
+          <button type="button" class="cabinet" data-style="timing" data-game="jubeat" aria-label="Play Pulse Grid" data-unlock="level-15">
+            <span class="cab-icon" aria-hidden="true">🎹</span>
+            <span class="cab-body">
+              <strong>Pulse Grid</strong>
+              <small class="cab-desc">Lv 15 · 4×4 rhythm</small>
+            </span>
+            <span class="cab-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+          </button>
+        </div>
+        <p class="cabinets-unlock-hint mono" id="cabinets-unlock-hint">
+          Play free cabinets to unlock Lv&nbsp;5, Lv&nbsp;10, and Lv&nbsp;15.
+        </p>
+      </section>
+
+      <section class="player-bar glass" id="player-bar">
+        <form id="name-form" class="name-form">
+          <label for="name-input">Local tag</label>
+          <div class="name-row">
+            <input id="name-input" type="text" maxlength="16" placeholder="Your name" autocomplete="nickname" />
+            <button type="submit" class="icon-control btn small" aria-label="Save" data-tip="Save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12 4 4L19 6"/></svg></button>
+          </div>
+        </form>
+        <div class="player-stats">
+          <div>
+            <span class="hud-label">Player</span>
+            <strong id="player-name-display">Player</strong>
+          </div>
+          <div>
+            <span class="hud-label">Level</span>
+            <strong id="level-display">Lv 1</strong>
+          </div>
+          <div>
+            <span class="hud-label">XP</span>
+            <strong id="xp-display">0 XP</strong>
+          </div>
+          <div>
+            <span class="hud-label">Runs</span>
+            <strong id="games-played">0</strong>
+          </div>
+        </div>
+        <div class="xp-track" title="Progress to next level">
+          <div class="xp-fill" id="xp-bar"></div>
+        </div>
+        <div class="auth-row" id="auth-row">
+          <span class="auth-label mono" id="auth-label">Play free · Google only to post scores</span>
+          <button type="button" class="icon-control btn small ghost" id="btn-google-signin" aria-label="Sign in with Google" data-tip="Sign in with Google"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h5v18h-5M3 12h12m-5-5 5 5-5 5"/></svg></button>
+          <button type="button" class="icon-control btn small ghost" id="btn-google-signout" hidden aria-label="Sign out" data-tip="Sign out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3H4v18h5m12-9H9m5-5-5 5 5 5"/></svg></button>
+        </div>
+      </section>
+
+
     </div>
 
     <div id="play-view" hidden>
       <div class="play-bar">
-        <button type="button" class="btn ghost" id="btn-back">← Lobby</button>
+        <button type="button" class="icon-control btn ghost" id="btn-back" aria-label="Lobby" data-tip="Lobby"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5m7-7-7 7 7 7"/></svg></button>
         <div class="play-title-block">
           <h2 id="play-title">Game</h2>
           <p class="play-controls mono" id="play-controls">Esc leaves the game.</p>
         </div>
-        <button type="button" class="btn small ghost" id="btn-share-run" hidden title="Share last run">Share</button>
-        <button type="button" class="fullscreen-btn" id="btn-fullscreen" title="Lock game view to prevent accidental scrolling" aria-label="Lock game view" aria-pressed="false">⛶</button>
-        <button type="button" class="mute-btn" id="btn-mute-play" title="Mute game SFX (music is in the ♪ dock)" aria-label="Mute game SFX (music is in the ♪ dock)">🔊</button>
+        <button type="button" class="icon-control btn small ghost" id="btn-share-run" hidden aria-label="Share" data-tip="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+        <button type="button" class="icon-control fullscreen-btn" id="btn-fullscreen" aria-pressed="false" aria-label="Lock game view" data-tip="Lock game view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
+        <button type="button" class="icon-control mute-btn" id="btn-mute-play" aria-label="Mute game SFX" data-tip="Mute game SFX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m11 5-6 4H2v6h3l6 4ZM15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></svg></button>
       </div>
       <div class="play-layout">
         <div id="game-mount" class="game-mount glass"></div>
@@ -427,13 +451,13 @@
   </footer>
 
   <section id="achievement-toast" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true" hidden>
-    <span id="achievement-toast-icon" class="achievement-toast-icon" aria-hidden="true">🏅</span>
+    <span id="achievement-toast-icon" class="achievement-toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="5"/><path d="m8.2 11.3-2 10 5.8-3 5.8 3-2-10"/></svg></span>
     <span class="achievement-toast-copy">
       <small>Achievement unlocked</small>
       <strong id="achievement-toast-title">Achievement</strong>
       <span id="achievement-toast-detail"></span>
     </span>
-    <button type="button" id="achievement-toast-close" class="achievement-toast-close" aria-label="Dismiss achievement notification" title="Dismiss">×</button>
+    <button type="button" id="achievement-toast-close" class="icon-control achievement-toast-close" aria-label="Dismiss achievement notification" data-tip="Dismiss achievement notification"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
   </section>
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
@@ -480,6 +504,7 @@
   <script src="js/services/cloud-scores.js" defer></script>
   <script src="js/features/music.js" defer></script>
   <script src="js/core/cabinet-discovery.js" defer></script>
+  <script src="js/more-menu.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

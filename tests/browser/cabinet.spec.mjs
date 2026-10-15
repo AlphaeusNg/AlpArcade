@@ -3,6 +3,12 @@ import { expect, test } from "@playwright/test";
 const runtimeErrors = new WeakMap();
 const FREE_CABINET_IDS = ["snake", "tictactoe", "tapper", "breaker"];
 
+async function openFold(page, id) {
+  const details = page.locator(id);
+  if (await details.evaluate((element) => element.open)) return;
+  await page.locator(`${id} > summary`).click();
+}
+
 async function distinctFreeCabinets(page, excluded, count = 1) {
   return page.evaluate(
     ({ ids, excludedId, limit }) => ids
@@ -72,6 +78,21 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(cabinet).toBeVisible();
   await expect(cabinet).toHaveClass(/is-locked/);
   await expect(cabinet.locator(".cab-lock")).toHaveText(/Lv 15 · \d+ XP to go/);
+  const tooltip = cabinet.locator('[role="tooltip"]');
+  await expect(tooltip).toBeHidden();
+  for (const tip of await page.locator(".is-locked .cab-lock").all()) await expect(tip).toBeHidden();
+  await expect(cabinet).toHaveAccessibleDescription(/XP to go/);
+  await expect(cabinet).toHaveAttribute("aria-describedby", await tooltip.getAttribute("id"));
+  await expect(cabinet).not.toHaveAttribute("title");
+  await cabinet.hover();
+  await expect(tooltip).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeHidden();
+  await page.keyboard.press("Tab");
+  await cabinet.focus();
+  await expect(tooltip).toBeVisible();
+  await cabinet.blur();
+  await expect(tooltip).toBeHidden();
   await expect(cabinet.locator(".cab-desc")).toContainText("Lv 15");
   await expect(cabinet.locator(".cab-best")).toHaveText("No runs yet");
   await expect(cabinet.locator(".cab-best")).not.toContainText("Reach Lv");
@@ -81,12 +102,44 @@ test("locked cabinets keep identity and stay unplayable", async ({ page }) => {
   await expect(page.locator("#toast")).toContainText("Reach Lv 15");
 });
 
+test("touch toggles locked requirements and preserves free cabinet navigation", async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.route(/^https:\/\//, route => route.fulfill({ status: 200, body: "" }));
+  try {
+    await page.goto("/");
+    const card = page.locator('[data-game="shooter"]');
+    const tip = card.locator('[role="tooltip"]');
+    await expect(tip).toBeHidden();
+    await expect(card.locator(".cab-desc")).toContainText("Lv 5");
+    await expect(card).toHaveAccessibleDescription(/XP to go/);
+    await card.tap({ force: true });
+    await expect(tip).toBeVisible();
+    await expect(page.locator(".lock-announcement")).toContainText("XP to go");
+    await card.tap({ force: true });
+    await expect(tip).toBeHidden();
+    await card.tap({ force: true });
+    await expect(tip).toBeVisible();
+    await page.locator("#daily-card .eyebrow").tap();
+    await expect(tip).toBeHidden();
+    await page.locator('[data-game="tictactoe"]').tap();
+    await expect(page.locator("#play-view")).toBeVisible();
+    await page.goto("/#play/tictactoe");
+    await expect(page.locator("#play-view")).toBeVisible();
+    await page.goto("/#play/shooter");
+    await expect(page.locator("#lobby")).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test("Help isolates the arcade, traps focus, and returns it to the launcher", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const launcher = page.locator("#btn-help");
   const modal = page.locator("#help-modal");
   const closeButton = modal.locator("[data-close-help]").last();
+  await page.locator("#btn-more").click();
   await launcher.click();
 
   await expect(modal).toBeVisible();
@@ -101,7 +154,7 @@ test("Help isolates the arcade, traps focus, and returns it to the launcher", as
 
   await closeButton.click();
   await expect(modal).toBeHidden();
-  await expect(launcher).toBeFocused();
+  await expect(page.locator("#btn-more")).toBeFocused();
   await expect(page.locator("main")).toHaveJSProperty("inert", false);
   await expect(page.locator(".topbar")).toHaveJSProperty("inert", false);
 });
@@ -112,6 +165,7 @@ test("cloud save keeps keyboard focus inside its shared dialog boundary", async 
     window.ArcadeScores.submitScore("snake", 4, { eaten: 4 });
   });
 
+  await openFold(page, "#scores-tools");
   const launcher = page.locator("#btn-share-cloud");
   const modal = page.locator("#cloud-save-modal");
   const goButton = page.locator("#btn-cloud-save-go");
@@ -519,6 +573,7 @@ test("does not claim a factory reset succeeded when achievement removal is denie
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#achievements-count")).toContainText("1 /");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -557,6 +612,7 @@ test("does not claim a factory reset succeeded when score removal is denied", as
   await expect(page.locator("#player-name-display")).toHaveText("Reset Player");
   await expect(page.locator("#xp-display")).toHaveText("42 XP");
   await expect(page.locator("#games-played")).toHaveText("3");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -594,6 +650,7 @@ test("does not claim a factory reset succeeded when daily-progress removal is de
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -618,6 +675,7 @@ test("keeps cloud reset retention and deletion outcomes honest", async ({ page }
     window.ArcadeCloud.loadLeaderboard = async () => [];
   });
 
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
   await expect(page.locator("#toast")).toContainText(
     "Data wiped; username retention could not be confirmed",
@@ -909,6 +967,7 @@ test("scoreboard category chips show top 3 per game and filter local runs", asyn
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-details");
   await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
   await expect(page.locator("#hof-sub")).toContainText(/top 3 per game/i);
   await expect(page.locator("#highscores-list")).toContainText("Snake");
@@ -1106,6 +1165,7 @@ test("playable discovery updates immediately after imported XP and factory reset
     return code;
   });
   const importDialog = page.waitForEvent("dialog").then((dialog) => dialog.accept(code));
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-import").click();
   await importDialog;
   await expect(visibleCatalog(page)).toHaveCount(8);
@@ -1145,3 +1205,223 @@ test("phone discovery stays compact, uses keyboard controls and works without st
     [...panel.querySelectorAll("*")].every((el) => el.getBoundingClientRect().right <= 320),
   )).toBe(true);
 });
+
+test("Lobby declutter: secondary sections open within one click", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#lobby")).toBeVisible();
+
+  const folds = [
+    ["#lobby-about", "#fun-fact-card"],
+    ["#achievements-details", "#achievements-list"],
+    ["#scores-details", "#highscores-list"],
+    ["#scores-tools", "#btn-export"],
+  ];
+  for (const [details, inner] of folds) {
+    await expect(page.locator(details)).not.toHaveAttribute("open", "");
+    await expect(page.locator(inner)).not.toBeVisible();
+  }
+  for (const [details, inner] of folds) {
+    await page.locator(`${details} > summary`).click();
+    await expect(page.locator(details)).toHaveAttribute("open", "");
+    await expect(page.locator(inner)).toBeVisible();
+  }
+
+  await page.locator("#scores-details").evaluate((element) => {
+    element.open = false;
+  });
+  await page.locator("#achievements-details").evaluate((element) => {
+    element.open = false;
+  });
+  await page.locator('.top-nav a[href="#scores-panel"]').click();
+  await expect(page.locator("#scores-details")).toHaveAttribute("open", "");
+  await expect(page.locator("#highscores-list")).toBeVisible();
+  await page.locator('.top-nav a[href="#achievements-panel"]').click();
+  await expect(page.locator("#achievements-details")).toHaveAttribute("open", "");
+  await expect(page.locator("#achievements-list")).toBeVisible();
+});
+
+test("secondary icons expose names and reveal tooltips on hover and keyboard focus", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-tools");
+  const controls = page.locator(".icon-control[data-tip]");
+  for (const control of await controls.all()) {
+    await expect(control).toHaveAttribute("aria-label", /.+/);
+    expect(await control.getAttribute("data-tip")).toBe(await control.getAttribute("aria-label"));
+  }
+  const tooltip = (control) => control.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { opacity: style.opacity, visibility: style.visibility, content: style.content };
+  });
+  for (const control of [page.getByRole("link", { name: "Scores", exact: true }), page.getByRole("button", { name: "Export", exact: true }), page.locator("#scores-tools > summary")]) {
+    await control.hover();
+    expect(await tooltip(control)).toMatchObject({ opacity: "1", visibility: "visible" });
+    await page.mouse.move(0, 0);
+    await page.keyboard.press("Tab");
+    await control.focus();
+    await expect(control).toBeFocused();
+    expect(await control.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+    expect(await tooltip(control)).toMatchObject({ opacity: "1", visibility: "visible" });
+  }
+  const summary = page.locator("#scores-tools > summary");
+  await summary.press("Enter");
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+});
+
+test("More tooltip stays hidden while its menu is expanded and returns after Escape", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const button = page.locator("#btn-more");
+  const tooltip = () => button.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { opacity: style.opacity, visibility: style.visibility };
+  });
+
+  await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await button.hover();
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await page.mouse.move(0, 0);
+  await page.keyboard.press("ArrowLeft");
+  await button.focus();
+  expect(await button.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await button.evaluate((el) => el.classList.add("is-tip-visible"));
+  expect(await tooltip()).toEqual({ opacity: "0", visibility: "hidden" });
+  await button.evaluate((el) => el.classList.remove("is-tip-visible"));
+
+  await page.keyboard.press("Escape");
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await button.hover();
+  expect(await tooltip()).toEqual({ opacity: "1", visibility: "visible" });
+  await page.mouse.move(0, 0);
+  await page.keyboard.press("Tab");
+  await button.focus();
+  await expect(button).toBeFocused();
+  expect(await button.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  expect(await tooltip()).toEqual({ opacity: "1", visibility: "visible" });
+});
+
+test("secondary tooltips stay within a narrow viewport when shown", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-tools");
+  for (const selector of ["#btn-more", "#scores-tools > summary", "#btn-export", "#nav-music"]) {
+    const control = page.locator(selector);
+    await control.scrollIntoViewIfNeeded();
+    await control.hover();
+    expect(await control.evaluate((el) => getComputedStyle(el, "::after").display)).toBe("block");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    await page.mouse.move(319, 0);
+    await page.keyboard.press("Tab");
+    await control.focus();
+    expect(await control.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("visible");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  }
+});
+
+test("touch secondary tooltips show after tap and long press without blocking toggles", async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.route("https://**/*", (route) => route.abort());
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const summary = page.locator("#scores-tools > summary");
+  await summary.tap();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await expect(summary).toHaveClass(/is-tip-visible/);
+  expect(await summary.evaluate((el) => getComputedStyle(el, "::after").opacity)).toBe("1");
+  await expect(summary).not.toHaveClass(/is-tip-visible/, { timeout: 2500 });
+  await summary.dispatchEvent("pointerdown", { pointerType: "touch" });
+  await expect(summary).toHaveClass(/is-tip-visible/);
+  await summary.dispatchEvent("pointercancel", { pointerType: "touch" });
+  await expect(summary).not.toHaveClass(/is-tip-visible/, { timeout: 2500 });
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  const more = page.locator("#btn-more");
+  await more.tap();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(more).not.toHaveClass(/is-tip-visible/);
+  await more.dispatchEvent("pointerdown", { pointerType: "touch" });
+  await page.waitForTimeout(600);
+  await expect(more).not.toHaveClass(/is-tip-visible/);
+  await more.dispatchEvent("pointercancel", { pointerType: "touch" });
+  expect(await more.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("hidden");
+  await context.close();
+});
+
+for (const width of [1366, 390]) {
+  test(`icon groups share a row and fold panels open below at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    for (const control of await page.locator(".icon-control").all()) {
+      await expect(control.locator("svg")).toHaveCount(1);
+      expect(await control.evaluate((el) => [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim())).toBe("");
+    }
+    const folds = ["#cab-discovery", "#lobby-about", "#achievements-details", "#scores-tools", "#scores-details"];
+    const summaries = page.locator(folds.map((id) => `${id} > summary`).join(","));
+    const row = await summaries.evaluateAll((elements) => elements.map((el) => el.offsetTop));
+    expect(new Set(row).size).toBe(1);
+    for (const id of folds) {
+      await openFold(page, id);
+      const panel = await page.locator(`${id} > .fold-panel`).boundingBox();
+      const boxes = await summaries.evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().bottom));
+      expect(panel.y).toBeGreaterThanOrEqual(Math.max(...boxes));
+    }
+    await openFold(page, ".device-backup");
+    for (const selector of [".top-nav", ".fun-fact-actions", ".auth-row", ".score-tools", ".cloud-actions", ".name-row"]) {
+      const groups = page.locator(selector);
+      for (const group of await groups.all()) {
+        const tops = await group.locator(":scope > .icon-control:visible").evaluateAll((elements) => elements.map((el) => el.offsetTop));
+        expect(new Set(tops).size, selector).toBeLessThanOrEqual(1);
+      }
+    }
+    await page.locator("#btn-mute").click();
+    await expect(page.locator("#btn-mute svg")).toHaveCount(1);
+    await expect(page.locator("#btn-mute")).toHaveAttribute("aria-label", "Unmute game SFX");
+  });
+}
+
+for (const width of [1366, 390]) {
+  test(`More menu and single-row essentials at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const button = page.locator("#btn-more");
+    const menu = page.getByRole("menu", { name: "More options" });
+    const help = page.getByRole("menuitem", { name: "Help", exact: true });
+    const portfolio = page.getByRole("menuitem", { name: "Portfolio", exact: true });
+    const tops = await page.locator('.top-nav > .icon-control, #btn-more').evaluateAll((els) => els.map((el) => el.offsetTop));
+    expect(tops).toHaveLength(5);
+    expect(new Set(tops).size).toBe(1);
+    const visualTops = await page.locator('.top-nav > .icon-control, #btn-more').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    expect(new Set(visualTops).size).toBe(1);
+    await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(help).toBeFocused();
+    await expect(portfolio).toBeVisible();
+    await expect(portfolio).toHaveAttribute("data-portfolio", "");
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(button).toBeFocused();
+    await button.click();
+    await button.click();
+    await expect(menu).toBeHidden();
+    await button.press("ArrowDown");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(portfolio).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(portfolio).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(help).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(menu).toBeHidden();
+    await button.press("Space");
+    await expect(help).toBeFocused();
+    await page.locator(".brand").click();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.press("Enter");
+    await help.click();
+    await expect(page.locator("#help-modal")).toBeVisible();
+    await expect(menu).toBeHidden();
+  });
+}

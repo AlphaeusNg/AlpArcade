@@ -64,14 +64,25 @@ assert(
     && app.includes("lockEl.textContent = cabinetLockChip(id)")
     && app.includes("unlockRequirement")
     && !app.includes("bestEl.textContent = req?.message"),
-  "locked cabinets must show a compact Lv chip instead of replacing .cab-best",
+  "locked cabinets must preserve best scores and render requirement text",
 );
 assert(
   read("js/core/scores.js").includes("function xpToReachLevel")
     && read("js/features/achievements.js").includes("xpToReachLevel")
     && read("js/features/achievements.js").includes("XP to go")
-    && read("css/lobby.css").includes("text-overflow: ellipsis"),
-  "remaining XP uses the shared level curve on the lock chip and the chip stays contained",
+    && app.includes('lockEl.setAttribute("role", "tooltip")')
+    && app.includes('card.setAttribute("aria-describedby", `cab-lock-${id}`)')
+    && read("css/lobby.css").includes("visibility: hidden"),
+  "remaining XP uses the shared curve in a hidden accessible tooltip",
+);
+assert(
+  read("css/lobby.css").includes(":focus-visible .cab-lock")
+    && read("css/lobby.css").includes(":focus-within .cab-lock")
+    && read("css/lobby.css").includes(":hover .cab-lock")
+    && app.includes('lockAnnouncement.setAttribute("aria-live", "polite")')
+    && app.includes('event.pointerType === "touch"')
+    && app.includes('card.classList.toggle("show-lock-tip")'),
+  "lock tooltips support hover, keyboard focus, and announced touch toggles",
 );
 assert(
   app.includes('id="btn-daily-play"')
@@ -107,7 +118,7 @@ assert(
 );
 assert(
   app.includes("Mute game SFX (music is in the ♪ dock)")
-    && indexHtml.includes('title="Mute game SFX (music is in the ♪ dock)"'),
+    && indexHtml.includes('data-tip="Mute game SFX"'),
   "mute tooltip must distinguish game SFX from the music dock",
 );
 assert(
@@ -282,9 +293,74 @@ assert(
   diffEntries.length === 3 && diffEntries.every((entry) => /note:\s*"[^"]+"/.test(entry)),
   "every Tic-Tac-Toe difficulty must define a note for the status line",
 );
+function summaryMarkup(id) {
+  const start = indexHtml.indexOf(`<details id="${id}"`);
+  assert(start >= 0, `index.html must contain details#${id}`);
+  const summaryStart = indexHtml.indexOf("<summary", start);
+  const summaryEnd = indexHtml.indexOf("</summary>", summaryStart);
+  assert(summaryStart > start && summaryEnd > summaryStart, `details#${id} must contain a summary`);
+  return indexHtml.slice(summaryStart, summaryEnd);
+}
+const summaryText = (id) => summaryMarkup(id).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+assert(
+  summaryMarkup("lobby-about").includes('aria-label="About & fun facts"')
+    && /<details id="lobby-about" class="[^"]*\bglass\b/.test(indexHtml),
+  "intro and fun facts fold into details#lobby-about",
+);
+assert(
+  summaryText("achievements-details").includes("Badges")
+    && summaryMarkup("achievements-details").includes('id="achievements-title"')
+    && summaryMarkup("achievements-details").includes('id="achievements-count"')
+    && indexHtml.includes('id="achievements-panel"'),
+  "badges fold into details#achievements-details and keep the live count",
+);
+assert(
+  summaryMarkup("scores-details").includes('aria-label="Scores & leaderboards"')
+    && summaryMarkup("scores-tools").includes('aria-label="More: backup & data tools"')
+    && indexHtml.includes('id="scores-panel"')
+    && indexHtml.includes('id="btn-export"')
+    && indexHtml.includes('id="highscores-list"'),
+  "scoreboard tools and leaderboards are collapsed disclosures",
+);
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
 
 console.log(
   `Static structure passed: ${htmlFiles.length} HTML entrypoints, ${filesBelow("css", ".css").length} CSS modules, ${filesBelow("js", ".js").length} JavaScript modules.`
 );
+for (const match of indexHtml.matchAll(/<(?:button|a|summary)\b[^>]*class="[^"]*\bicon-control\b[^>]*>/g)) {
+  assert(/aria-label="[^"]+"/.test(match[0]) && /data-tip="[^"]+"/.test(match[0]), "icon controls need accessible names and CSS tooltip labels");
+}
+assert(read("css/lobby.css").includes(".icon-control:focus-visible::after"), "keyboard focus reveals icon tooltips");
+
+// Main's desktop music dock deliberately retains its note glyph and station label.
+// It is not an icon-control; all compact icon-control glyph checks still apply.
+assert(/class="music-dock-tab-icon" aria-hidden="true">♪<\/span>/.test(indexHtml),
+  "desktop music dock retains main's note glyph");
+assert(/id="music-dock-tab-text">Music<\/span>/.test(indexHtml),
+  "desktop music dock retains its station text label");
+
+for (const match of indexHtml.matchAll(/<(button|a|summary)\b[^>]*class="[^"]*\bicon-control\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+  const content = match[2];
+  assert(content.includes('<svg '), "every icon control contains inline SVG");
+  assert(!/<img\b/i.test(content), "icon controls never use image assets");
+  const text = content.replace(/<svg\b[\s\S]*?<\/svg>/g, "").replace(/<[^>]*>/g, "");
+  assert(!/[^\x00-\x7f]/.test(text), "icon controls contain no Unicode icon glyph text");
+  assert(!/[?+]/.test(text), "icon controls contain no ASCII icon glyph text");
+}
+for (const [name, value] of Object.entries({ "icon-btn-size": "32px", "icon-btn-radius": "8px", "icon-size": "18px", "icon-stroke": "1.75", "icon-btn-target": "44px", "icon-btn-gap": "4px" })) {
+  const rootBlock = read("css/base.css").match(/:root\s*\{([^}]+)\}/)[1];
+  assert(rootBlock.includes(`--${name}: ${value};`), `root defines --${name}`);
+}
+
+for (const file of ["index.html", "js/app.js"]) {
+  const chrome = read(file).replace(/<span\b[^>]*class="cab-icon"[^>]*>[\s\S]*?<\/span>/g, "");
+  assert(!/[★☆→🏅]/u.test(chrome), `${file} uses SVG instead of chrome icon glyphs`);
+}
+
+assert(/id="btn-more"[^>]*aria-label="More options"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"[^>]*aria-controls="more-menu-list"><svg\b/.test(indexHtml), "More uses an accessible inline SVG menu trigger");
+assert(indexHtml.includes('src="js/more-menu.js"'), "header menu script is loaded");
+assert(indexHtml.includes('role="group" aria-label="Help &amp; info"') && indexHtml.includes('role="group" aria-label="Links"'), "More actions have named groups");
+for (const file of ["index.html", "js/more-menu.js"]) {
+  assert(!/[⋯☰]/u.test(read(file)), `${file} uses SVG menu icons`);
+}

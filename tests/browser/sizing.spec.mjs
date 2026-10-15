@@ -79,6 +79,7 @@ test("enlarged help scrolls to its close action and native import/reset stay bro
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
   await enlargeText(page);
+  await page.locator("#btn-more").click();
   await page.locator("#btn-help").evaluate((el) => el.click());
   const card = page.locator("#help-modal .cloud-modal-card");
   const box = await card.boundingBox();
@@ -90,6 +91,7 @@ test("enlarged help scrolls to its close action and native import/reset stay bro
   await expect(page.locator("#help-modal")).toBeHidden();
   const types = [];
   page.on("dialog", async (dialog) => { types.push(dialog.type()); await dialog.dismiss(); });
+  await page.locator("#scores-tools > summary").click();
   await page.locator("#btn-import").click();
   await page.locator("#btn-reset").click();
   expect(types).toEqual(["prompt", "confirm"]);
@@ -110,7 +112,7 @@ test("phone touch-size choices and dock closure preserve layout and player", asy
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(320);
   }
-  await page.locator("#music-dock-tab").click();
+  await page.locator("#nav-music").click();
   const frame = page.locator("#bg-music-frame");
   const src = await frame.getAttribute("src");
   await frame.evaluate((el) => { el.dataset.sizingIdentity = "same-player"; });
@@ -171,4 +173,54 @@ test("enlarged chart editor keeps timeline labels and save actions readable", as
   await lastStep.scrollIntoViewIfNeeded();
   await lastStep.click();
   await expect(page.locator("#jb-editor-step-label")).toHaveText(`STEP ${stepIndex + 1} / 16`);
+});
+
+test("390px lobby keeps music clear of cabinets and separates the fold row", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".cab-fav").first()).toBeVisible();
+  const tab = page.locator("#music-dock-tab");
+  await expect(tab).toBeHidden();
+  expect(await tab.evaluate((el) => getComputedStyle(el).writingMode)).toBe("horizontal-tb");
+  for (const card of await page.locator(".cabinet").all()) {
+    await card.scrollIntoViewIfNeeded();
+    const music = await tab.boundingBox();
+    const cabinet = await card.boundingBox();
+    if (music) {
+      expect(
+        music.x + music.width <= cabinet.x || cabinet.x + cabinet.width <= music.x ||
+        music.y + music.height <= cabinet.y || cabinet.y + cabinet.height <= music.y,
+      ).toBe(true);
+    }
+  }
+  await page.evaluate(() => scrollTo(0, 0));
+  const row = await page.locator(".lobby-fold-row").boundingBox();
+  const heading = await page.locator("#cabinets > h2").boundingBox();
+  expect(heading.y - row.y - row.height).toBeGreaterThanOrEqual(16);
+  await expect(page.locator("#nav-music")).toBeVisible();
+  await page.locator("#nav-music").click();
+  await expect(page.locator("#music-dock-panel")).toBeVisible();
+  await page.locator("#music-dock-close").click();
+  await expect(page.locator("#music-dock-panel")).toBeHidden();
+});
+
+test("1366px music dock retains main's vertical desktop tab", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/");
+  const tab = page.locator("#music-dock-tab");
+  await expect(tab).toBeVisible();
+  await expect(page.locator("#music-dock-tab-text")).toBeVisible();
+  await expect(page.locator("#music-dock-tab-text")).toHaveText(/Music|Lofi Beats/i);
+  await expect(page.locator(".music-dock-tab-icon")).toHaveText("♪");
+  expect(await tab.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { position: css.position, left: css.left, top: css.top,
+      writingMode: css.writingMode, borderRadius: css.borderRadius };
+  })).toEqual({ position: "fixed", left: "0px", top: "450px",
+    writingMode: "vertical-rl", borderRadius: "0px 12px 12px 0px" });
+  await expect(page.locator("#nav-music")).toBeVisible();
+  await tab.click();
+  await expect(page.locator("#music-dock-panel")).toBeVisible();
+  await page.locator("#music-dock-close").click();
+  await expect(page.locator("#music-dock-panel")).toBeHidden();
 });
