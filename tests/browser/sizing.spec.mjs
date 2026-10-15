@@ -90,6 +90,7 @@ test("enlarged help scrolls to its close action and native import/reset stay bro
   await expect(page.locator("#help-modal")).toBeHidden();
   const types = [];
   page.on("dialog", async (dialog) => { types.push(dialog.type()); await dialog.dismiss(); });
+  await page.locator("#scores-tools > summary").click();
   await page.locator("#btn-import").click();
   await page.locator("#btn-reset").click();
   expect(types).toEqual(["prompt", "confirm"]);

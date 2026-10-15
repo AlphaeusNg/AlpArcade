@@ -1615,6 +1615,23 @@
     }
   }
 
+  function openLobbyDetails(id) {
+    const details = document.getElementById(id);
+    if (details) details.open = true;
+    return details;
+  }
+
+  function scrollLobbyPanel(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function revealLobbyPanel(panelId, detailsId) {
+    openLobbyDetails(detailsId);
+    const scroll = () => scrollLobbyPanel(panelId);
+    if (playView && !playView.hidden) Promise.resolve(backToLobby()).then(scroll);
+    else scroll();
+  }
+
   function routeFromHash() {
     const h = location.hash.replace(/^#/, "");
     if (h.startsWith("play/")) {
@@ -1622,8 +1639,12 @@
       if (GAME_SCRIPTS[id]) openGame(id);
       else backToLobby();
     } else if (h === "scores") {
-      backToLobby();
-      $("#scores-panel")?.scrollIntoView({ behavior: "smooth" });
+      openLobbyDetails("scores-details");
+      Promise.resolve(backToLobby()).then(() => scrollLobbyPanel("scores-panel"));
+    } else if (h === "scores-panel" || h === "achievements-panel") {
+      // Anchor hashes are not cabinet routes. Leave play/#lobby behavior as it was.
+      openLobbyDetails(h === "scores-panel" ? "scores-details" : "achievements-details");
+      if (!playView || playView.hidden) scrollLobbyPanel(h);
     } else {
       // stay lobby
     }
@@ -2097,6 +2118,29 @@
     e.preventDefault();
     if (!playView.hidden) backToLobby();
     else window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // Header anchors open the folded lobby sections. preventDefault keeps
+  // #scores-panel / #achievements-panel from being treated as routes.
+  $$('.top-nav a[href="#scores-panel"], .top-nav a[href="#achievements-panel"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (link.getAttribute("href") === "#scores-panel") {
+        revealLobbyPanel("scores-panel", "scores-details");
+      } else {
+        revealLobbyPanel("achievements-panel", "achievements-details");
+      }
+    });
   });
 
   // mute toggle

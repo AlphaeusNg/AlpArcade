@@ -282,6 +282,35 @@ assert(
   diffEntries.length === 3 && diffEntries.every((entry) => /note:\s*"[^"]+"/.test(entry)),
   "every Tic-Tac-Toe difficulty must define a note for the status line",
 );
+function summaryMarkup(id) {
+  const start = indexHtml.indexOf(`<details id="${id}"`);
+  assert(start >= 0, `index.html must contain details#${id}`);
+  const summaryStart = indexHtml.indexOf("<summary", start);
+  const summaryEnd = indexHtml.indexOf("</summary>", summaryStart);
+  assert(summaryStart > start && summaryEnd > summaryStart, `details#${id} must contain a summary`);
+  return indexHtml.slice(summaryStart, summaryEnd);
+}
+const summaryText = (id) => summaryMarkup(id).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+assert(
+  summaryText("lobby-about") === "About & fun facts"
+    && /<details id="lobby-about" class="[^"]*\bglass\b/.test(indexHtml),
+  "intro and fun facts fold into details#lobby-about",
+);
+assert(
+  summaryText("achievements-details").includes("Badges")
+    && summaryMarkup("achievements-details").includes('id="achievements-title"')
+    && summaryMarkup("achievements-details").includes('id="achievements-count"')
+    && indexHtml.includes('id="achievements-panel"'),
+  "badges fold into details#achievements-details and keep the live count",
+);
+assert(
+  summaryText("scores-details") === "Scores & leaderboards"
+    && summaryText("scores-tools") === "More: backup & data tools"
+    && indexHtml.includes('id="scores-panel"')
+    && indexHtml.includes('id="btn-export"')
+    && indexHtml.includes('id="highscores-list"'),
+  "scoreboard tools and leaderboards are collapsed disclosures",
+);
 assert(fs.existsSync(path.join(root, "index.html")), "GitHub Pages index.html must remain at root");
 assert(fs.existsSync(path.join(root, "404.html")), "GitHub Pages 404.html must remain at root");
 

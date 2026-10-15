@@ -3,6 +3,12 @@ import { expect, test } from "@playwright/test";
 const runtimeErrors = new WeakMap();
 const FREE_CABINET_IDS = ["snake", "tictactoe", "tapper", "breaker"];
 
+async function openFold(page, id) {
+  const details = page.locator(id);
+  if (await details.evaluate((element) => element.open)) return;
+  await page.locator(`${id} > summary`).click();
+}
+
 async function distinctFreeCabinets(page, excluded, count = 1) {
   return page.evaluate(
     ({ ids, excludedId, limit }) => ids
@@ -112,6 +118,7 @@ test("cloud save keeps keyboard focus inside its shared dialog boundary", async 
     window.ArcadeScores.submitScore("snake", 4, { eaten: 4 });
   });
 
+  await openFold(page, "#scores-tools");
   const launcher = page.locator("#btn-share-cloud");
   const modal = page.locator("#cloud-save-modal");
   const goButton = page.locator("#btn-cloud-save-go");
@@ -519,6 +526,7 @@ test("does not claim a factory reset succeeded when achievement removal is denie
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#achievements-count")).toContainText("1 /");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -557,6 +565,7 @@ test("does not claim a factory reset succeeded when score removal is denied", as
   await expect(page.locator("#player-name-display")).toHaveText("Reset Player");
   await expect(page.locator("#xp-display")).toHaveText("42 XP");
   await expect(page.locator("#games-played")).toHaveText("3");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -594,6 +603,7 @@ test("does not claim a factory reset succeeded when daily-progress removal is de
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#daily-card .daily-badge")).toHaveText("Done ✓");
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
 
   await expect(page.locator("#toast")).toContainText(
@@ -618,6 +628,7 @@ test("keeps cloud reset retention and deletion outcomes honest", async ({ page }
     window.ArcadeCloud.loadLeaderboard = async () => [];
   });
 
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-reset").click();
   await expect(page.locator("#toast")).toContainText(
     "Data wiped; username retention could not be confirmed",
@@ -909,6 +920,7 @@ test("scoreboard category chips show top 3 per game and filter local runs", asyn
     }));
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openFold(page, "#scores-details");
   await expect(page.locator("#global-hall-label")).toContainText(/top 3 per game/i);
   await expect(page.locator("#hof-sub")).toContainText(/top 3 per game/i);
   await expect(page.locator("#highscores-list")).toContainText("Snake");
@@ -1106,6 +1118,7 @@ test("playable discovery updates immediately after imported XP and factory reset
     return code;
   });
   const importDialog = page.waitForEvent("dialog").then((dialog) => dialog.accept(code));
+  await openFold(page, "#scores-tools");
   await page.locator("#btn-import").click();
   await importDialog;
   await expect(visibleCatalog(page)).toHaveCount(8);
@@ -1144,4 +1157,38 @@ test("phone discovery stays compact, uses keyboard controls and works without st
   expect(await page.locator("#cab-discovery").evaluate((panel) =>
     [...panel.querySelectorAll("*")].every((el) => el.getBoundingClientRect().right <= 320),
   )).toBe(true);
+});
+
+test("Lobby declutter: secondary sections open within one click", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#lobby")).toBeVisible();
+
+  const folds = [
+    ["#lobby-about", "#fun-fact-card"],
+    ["#achievements-details", "#achievements-list"],
+    ["#scores-details", "#highscores-list"],
+    ["#scores-tools", "#btn-export"],
+  ];
+  for (const [details, inner] of folds) {
+    await expect(page.locator(details)).not.toHaveAttribute("open", "");
+    await expect(page.locator(inner)).not.toBeVisible();
+  }
+  for (const [details, inner] of folds) {
+    await page.locator(`${details} > summary`).click();
+    await expect(page.locator(details)).toHaveAttribute("open", "");
+    await expect(page.locator(inner)).toBeVisible();
+  }
+
+  await page.locator("#scores-details").evaluate((element) => {
+    element.open = false;
+  });
+  await page.locator("#achievements-details").evaluate((element) => {
+    element.open = false;
+  });
+  await page.locator('.top-nav a[href="#scores-panel"]').click();
+  await expect(page.locator("#scores-details")).toHaveAttribute("open", "");
+  await expect(page.locator("#highscores-list")).toBeVisible();
+  await page.locator('.top-nav a[href="#achievements-panel"]').click();
+  await expect(page.locator("#achievements-details")).toHaveAttribute("open", "");
+  await expect(page.locator("#achievements-list")).toBeVisible();
 });
