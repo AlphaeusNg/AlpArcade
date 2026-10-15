@@ -345,3 +345,8 @@ for (const [name, value] of Object.entries({ "icon-btn-size": "40px", "icon-btn-
   const rootBlock = read("css/base.css").match(/:root\s*\{([^}]+)\}/)[1];
   assert(rootBlock.includes(`--${name}: ${value};`), `root defines --${name}`);
 }
+
+for (const file of ["index.html", "js/app.js"]) {
+  const chrome = read(file).replace(/<span\b[^>]*class="cab-icon"[^>]*>[\s\S]*?<\/span>/g, "");
+  assert(!/[★☆→🏅]/u.test(chrome), `${file} uses SVG instead of chrome icon glyphs`);
+}

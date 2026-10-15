@@ -111,7 +111,7 @@ test("phone touch-size choices and dock closure preserve layout and player", asy
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(320);
   }
-  await page.locator("#music-dock-tab").click();
+  await page.locator("#nav-music").click();
   const frame = page.locator("#bg-music-frame");
   const src = await frame.getAttribute("src");
   await frame.evaluate((el) => { el.dataset.sizingIdentity = "same-player"; });
@@ -172,4 +172,31 @@ test("enlarged chart editor keeps timeline labels and save actions readable", as
   await lastStep.scrollIntoViewIfNeeded();
   await lastStep.click();
   await expect(page.locator("#jb-editor-step-label")).toHaveText(`STEP ${stepIndex + 1} / 16`);
+});
+
+test("390px lobby keeps music clear of cabinets and separates the fold row", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".cab-fav").first()).toBeVisible();
+  const tab = page.locator("#music-dock-tab");
+  for (const card of await page.locator(".cabinet").all()) {
+    await card.scrollIntoViewIfNeeded();
+    const music = await tab.boundingBox();
+    const cabinet = await card.boundingBox();
+    if (music) {
+      expect(
+        music.x + music.width <= cabinet.x || cabinet.x + cabinet.width <= music.x ||
+        music.y + music.height <= cabinet.y || cabinet.y + cabinet.height <= music.y,
+      ).toBe(true);
+    }
+  }
+  await page.evaluate(() => scrollTo(0, 0));
+  const row = await page.locator(".lobby-fold-row").boundingBox();
+  const heading = await page.locator("#cabinets > h2").boundingBox();
+  expect(heading.y - row.y - row.height).toBeGreaterThanOrEqual(16);
+  await expect(page.locator("#nav-music")).toBeVisible();
+  await page.locator("#nav-music").click();
+  await expect(page.locator("#music-dock-panel")).toBeVisible();
+  await page.locator("#music-dock-close").click();
+  await expect(page.locator("#music-dock-panel")).toBeHidden();
 });

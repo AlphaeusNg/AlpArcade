@@ -385,6 +385,7 @@ summary.icon-control.icon-control::before {
   grid-template-columns: repeat(5, var(--icon-btn-size)) minmax(0, 1fr);
   gap: var(--icon-gap);
   margin-top: 1rem;
+  margin-bottom: var(--fold-row-gap);
 }
 .lobby-fold-row > .lobby-fold,
 .lobby-fold-row > section,
@@ -417,4 +418,17 @@ summary.icon-control.icon-control::before {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
+}
+
+
+.cab-fav svg, .cab-chip svg, .cab-go svg, .achievement-toast-icon svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex: none;
+  vertical-align: middle;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  /* The header Music control opens the same dock without covering cabinets. */
+  .music-dock-tab.icon-control { display: none; }
 }

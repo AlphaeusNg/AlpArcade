@@ -1270,7 +1270,7 @@ test("secondary tooltips stay within a narrow viewport when shown", async ({ pag
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await openFold(page, "#scores-tools");
-  for (const selector of ["#btn-help", "#scores-tools > summary", "#btn-export", "#music-dock-tab"]) {
+  for (const selector of ["#btn-help", "#scores-tools > summary", "#btn-export", "#nav-music"]) {
     const control = page.locator(selector);
     await control.scrollIntoViewIfNeeded();
     await control.hover();

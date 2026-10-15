@@ -1,15 +1,17 @@
 (() => {
   "use strict";
   // Feather-style outline icons shared by generated controls and state changes.
-  function controlIcon(name) {
+  function controlIcon(name, filled = false) {
     const paths = {
       "volume": `<path d="m11 5-6 4H2v6h3l6 4ZM15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/>`,
       "volume-off": `<path d="m11 5-6 4H2v6h3l6 4ZM17 9l5 6m0-6-5 6"/>`,
       "arrow-up-right": `<path d="M7 17 17 7M7 7h10v10"/>`,
+      "star": `<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>`,
+      "medal": `<circle cx="12" cy="8" r="5"/><path d="m8.2 11.3-2 10 5.8-3 5.8 3-2-10"/>`,
       "minus": `<path d="M5 12h14"/>`,
       "plus": `<path d="M5 12h14M12 5v14"/>`,
     };
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+    return `<svg viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="var(--icon-stroke)" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
   }
 
   const $ = (s, r = document) => r.querySelector(s);
@@ -326,7 +328,10 @@
       return;
     }
     const achievement = activeAchievementToast;
-    if (achievementToastIcon) achievementToastIcon.textContent = achievement.icon || "🏅";
+    if (achievementToastIcon) {
+      if (achievement.icon) achievementToastIcon.textContent = achievement.icon;
+      else achievementToastIcon.innerHTML = controlIcon("medal");
+    }
     if (achievementToastTitle) achievementToastTitle.textContent = achievement.title || "Achievement";
     if (achievementToastDetail) {
       achievementToastDetail.textContent = achievement.detail || achievement.blurb || "";
@@ -342,7 +347,7 @@
     if (!achievementToast || !achievement?.title) return;
     achievementToastQueue.push({
       id: achievement.id || "",
-      icon: achievement.icon || "🏅",
+      icon: achievement.icon || "",
       title: String(achievement.title),
       blurb: String(achievement.blurb || ""),
       detail: String(achievement.detail || ""),
@@ -492,7 +497,7 @@
       const on = pinned.favorites.includes(btn.dataset.fav);
       const label = ArcadeScores.GAMES[btn.dataset.fav]?.label || btn.dataset.fav;
       btn.setAttribute("aria-pressed", on ? "true" : "false");
-      btn.textContent = on ? "★" : "☆";
+      btn.innerHTML = controlIcon("star", on);
       btn.setAttribute("aria-label", on ? `Unfavorite ${label}` : `Favorite ${label}`);
     });
     const hasPins = pinned.favorites.length + pinned.recent.length > 0;
@@ -505,7 +510,11 @@
       button.className = kind === "recent" ? "cab-chip is-recent" : "cab-chip";
       const label = ArcadeScores.GAMES[id]?.label || id;
       button.dataset.launch = id;
-      button.textContent = kind === "recent" ? `Recent · ${label}` : `★ ${label}`;
+      if (kind === "recent") button.textContent = `Recent · ${label}`;
+      else {
+        button.innerHTML = controlIcon("star", true);
+        button.append(document.createTextNode(` ${label}`));
+      }
       button.addEventListener("click", () => openGame(id));
       line.appendChild(button);
     };
@@ -2155,7 +2164,7 @@
     a.href = PORTFOLIO_URL;
   });
 
-  // Brand → lobby (also clears an open game)
+  // Brand returns to lobby (also clears an open game)
   $("#brand-home")?.addEventListener("click", (e) => {
     e.preventDefault();
     if (!playView.hidden) backToLobby();
