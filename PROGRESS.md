@@ -1256,3 +1256,10 @@ Validation: unit/static gates, 12 sizing journeys and 33 cabinet journeys passed
 ArrowUp on the new header More trigger now opens the menu at its last action. ArrowDown, Enter and Space still open at Help; Escape and Tab retain their existing focus behavior. Extended the existing desktop/phone keyboard journeys. Deployment stamp: 2026.10.16.1.
 
 Validation: full npm gate and all 61 Chromium journeys passed, including the extended menu checks at desktop and phone widths.
+
+
+## 2026-10-17 — Offer manual sharing when browser copying is denied
+
+Last-run sharing checks the legacy copy result, cleans up temporary fields in all paths and restores focus. A false result or exception now offers the share text for manual copying without claiming it reached the clipboard. Version 2026.10.17.1.
+
+Validation: full npm gate and all 63 Chromium journeys passed, including false-return and throwing clipboard fallback regressions.

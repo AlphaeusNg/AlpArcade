@@ -171,20 +171,25 @@
       await navigator.clipboard.writeText(text);
       showToast("Link copied");
     } catch {
+      const focused = document.activeElement;
+      const ta = document.createElement("textarea");
+      let copied = false;
       try {
-        const ta = document.createElement("textarea");
         ta.value = text;
         ta.setAttribute("readonly", "");
         ta.style.position = "fixed";
         ta.style.left = "-9999px";
         document.body.appendChild(ta);
         ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        showToast("Link copied");
+        copied = document.execCommand("copy");
       } catch {
-        prompt("Copy this:", text);
+        // Offer the text below when the browser denies both clipboard paths.
+      } finally {
+        ta.remove();
+        focused?.focus({ preventScroll: true });
       }
+      if (copied) showToast("Link copied");
+      else prompt("Copy this:", text);
     }
   }
 

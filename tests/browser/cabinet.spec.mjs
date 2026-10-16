@@ -1428,3 +1428,25 @@ for (const width of [1366, 390]) {
     await expect(menu).toBeHidden();
   });
 }
+
+
+for (const failure of ["false", "throw"]) {
+  test(`share fallback offers manual copying when browser copy returns ${failure}`, async ({ page }) => {
+    await page.addInitScript(failure => {
+      localStorage.setItem("alparcade-last-run-v1", JSON.stringify({ gameId: "tictactoe", score: 12, isHighScore: true, label: "Tic-Tac-Toe" }));
+      Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("denied"); } } });
+      window.__manualCopies = [];
+      window.prompt = (label, text) => { window.__manualCopies.push(text); return null; };
+      document.execCommand = () => { if (failure === "throw") throw new Error("denied"); return false; };
+    }, failure);
+    await page.goto("/");
+    const button = page.locator("#btn-daily-share");
+    await button.click();
+    await expect.poll(() => page.evaluate(() => window.__manualCopies.length)).toBe(1);
+    expect(await page.evaluate(() => window.__manualCopies[0])).toContain("#play/tictactoe");
+    await expect(page.locator("#toast")).not.toHaveText("Link copied");
+    await expect(page.locator("textarea[readonly]")).toHaveCount(0);
+    await expect(button).toBeFocused();
+  });
+}
